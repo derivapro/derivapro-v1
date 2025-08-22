@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Swaps</h2>
+<h3>Introduction</h3>
+
+<div id="markdown-content">
+    {{ md_content|safe }}
+</div>
+
+<div class="loading-spinner" id="loadingSpinner" style="display: none;">
+    <div class="spinner"></div>
+</div>
+
+<h3>Swap Pricing</h3>
+
+<form id="swap-form" method="post" class="form-grid">
+<h2>Swap Inputs</h2>
+</br>
+    <div class="form-group">
+        <label for="value_date">Evaluation Date:</label>
+        <input type="date" id="value_date" name="value_date" value="{{ form_data.value_date }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="shocks">Shocks (Comma separated list (%)):</label>
+        <input type="text" id="shocks" name="shocks" value="{{ form_data.shocks }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="interpolation">Interpolation Method:</label>
+        <select id="interpolation" name="interpolation" required>
+            <option value="Linear" {% if form_data.interpolation == 'Linear' %}selected{% endif %}>Linear</option>
+            <option value="LogLinear" {% if form_data.interpolation == 'LogLinear' %}selected{% endif %}>Log Linear</option>
+            <option value="Cubic" {% if form_data.interpolation == 'Cubic' %}selected{% endif %}>Cubic</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="compounding">Compounding Method:</label>
+        <select id="compounding" name="compounding" required>
+            <option value="Simple" {% if form_data.compounding == 'Simple' %}selected{% endif %}>Simple</option>
+            <option value="Compounded" {% if form_data.compounding == 'Compounded' %}selected{% endif %}>Compounded</option>
+            <option value="Continuous" {% if form_data.compounding == 'Continuous' %}selected{% endif %}>Continuous</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="currency">Currency:</label>
+        <select id="currency" name="currency" required>
+            <option value="USD" {% if form_data.currency == 'USD' %}selected{% endif %}>USD</option>
+            <option value="EUR" {% if form_data.currency == 'EUR' %}selected{% endif %}>EUR</option>
+            <option value="CNY" {% if form_data.currency == 'CNY' %}selected{% endif %}>CNY</option>
+            <option value="GBP" {% if form_data.currency == 'GBP' %}selected{% endif %}>GBP</option>
+            <option value="JPY" {% if form_data.currency == 'JPY' %}selected{% endif %}>JPY</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="calendar">Calendar:</label>
+        <select id="calendar" name="calendar" required>
+            <option value="UnitedStates" {% if form_data.calendar == 'UnitedStates' %}selected{% endif %}>United States</option>
+            <option value="UnitedKingdom" {% if form_data.calendar == 'UnitedKingdom' %}selected{% endif %}>United Kingdom</option>
+            <option value="TARGET" {% if form_data.calendar == 'TARGET' %}selected{% endif %}>TARGET</option>
+            <option value="China" {% if form_data.calendar == 'China' %}selected{% endif %}>China</option>
+        </select>
+    </div>
+
+<h2>Pay Leg Inputs</h2>
+</br>
+    <div class="form-group">
+        <label for="pay_flag">Fixed or Floating:</label>
+        <select id="pay_flag" name="pay_flag" required>
+            <option value="Fixed" {% if form_data.pay_flag == 'Fixed' %}selected{% endif %}>Fixed</option>
+            <option value="Floating" {% if form_data.pay_flag == 'Floating' %}selected{% endif %}>Floating</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_spot_dates">Spot Dates (Comma separated list; YYYY-MM-DD):</label>
+        <input type="text" id="pay_spot_dates" name="pay_spot_dates" value="{{ form_data.pay_spot_dates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_spot_rates">Spot Rates (Comma separated list):</label>
+        <input type="text" id="pay_spot_rates" name="pay_spot_rates" value="{{ form_data.pay_spot_rates }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="pay_index_dates">Index Dates (Comma separated list; YYYY-MM-DD):</label>
+        <input type="text" id="pay_index_dates" name="pay_index_dates" value="{{ form_data.pay_index_dates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_index_rates">Index Rates (Comma separated list):</label>
+        <input type="text" id="pay_index_rates" name="pay_index_rates" value="{{ form_data.pay_index_rates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_day_count">Day Count Convention:</label>
+        <select id="pay_day_count" name="pay_day_count" required>
+            <option value="Actual360" {% if form_data.pay_day_count == 'Actual360' %}selected{% endif %}>Actual/360</option>
+            <option value="Actual365Fixed" {% if form_data.pay_day_count == 'Actual365Fixed' %}selected{% endif %}>Actual/365 (Fixed)</option>
+            <option value="Thirty360" {% if form_data.pay_day_count == 'Thirty360' %}selected{% endif %}>30/360</option>
+            <option value="ActualActual" {% if form_data.pay_day_count == 'ActualActual' %}selected{% endif %}>Actual/Actual</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_tenor">Tenor:</label>
+        <select id="pay_tenor" name="pay_tenor" required>
+            <option value="Monthly" {% if form_data.pay_tenor == 'Monthly' %}selected{% endif %}>Monthly</option>
+            <option value="Quarterly" {% if form_data.pay_tenor == 'Quarterly' %}selected{% endif %}>Quarterly</option>
+            <option value="Semiannual" {% if form_data.pay_tenor == 'Semiannual' %}selected{% endif %}>Semiannual</option>
+            <option value="Annual" {% if form_data.pay_tenor == 'Annual' %}selected{% endif %}>Annual</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="pay_compounding_frequency">Compounding Frequency:</label>
+        <select id="pay_compounding_frequency" name="pay_compounding_frequency" required>
+            <option value="Annual" {% if form_data.pay_compounding_frequency == 'Annual' %}selected{% endif %}>Annual</option>
+            <option value="Semiannual" {% if form_data.pay_compounding_frequency == 'Semiannual' %}selected{% endif %}>Semi-Annual</option>
+            <option value="Quarterly" {% if form_data.pay_compounding_frequency == 'Quarterly' %}selected{% endif %}>Quarterly</option>
+            <option value="Monthly" {% if form_data.pay_compounding_frequency == 'Monthly' %}selected{% endif %}>Monthly</option>
+            <option value="Daily" {% if form_data.pay_compounding_frequency == 'Daily' %}selected{% endif %}>Daily</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_issue_date">Issue Date:</label>
+        <input type="date" id="pay_issue_date" name="pay_issue_date" value="{{ form_data.pay_issue_date }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_maturity_date">Maturity Date:</label>
+        <input type="date" id="pay_maturity_date" name="pay_maturity_date" value="{{ form_data.pay_maturity_date }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="pay_notional">Notional:</label>
+        <input type="number" step="0.01" id="pay_notional" name="pay_notional" value="{{ form_data.pay_notional }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="pay_coupon_rate">Coupon:</label>
+        <input type="number" step="0.001" id="pay_coupon_rate" name="pay_coupon_rate" value="{{ form_data.pay_coupon_rate }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="pay_spread">Spread:</label>
+        <input type="number" step="0.001" id="pay_spread" name="pay_spread" value="{{ form_data.pay_spread }}" required>
+    </div>
+</br>
+<h2>Receiving Leg Inputs</h2>   
+</br>
+    <div class="form-group">
+        <label for="rec_flag">Fixed or Floating:</label>
+        <select id="rec_flag" name="rec_flag" required>
+            <option value="Fixed" {% if form_data.rec_flag == 'Fixed' %}selected{% endif %}>Fixed</option>
+            <option value="Floating" {% if form_data.rec_flag == 'Floating' %}selected{% endif %}>Floating</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_spot_dates">Spot Dates (Comma separated list; YYYY-MM-DD):</label>
+        <input type="text" id="rec_spot_dates" name="rec_spot_dates" value="{{ form_data.rec_spot_dates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_spot_rates">Spot Rates (Comma separated list):</label>
+        <input type="text" id="rec_spot_rates" name="rec_spot_rates" value="{{ form_data.rec_spot_rates }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="rec_index_dates">Index Dates (Comma separated list; YYYY-MM-DD):</label>
+        <input type="text" id="rec_index_dates" name="rec_index_dates" value="{{ form_data.rec_index_dates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_index_rates">Index Rates (Comma separated list):</label>
+        <input type="text" id="rec_index_rates" name="rec_index_rates" value="{{ form_data.rec_index_rates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_day_count">Day Count Convention:</label>
+        <select id="rec_day_count" name="rec_day_count" required>
+            <option value="Actual360" {% if form_data.rec_day_count == 'Actual360' %}selected{% endif %}>Actual/360</option>
+            <option value="Actual365Fixed" {% if form_data.rec_day_count == 'Actual365Fixed' %}selected{% endif %}>Actual/365 (Fixed)</option>
+            <option value="Thirty360" {% if form_data.rec_day_count == 'Thirty360' %}selected{% endif %}>30/360</option>
+            <option value="ActualActual" {% if form_data.rec_day_count == 'ActualActual' %}selected{% endif %}>Actual/Actual</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_tenor">Tenor:</label>
+        <select id="rec_tenor" name="rec_tenor" required>
+            <option value="Monthly" {% if form_data.rec_tenor == 'Monthly' %}selected{% endif %}>Monthly</option>
+            <option value="Quarterly" {% if form_data.rec_tenor == 'Quarterly' %}selected{% endif %}>Quarterly</option>
+            <option value="Semiannual" {% if form_data.rec_tenor == 'Semiannual' %}selected{% endif %}>Semiannual</option>
+            <option value="Annual" {% if form_data.rec_tenor == 'Annual' %}selected{% endif %}>Annual</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="rec_compounding_frequency">Compounding Frequency:</label>
+        <select id="rec_compounding_frequency" name="rec_compounding_frequency" required>
+            <option value="Annual" {% if form_data.rec_compounding_frequency == 'Annual' %}selected{% endif %}>Annual</option>
+            <option value="Semiannual" {% if form_data.rec_compounding_frequency == 'Semiannual' %}selected{% endif %}>Semi-Annual</option>
+            <option value="Quarterly" {% if form_data.rec_compounding_frequency == 'Quarterly' %}selected{% endif %}>Quarterly</option>
+            <option value="Monthly" {% if form_data.rec_compounding_frequency == 'Monthly' %}selected{% endif %}>Monthly</option>
+            <option value="Daily" {% if form_data.rec_compounding_frequency == 'Daily' %}selected{% endif %}>Daily</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_issue_date">Issue Date:</label>
+        <input type="date" id="rec_issue_date" name="rec_issue_date" value="{{ form_data.rec_issue_date }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_maturity_date">Maturity Date:</label>
+        <input type="date" id="rec_maturity_date" name="rec_maturity_date" value="{{ form_data.rec_maturity_date }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_notional">Notional:</label>
+        <input type="number" step="0.01" id="rec_notional" name="rec_notional" value="{{ form_data.rec_notional }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="rec_coupon_rate">Coupon:</label>
+        <input type="number" step="0.001" id="rec_coupon_rate" name="rec_coupon_rate" value="{{ form_data.rec_coupon_rate }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="rec_spread">Spread:</label>
+        <input type="number" step="0.001" id="rec_spread" name="rec_spread" value="{{ form_data.rec_spread }}" required>
+    </div>
+
+    <div class="form-group full-width">
+        <button type="submit">Calculate Swap Price</button>
+    </div>
+</form>
+
+{% if swap_price is not none %}
+<div class="result">
+
+    <h2>Swap Results:</h2>
+    {% for shock_result in pay_results %}
+        {% if shock_result != 'Values' %}
+        <div class="shock-section">
+            <h3>Shock in bps: {{ shock_result }}</h3>
+            <div class="horizontal-table">
+                <div class="table-row">
+                    <div class="table-cell">NPV</div>
+                    <div class="table-cell">Price</div>
+                    <div class="table-cell">YTM</div>
+                    <div class="table-cell">Duration</div>
+                    <div class="table-cell">Dollar Duration</div>
+                    <div class="table-cell">Convexity</div>
+                    <div class="table-cell">Dollar Convexity</div>
+                </div>
+                <div class="table-row">
+                    <div class="table-cell">{{ rec_results[shock_result]['NPV'] - pay_results[shock_result]['NPV'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Price'] - pay_results[shock_result]['Price'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['YTM'] - pay_results[shock_result]['YTM'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Duration'] - pay_results[shock_result]['Duration'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Dollar Duration'] - pay_results[shock_result]['Dollar Duration'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Convexity'] - pay_results[shock_result]['Convexity'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Dollar Convexity'] - pay_results[shock_result]['Dollar Convexity'] }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+    
+    </br>
+
+    <h2>Pay Leg Results:</h2>
+    {% for shock_result in pay_results %}
+        {% if shock_result != 'Values' %}
+        <div class="shock-section">
+            <h3>Shock in bps: {{ shock_result }}</h3>
+            <div class="horizontal-table">
+                <div class="table-row">
+                    <div class="table-cell">NPV</div>
+                    <div class="table-cell">Price</div>
+                    <div class="table-cell">YTM</div>
+                    <div class="table-cell">Duration</div>
+                    <div class="table-cell">Dollar Duration</div>
+                    <div class="table-cell">Convexity</div>
+                    <div class="table-cell">Dollar Convexity</div>
+                </div>
+                <div class="table-row">
+                    <div class="table-cell">{{ pay_results[shock_result]['NPV'] }}</div>
+                    <div class="table-cell">{{ pay_results[shock_result]['Price'] }}</div>
+                    <div class="table-cell">{{ pay_results[shock_result]['YTM'] }}</div>
+                    <div class="table-cell">{{ pay_results[shock_result]['Duration'] }}</div>
+                    <div class="table-cell">{{ pay_results[shock_result]['Dollar Duration'] }}</div>
+                    <div class="table-cell">{{ pay_results[shock_result]['Convexity'] }}</div>
+                    <div class="table-cell">{{ pay_results[shock_result]['Dollar Convexity'] }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+    
+    <h2>Receiving Leg Results:</h2>
+    {% for shock_result in rec_results %}
+        {% if shock_result != 'Values' %}
+        <div class="shock-section">
+            <h3>Shock in bps: {{ shock_result }}</h3>
+            <div class="horizontal-table">
+                <div class="table-row">
+                    <div class="table-cell">NPV</div>
+                    <div class="table-cell">Price</div>
+                    <div class="table-cell">YTM</div>
+                    <div class="table-cell">Duration</div>
+                    <div class="table-cell">Dollar Duration</div>
+                    <div class="table-cell">Convexity</div>
+                    <div class="table-cell">Dollar Convexity</div>
+                </div>
+                <div class="table-row">
+                    <div class="table-cell">{{ rec_results[shock_result]['NPV'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Price'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['YTM'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Duration'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Dollar Duration'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Convexity'] }}</div>
+                    <div class="table-cell">{{ rec_results[shock_result]['Dollar Convexity'] }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+    
+</div>
+{% endif %}
+
+<!-- JavaScript for Form Submission and Loading Spinner -->
+<script>
+document.getElementById('options-form').addEventListener('submit', function(event) {
+    var loadingSpinner = document.getElementById('loadingSpinner');
+    loadingSpinner.style.display = 'block';  // Show spinner on form submit
+
+    window.addEventListener('load', function() {
+        loadingSpinner.style.display = 'none';  // Hide spinner on page load
+    });
+});
+
+// JavaScript for AJAX Form Submission
+function submitForm(formId, url, updateId) {
+    var form = document.getElementById(formId);
+    var formData = new FormData(form);
+    var xhr = new XMLHttpRequest();
+
+    xhr.open("POST", url, true);
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            console.log("Form submitted successfully");
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(xhr.responseText, 'text/html');
+
+            // Update the relevant section
+            var updateSection = doc.getElementById(updateId);
+            if (updateSection) {
+                document.getElementById(updateId).innerHTML = updateSection.innerHTML;
+                // Show the results section after successfully updating it
+                document.getElementById(updateId).style.display = 'block';
+            } else {
+                console.log("Update section not found");
+            }
+        } else if (xhr.readyState === 4) {
+            console.log("Error in form submission: " + xhr.status);
+        }
+    };
+
+    xhr.onerror = function() {
+        console.log("Request failed");
+    };
+
+    xhr.send(formData);
+}
+
+// JavaScript for Tabs
+function openTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+
+    // Hide all tab contents
+    tabcontent = document.getElementsByClassName("tab-content");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+
+    // Remove the active class from all tab buttons
+    tablinks = document.getElementsByClassName("tab-button");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab content and add an active class to the button that opened the tab
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+}
+
+// By default, open the first tab
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelector(".tab-button").click();
+});
+</script>
+
+{% endblock %}

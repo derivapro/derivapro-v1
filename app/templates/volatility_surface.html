@@ -1,0 +1,49 @@
+{% extends "index.html" %}
+
+{% block content %}
+<h2>Implied Volatility Surface</h2>
+<form method="post" id="volSurfaceForm">
+    <label for="symbol">Stock Symbol:</label>
+    <input type="text" id="symbol" name="symbol" required>
+    <button type="submit">Generate Volatility Surface</button>
+</form>
+
+{% if vol_table %}
+    <h3>Implied Volatility Table</h3>
+    {{ vol_table|safe }}  {# Render the pre-converted HTML table safely #}
+
+    <br>
+    <!-- Fixed Download Button with Dynamic Symbol -->
+    <a id="downloadLink" href="#" download>
+        <button type="button">Download Table</button>
+    </a>    
+{% endif %}
+
+{% if plot_url %}
+    <h3>3D Volatility Surface</h3>
+    <img src="data:image/png;base64,{{ plot_url }}" alt="Volatility Surface">
+{% endif %}
+
+<!-- JavaScript to Update Download Link Dynamically -->
+<script>
+    document.getElementById("symbol").addEventListener("input", function() {
+        var symbol = this.value.trim().toUpperCase();
+        var downloadLink = document.getElementById("downloadLink");
+        if (symbol) {
+            downloadLink.href = "{{ url_for('volatility_surface.download_vol_surface') }}?symbol=" + encodeURIComponent(symbol);
+            downloadLink.setAttribute("download", "volatility_surface_" + symbol + ".csv");
+        } else {
+            downloadLink.href = "#";
+            downloadLink.removeAttribute("download");
+        }
+    });
+
+    document.getElementById("downloadLink").addEventListener("click", function(event) {
+        if (this.href === "#") {
+            event.preventDefault();
+            alert("Please enter a stock symbol and generate the volatility surface first.");
+        }
+    });
+</script>
+
+{% endblock %}

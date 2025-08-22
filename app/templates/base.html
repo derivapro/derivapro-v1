@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>{% block title %}Page Title{% endblock %}</title>
+    <!-- MathJax -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                renderActions: {
+                    addMenu: []
+                }
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="top-bar">
+        <button id="toggleMenu">Hide Menu</button>
+        <a href="{{ url_for('index.index') }}"><button class="home-button">Home</button></a>
+    </div>
+    <div class="content">
+        <nav id="navPanel">
+            <!-- Add logo image at the top -->
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="nav-logo">
+            </div>
+            <!-- Navigation Panel -->
+            <ul>
+                <li>
+                    <a href="{{ url_for('vanilla_options.vanilla_options') }}" class="nav-link">Vanilla Options</a>
+                    <ul>
+                        <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European</a></li>
+                        <li><a href="{{ url_for('vanilla_options.american_options') }}" class="nav-link">American</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="{{ url_for('nc_bonds.nc_bonds') }}" class="nav-link">NonCallable Bonds</a>
+                    <ul>
+                        <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}" class="nav-link">Fixed Rate Bonds</a></li>
+                        <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}" class="nav-link">Fixed Rate Amortizing Bonds</a></li>
+                        <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}" class="nav-link">Floating Rate Bonds</a></li>
+                        <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}" class="nav-link">Floating Rate Amortizing Bonds</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="{{ url_for('exotic_options.exotic_options') }}" class="nav-link">Exotic Options</a>
+                    <ul>
+                        <li><a href="{{ url_for('exotic_options.barrier_options') }}" class="nav-link">Barrier</a></li>
+                        <li><a href="{{ url_for('exotic_options.asian_options') }}" class="nav-link">Asian</a></li>
+                        <li><a href="{{ url_for('exotic_options.autocallable_options') }}" class="nav-link">AutoCallable</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="{{ url_for('futures_forwards.futures_forwards') }}" class="nav-link">Futures and Forwards</a>
+                    <ul>
+                        <li><a href="{{ url_for('futures_forwards.forwards') }}" class="nav-link">Forwards</a></li>
+                        <li><a href="{{ url_for('futures_forwards.futures') }}" class="nav-link">Futures</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="{{ url_for('credit_derivatives.credit_derivatives') }}" class="nav-link">Credit Derivatives</a>
+                    <ul>
+                        <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}" class="nav-link">Credit Default Swap</a></li>
+                        <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}" class="nav-link">Synthetic CDO</a></li>
+                        <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}" class="nav-link">Credit Linked Notes</a></li>
+                    </ul>
+                </li>
+                <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swaps</a></li>
+                <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaptions</a></li>
+                                <li>
+                    <a href="{{ url_for('volatility_derivatives.volatility_derivatives') }}" class="nav-link">Volatility Derivatives</a>
+                    <ul>
+                        <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}" class="nav-link">Variance Swaps</a></li>
+                    </ul>
+                </li>  
+                <li><a href="{{ url_for('volatility_surface.volatility_surface') }}" class="nav-link">Volatility Surface</a></li>
+                <li><a href="{{ url_for('equity_derivatives.equity_derivatives') }}" class="nav-link">Equity Derivatives</a></li>
+                <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a></li>
+                <li><a href="{{ url_for('term_structure.calculate_term_structure') }}" class="nav-link">Term Structure</a></li>
+            </ul>
+        </nav>
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        document.getElementById('toggleMenu').addEventListener('click', function() {
+            var navPanel = document.getElementById('navPanel');
+            if (navPanel.classList.contains('hidden')) {
+                navPanel.classList.remove('hidden');
+                this.textContent = 'Hide Menu';
+            } else {
+                navPanel.classList.add('hidden');
+                this.textContent = 'Show Menu';
+            }
+        });
+
+        // Highlight the selected link
+        document.querySelectorAll('.nav-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                document.querySelectorAll('.nav-link').forEach(function(link) {
+                    link.classList.remove('selected');
+                });
+                this.classList.add('selected');
+            });
+        });
+
+        // Persist the selected state on page load
+        window.addEventListener('load', function() {
+            var currentUrl = window.location.href;
+            document.querySelectorAll('.nav-link').forEach(function(link) {
+                if (link.href === currentUrl) {
+                    link.classList.add('selected');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
