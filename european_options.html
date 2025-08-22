@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>European Vanilla Options</h2>
+<h3>Introduction</h3>
+
+<div id="markdown-content">
+    {{ md_content|safe }}
+</div>
+
+<div class="loading-spinner" id="loadingSpinner" style="display: none;">
+    <div class="spinner"></div>
+</div>
+
+<h3>Option Pricing</h3>
+<form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">
+    <div class="form-group">
+        <label for="ticker">Stock Ticker:</label>
+        <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
+    </div>
+    <div class="form-group">
+        <label for="strike_price">Strike Price ($):</label>
+        <input type="number" step="0.01" id="strike_price" name="strike_price" value="{{ form_data.strike_price }}" min="0" required>
+        <div id="strike-price-error" style="color: red; font-size: 0.9em; display: none;">Strike price must be positive</div>
+    </div>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ form_data.start_date }}" required>
+    </div>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ form_data.end_date }}" required>
+    </div>
+    <div class="form-group">
+        <label for="risk_free_rate">Risk-Free Rate (abs):</label>
+        <input type="number" step="0.001" id="risk_free_rate" name="risk_free_rate" value="{{ form_data.risk_free_rate }}" required>
+    </div>
+    <div class="form-group">
+        <label for="volatility">Annualized Volatility (abs):</label>
+        <input type="number" step="0.001" id="volatility" name="volatility" value="{{ form_data.volatility }}" min="0" required>
+        <div id="volatility-error" style="color: red; font-size: 0.9em; display: none;">Volatility must be positive</div>
+    </div>
+    <div class="form-group">
+        <label for="option_type">Option Type:</label>
+        <select id="option_type" name="option_type" required>
+            <option value="call" {% if form_data.option_type == 'call' %}selected{% endif %}>Call</option>
+            <option value="put" {% if form_data.option_type == 'put' %}selected{% endif %}>Put</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="model_type">Model Type:</label>
+        <select id="model_type" name="model_type" required onchange="toggleMonteCarloParams()">
+            <option value="black_scholes" {% if form_data.model_type == 'black_scholes' %}selected{% endif %}>Black-Scholes</option>
+            <option value="monte_carlo" {% if form_data.model_type == 'monte_carlo' %}selected{% endif %}>Monte Carlo</option>
+        </select>
+    </div>
+    
+    <!-- Monte Carlo specific parameters -->
+    <div id="monte_carlo_params" style="display: none;">
+        <div class="form-group">
+            <label for="num_paths">Number of Paths:</label>
+            <input type="number" id="num_paths" name="num_paths" value="{{ form_data.num_paths|default(10000) }}" min="1000" max="200000" step="1000">
+        </div>
+        <div class="form-group">
+            <label for="num_steps">Number of Time Steps:</label>
+            <input type="number" id="num_steps" name="num_steps" value="{{ form_data.num_steps|default(252) }}" min="50" max="1000" step="1">
+        </div>
+    </div>
+    
+    <div class="form-group full-width">
+        <button type="submit">Calculate Option Price</button>
+    </div>
+</form>
+
+<!-- Display Option Price and Greeks -->
+<div id="results-section">
+    {% if option_price %}
+    <div class="result">
+        {% if form_data.model_type == 'monte_carlo' %}
+        <div class="info-box">
+            <p><strong>Monte Carlo Simulation:</strong> This result is based on {{ form_data.num_paths|default(10000) }} simulation paths with {{ form_data.num_steps|default(252) }} time steps. Results may vary slightly due to the stochastic nature of the simulation.</p>
+        </div>
+        {% endif %}
+        <h4>Option Price: {{ option_price }}</h4>
+        <h4>Greeks:</h4>
+        <div class="horizontal-table">
+            <div class="table-row">
+                <div class="table-cell">Delta</div>
+                <div class="table-cell">Gamma</div>
+                <div class="table-cell">Vega</div>
+                <div class="table-cell">Theta</div>
+                <div class="table-cell">Rho</div>
+            </div>
+            <div class="table-row">
+                <div class="table-cell">{{ delta }}</div>
+                <div class="table-cell">{{ gamma }}</div>
+                <div class="table-cell">{{ vega }}</div>
+                <div class="table-cell">{{ theta }}</div>
+                <div class="table-cell">{{ rho }}</div>
+            </div>
+        </div>
+        <br>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Navigation Buttons -->
+<div id="navigation-buttons">
+    <h3>Model Validation</h3>
+    <div class="nav-button-container">
+        <button onclick="location.href='{{ url_for('vanilla_options.conceptual_soundness') }}'" class="btn-primary nav-btn">Conceptual<br>Soundness</button>
+        <button onclick="location.href='{{ url_for('vanilla_options.model_performance') }}'" class="btn-primary nav-btn">Model<br>Performance</button>
+        <button onclick="location.href='{{ url_for('vanilla_options.model_governance') }}'" class="btn-primary nav-btn">Model<br>Governance</button>
+        <button onclick="location.href='{{ url_for('vanilla_options.ongoing_monitoring') }}'" class="btn-primary nav-btn">Ongoing<br>Monitoring</button>
+    </div>
+</div>
+
+<!-- Separate Reporting Section -->
+<div id="reporting-section">
+    <h3>Report</h3>
+    <a href="{{ url_for('vanilla_options.reporting') }}" class="btn btn-primary reporting-btn" target="_blank">Reporting</a>
+</div>
+
+<script>
+    function toggleMonteCarloParams() {
+        const modelType = document.getElementById('model_type').value;
+        const mcParams = document.getElementById('monte_carlo_params');
+        
+        if (modelType === 'monte_carlo') {
+            mcParams.style.display = 'block';
+        } else {
+            mcParams.style.display = 'none';
+        }
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleMonteCarloParams();
+    });
+
+    function validateForm() {
+        // Clear all previous error messages
+        document.getElementById('strike-price-error').style.display = 'none';
+        document.getElementById('volatility-error').style.display = 'none';
+        
+        const strikePrice = parseFloat(document.getElementById('strike_price').value);
+        const volatility = parseFloat(document.getElementById('volatility').value);
+        
+        let hasErrors = false;
+        
+        // Validate strike price
+        if (isNaN(strikePrice) || strikePrice <= 0) {
+            document.getElementById('strike-price-error').style.display = 'block';
+            hasErrors = true;
+        }
+        
+        // Validate volatility
+        if (isNaN(volatility) || volatility <= 0) {
+            document.getElementById('volatility-error').style.display = 'block';
+            hasErrors = true;
+        }
+        
+        // If there are errors, prevent form submission
+        if (hasErrors) {
+            alert('Please fix all validation errors before submitting the form.');
+            return false;
+        }
+        
+        return true;
+    }
+</script>
+
+{% endblock %}
