@@ -1,0 +1,321 @@
+<!-- # Note: last updated on Aug 06 -->
+
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Model Performance</h2>
+
+<!-- Go Back Button -->
+<div class="form-group full-width spacing-bottom">
+    <button type="button" onclick="goBackWithResults();" class="btn btn-primary nav-btn">Go Back</button>
+</div>
+
+<!-- Analysis Tabs -->
+<div id="analysis-section">
+    <div class="tabs">
+        <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
+        <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
+        <button class="tab-button" onclick="openTab(event, 'convergence-analysis')">Convergence Analysis</button>
+        <button class="tab-button" onclick="openTab(event, 'rbpl-analysis')">RBPL Analysis</button>
+    </div>
+    
+       <!-- Sensitivity Analysis Tab -->
+       <div id="sensitivity-analysis" class="tab-content">
+        <h4>Sensitivity Analysis</h4>
+        <!-- Sensitivity Analysis Form and Results -->
+        <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="analysis_type" value="sensitivity">
+            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+            <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+            <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
+            <input type="hidden" name="volatility" value="{{ form_data.volatility }}">
+            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+            <div class="form-group">
+                <label for="num_steps">Number of Steps:</label>
+                <input type="number" id="num_steps" name="num_steps" value="{{ form_data.num_steps }}" required>
+            </div>
+            <div class="form-group">
+                <label for="step_range">Step Range:</label>
+                <input type="number" step="0.01" id="step_range" name="step_range" value="{{ form_data.step_range }}" required>
+            </div>
+            <div class="form-group">
+                <label for="variable">Input Variable:</label>
+                <select id="variable" name="variable" required>
+                    <option value="strike_price" {% if form_data.variable == 'strike_price' %}selected{% endif %}>Strike Price</option>
+                    <option value="risk_free_rate" {% if form_data.variable == 'risk_free_rate' %}selected{% endif %}>Risk Free Rate</option>
+                    <option value="volatility" {% if form_data.variable == 'volatility' %}selected{% endif %}>Volatility</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="target_variable">Target Variable:</label>
+                <select id="target_variable" name="target_variable" required>
+                    <option value="option_price" {% if form_data.target_variable == 'option_price' %}selected{% endif %}>Option Price</option>
+                    <option value="delta" {% if form_data.target_variable == 'delta' %}selected{% endif %}>Delta</option>
+                    <option value="gamma" {% if form_data.target_variable == 'gamma' %}selected{% endif %}>Gamma</option>
+                    <option value="vega" {% if form_data.target_variable == 'vega' %}selected{% endif %}>Vega</option>
+                    <option value="theta" {% if form_data.target_variable == 'theta' %}selected{% endif %}>Theta</option>
+                    <option value="rho" {% if form_data.target_variable == 'rho' %}selected{% endif %}>Rho</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <button type="button" onclick="submitForm('sensitivity-form', '/vanilla-options/model-performance', 'sensitivity-results');">Run Sensitivity Analysis</button>
+            </div>
+        </form>
+<div id="sensitivity-results" class="sens-results">
+    {% if sensitivity_results %}
+    <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}" alt="Sensitivity Analysis Plot">
+    <form id="ai-assessment-form" method="post">
+        <!-- AI Assessment Form Fields -->
+        <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
+        <input type="hidden" name="sensitivity_results" value="{{ sensitivity_results }}">
+        <div class="form-group full-width">
+            <button type="button" onclick="submitForm('ai-assessment-form', '/vanilla-options/model-performance', 'gpt-assessment-section');">AI Assessment</button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+        <div id="gpt-assessment-section" class="gpt-results">
+            {% if gpt_assessment %}
+            <h4>MRM Assessment:</h4>
+            <textarea id="gpt-assessment" class="assessment-textarea" readonly>{{ gpt_assessment }}</textarea>
+            <button type="button" id="edit-assessment-btn" onclick="editAssessment('gpt-assessment');">Edit</button>
+            <button type="button" id="save-assessment-btn" onclick="saveAssessment('gpt-assessment', '/vanilla-options/save-assessment');" style="display: inline;">Save</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Scenario Analysis Tab -->
+    <div id="scenario-analysis" class="tab-content">
+        <h4>Scenario Analysis</h4>
+        <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="analysis_type" value="scenario">
+            <div class="form-group">
+                <label for="spot_scenario">Spot Price Scenario (% change):</label>
+                <select id="spot_scenario" name="spot_scenario" required>
+                    <option value="-0.25">-25%</option>
+                    <option value="-0.10">-10%</option>
+                    <option value="-0.05">-5%</option>
+                    <option value="0">0%</option>
+                    <option value="0.05">5%</option>
+                    <option value="0.10">10%</option>
+                    <option value="0.25">25%</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="vol_scenario">Volatility Scenario (abs change):</label>
+                <select id="vol_scenario" name="vol_scenario" required>
+                    <option value="-0.30">-30%</option>
+                    <option value="-0.10">-10%</option>
+                    <option value="-0.05">-5%</option>
+                    <option value="0">0%</option>
+                    <option value="0.05">5%</option>
+                    <option value="0.10">10%</option>
+                    <option value="0.30">30%</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="rate_scenario">Interest Rate Scenario (abs change):</label>
+                <select id="rate_scenario" name="rate_scenario" required>
+                    <option value="-0.05">-5%</option>
+                    <option value="-0.02">-2%</option>
+                    <option value="-0.01">-1%</option>
+                    <option value="0">0%</option>
+                    <option value="0.01">1%</option>
+                    <option value="0.02">2%</option>
+                    <option value="0.05">5%</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <button type="button" onclick="submitForm('scenario-form', '/vanilla-options/model-performance', 'scenario-results');">Run Scenario Analysis</button>
+            </div>
+        </form>
+
+        <!-- Scenario Analysis Results -->
+        <div id="scenario-results" class="sens-results">
+            {% if scenario_results %}
+            <h4>Scenario Analysis Results</h4>
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Scenarios</th>
+                        <th>Option Price</th>
+                        <th>Delta</th>
+                        <th>Gamma</th>
+                        <th>Vega</th>
+                        <th>Theta</th>
+                        <th>Rho</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Baseline</td>
+                        <td>{{ baseline_price }}</td>
+                        <td>{{ baseline_delta }}</td>
+                        <td>{{ baseline_gamma }}</td>
+                        <td>{{ baseline_vega }}</td>
+                        <td>{{ baseline_theta }}</td>
+                        <td>{{ baseline_rho }}</td>
+                    </tr>
+                    <tr>
+                        <td>Stressed Scenario</td>
+                        <td>{{ stressed_price }}</td>
+                        <td>{{ stressed_delta }}</td>
+                        <td>{{ stressed_gamma }}</td>
+                        <td>{{ stressed_vega }}</td>
+                        <td>{{ stressed_theta }}</td>
+                        <td>{{ stressed_rho }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <form id="ai-scenario-assessment-form" method="post">
+                <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
+                <div class="form-group full-width">
+                    <button type="button" onclick="submitForm('ai-scenario-assessment-form', '/vanilla-options/model-performance', 'gpt-scenario-assessment-section');">AI Assessment</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+        <div id="gpt-scenario-assessment-section" class="gpt-results">
+            {% if gpt_scenario_assessment %}
+            <h4>MRM Assessment:</h4>
+            <textarea id="gpt-scenario-assessment" class="assessment-textarea" readonly>{{ gpt_scenario_assessment }}</textarea>
+            <button type="button" id="edit-scenario-assessment-btn" onclick="editAssessment('gpt-scenario-assessment');">Edit</button>
+            <button type="button" id="save-scenario-assessment-btn" onclick="saveAssessment('gpt-scenario-assessment', '/vanilla-options/save-scenario-assessment');" style="display: inline;">Save</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="convergence-analysis" class="tab-content">
+        <h4>Convergence Analysis</h4>
+        <form id="convergence-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="analysis_type" value="convergence">
+            <div class="form-group">
+                <label for="model_type">Model:</label>
+                <select id="model_type" name="model_type" required>
+                    <option value="monte_carlo">Monte Carlo</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="num_mc_paths">Number of Monte Carlo Paths:</label>
+                <!-- VALUE REMOVED -->
+                <input type="number" id="num_mc_paths" name="num_mc_paths" min="1000" max="200000" step="1000" required>
+            </div>
+            <div class="form-group">
+                <label for="num_mc_steps">Number of Monte Carlo Time Steps:</label>
+                <!-- VALUE REMOVED -->
+                <input type="number" id="num_mc_steps" name="num_mc_steps" min="50" max="1000" step="1" required>
+            </div>
+            <div class="form-group">
+                <label for="obs">Observations:</label>
+                <!-- VALUE REMOVED -->
+                <input type="number" id="obs" name="obs" min="3" max="20" step="1" required>
+            </div>
+            <div class="form-group full-width">
+                <button type="button" onclick="submitForm('convergence-form', '/vanilla-options/model-performance', 'convergence-results');">Run Convergence Analysis</button>
+            </div>
+        </form>
+        <div id="convergence-results" class="sens-results">
+            {% if convergence_results %}
+            <img src="{{ url_for('static', filename='vanilla_convergence_plot.png') }}?v={{ random() }}" alt="Convergence Analysis Plot">
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="rbpl-analysis" class="tab-content">
+        <h4>RBPL Analysis</h4>
+        <p>Placeholder content for RBPL Analysis.</p>
+    </div>
+</div>
+
+<!-- JavaScript for Tabs and AJAX Form Submission -->
+<script>
+// JavaScript for Tabs
+function openTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tab-content");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tab-button");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+}
+
+// By default, open the first tab
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelector(".tab-button").click();
+});
+
+// JavaScript for AJAX Form Submission
+function submitForm(formId, url, updateId) {
+    var form = document.getElementById(formId);
+    var formData = new FormData(form);
+    var xhr = new XMLHttpRequest();
+    
+    xhr.open("POST", url, true);
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            console.log("Form submitted successfully");
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(xhr.responseText, 'text/html');
+            
+            // Update the relevant section
+            var updateSection = doc.getElementById(updateId);
+            if (updateSection) {
+                document.getElementById(updateId).innerHTML = updateSection.innerHTML;
+            } else {
+                console.log("Update section not found");
+            }
+        } else if (xhr.readyState === 4) {
+            console.log("Error in form submission: " + xhr.status);
+        }
+    };
+    
+    xhr.onerror = function() {
+        console.log("Request failed");
+    };
+    
+    xhr.send(formData);
+}
+
+// JavaScript for AI Assessment
+function editAssessment(assessmentId) {
+    var assessmentTextarea = document.getElementById(assessmentId);
+    assessmentTextarea.removeAttribute('readonly');
+    document.getElementById('edit-' + assessmentId + '-btn').style.display = 'none';
+    document.getElementById('save-' + assessmentId + '-btn').style.display = 'inline';
+}
+
+function saveAssessment(assessmentId, url) {
+    var assessmentTextarea = document.getElementById(assessmentId);
+    assessmentTextarea.setAttribute('readonly', 'readonly');
+    document.getElementById('edit-' + assessmentId + '-btn').style.display = 'inline';
+    document.getElementById('save-' + assessmentId + '-btn').style.display = 'none';
+    var updatedAssessment = assessmentTextarea.value;
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assessment: updatedAssessment }),
+    }).then(response => {
+        if (response.ok) {
+            alert('Assessment saved successfully!');
+        } else {
+            alert('Failed to save assessment.');
+        }
+    });
+}
+
+// Function to handle going back with form data preserved
+function goBackWithResults() {
+    window.location.href = "{{ url_for('vanilla_options.go_back') }}";
+}
+
+</script>
+
+{% endblock %}
