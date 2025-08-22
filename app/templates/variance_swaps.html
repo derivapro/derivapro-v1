@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Variance Swaps</h2>
+<h3>Introduction</h3>
+
+<div id="markdown-content">
+    {{ content|safe }}
+</div>
+
+<div class="loading-spinner" id="loadingSpinner" style="display: none;">
+    <div class="spinner"></div>
+</div>
+
+<h3>Variance Swap</h3>
+<form method="post" class="form-grid">
+    <div class="form-group">
+        <label for="ticker">Ticker:</label>
+        <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
+    </div>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ form_data.start_date }}" required>
+    </div>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ form_data.end_date }}" required>
+    </div>
+    <div class="form-group">
+        <label for="as_of_date">As of Date:</label>
+        <input type="date" id="as_of_date" name="as_of_date" value="{{ form_data.as_of_date }}" required>
+    </div>
+    <div class="form-group">
+        <label for="strike_vol">Strike Volatility (%):</label>
+        <input type="number" step="0.01" id="strike_vol" name="strike_vol" value="{{ form_data.strike_vol }}" required>
+    </div>
+    <div class="form-group">
+        <label for="new_strike_vol">New Strike Volatility (%):</label>
+        <input type="number" step="0.01" id="new_strike_vol" name="new_strike_vol" value="{{ form_data.new_strike_vol }}" required>
+    </div>
+    <div class="form-group">
+        <label for="vega_notional">Vega Notional ($):</label>
+        <input type="number" step="1" id="vega_notional" name="vega_notional" value="{{ form_data.vega_notional }}" required>
+    </div>
+    <div class="form-group">
+        <label for="risk_free_rate">Risk-Free Rate (%):</label>
+        <input type="number" step="0.01" id="risk_free_rate" name="risk_free_rate" value="{{ form_data.risk_free_rate }}" required>
+    </div>
+    <div class="form-group">
+        <label for="position">Position:</label>
+        <select id="position" name="position" required>
+            <option value="long" {% if form_data.position == "long" %}selected{% endif %}>Long</option>
+            <option value="short" {% if form_data.position == "short" %}selected{% endif %}>Short</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="rho">Rho (ρ):</label>
+        <input type="number" step="0.01" id="rho" name="rho" value="{{ form_data.rho }}" required>
+    </div>
+    <div class="form-group">
+        <label for="kappa">Kappa (κ):</label>
+        <input type="number" step="0.01" id="kappa" name="kappa" value="{{ form_data.kappa }}" required>
+    </div>
+    <div class="form-group">
+        <label for="theta">Theta (θ):</label>
+        <input type="number" step="0.01" id="theta" name="theta" value="{{ form_data.theta }}" required>
+    </div>
+    <div class="form-group">
+        <label for="sigma">Sigma (σ):</label>
+        <input type="number" step="0.01" id="sigma" name="sigma" value="{{ form_data.sigma }}" required>
+    </div>
+    <div class="form-group">
+        <label for="calendar">Calendar:</label>
+        <select id="calendar" name="calendar" required>
+            <option value="UnitedStates" {% if form_data.calendar_val == "UnitedStates" %}selected{% endif %}>United States (NYSE)</option>
+            <option value="TARGET" {% if form_data.calendar_val == "TARGET" %}selected{% endif %}>TARGET</option>
+            <option value="UnitedKingdom" {% if form_data.calendar_val == "UnitedKingdom" %}selected{% endif %}>United Kingdom</option>
+            <option value="China" {% if form_data.calendar_val == "China" %}selected{% endif %}>China</option>
+        </select>
+    </div>
+    <div class="form-group full-width">
+        <button type="submit">Calculate Variance Swap Metrics</button>
+    </div>
+</form>
+
+{% if variance_notional %}
+<hr>
+<h3>Results</h3>
+<div class="results-container" style="display: grid; grid-template-columns: auto 1fr; gap: 10px; max-width: 600px;">
+    <div class="result-label">Variance Notional:</div>
+    <div class="result-value">{{ variance_notional }}</div>
+    
+    <div class="result-label">Realized Variance:</div>
+    <div class="result-value">{{ realized_variance }}</div>
+    
+    <div class="result-label">Settlement Amount:</div>
+    <div class="result-value">{{ settlement_amount }}</div>
+    
+    <div class="result-label">Simulated Settlement Amount:</div>
+    <div class="result-value">{{ simulated_settlement_amount }}</div>
+    
+    <div class="result-label">Expected Realized Variance:</div>
+    <div class="result-value">{{ expected_real_variance }}</div>
+    
+    <div class="result-label">Current Value:</div>
+    <div class="result-value">{{ current_value }}</div>
+</div>
+{% endif %}
+
+<!-- JavaScript for Form Submission and Loading Spinner -->
+<script>
+document.getElementById('options-form').addEventListener('submit', function(event) {
+    var loadingSpinner = document.getElementById('loadingSpinner');
+    loadingSpinner.style.display = 'block';  // Show spinner on form submit
+
+    window.addEventListener('load', function() {
+        loadingSpinner.style.display = 'none';  // Hide spinner on page load
+    });
+});
+
+// JavaScript for AJAX Form Submission
+function submitForm(formId, url, updateId) {
+    var form = document.getElementById(formId);
+    var formData = new FormData(form);
+    var xhr = new XMLHttpRequest();
+
+    xhr.open("POST", url, true);
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            console.log("Form submitted successfully");
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(xhr.responseText, 'text/html');
+
+            // Update the relevant section
+            var updateSection = doc.getElementById(updateId);
+            if (updateSection) {
+                document.getElementById(updateId).innerHTML = updateSection.innerHTML;
+                // Show the results section after successfully updating it
+                document.getElementById(updateId).style.display = 'block';
+            } else {
+                console.log("Update section not found");
+            }
+        } else if (xhr.readyState === 4) {
+            console.log("Error in form submission: " + xhr.status);
+        }
+    };
+
+    xhr.onerror = function() {
+        console.log("Request failed");
+    };
+
+    xhr.send(formData);
+}
+
+// JavaScript for Tabs
+function openTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+
+    // Hide all tab contents
+    tabcontent = document.getElementsByClassName("tab-content");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+
+    // Remove the active class from all tab buttons
+    tablinks = document.getElementsByClassName("tab-button");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab content and add an active class to the button that opened the tab
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+}
+
+// By default, open the first tab
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelector(".tab-button").click();
+});
+</script>
+
+</body>
+</html>
+{% endblock %}
