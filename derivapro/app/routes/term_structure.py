@@ -2,8 +2,8 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from flask import send_file
 from fredapi import Fred
-from app.models.mdls_term_structure import YieldTermStructure
-from app.models.yieldterm_market_data import TreasuryRateProvider, SOFRRateProvider, FREDSwapRatesProvider
+from derivapro.app.models.mdls_term_structure import YieldTermStructure
+from derivapro.app.models.yieldterm_market_data import TreasuryRateProvider, SOFRRateProvider, FREDSwapRatesProvider
 import QuantLib as ql
 import uuid
 import os
@@ -416,3 +416,4 @@ def calculate_term_structure():
             fit_selection='yes'
 
         )
+
