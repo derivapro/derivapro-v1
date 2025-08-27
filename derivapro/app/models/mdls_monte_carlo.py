@@ -1,7 +1,7 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from app.models.market_data import StockData
+from derivapro.app.models.market_data import StockData
 
 class MonteCarlo:
     required_params = {"ticker", "start_date", "end_date", "r", "sigma", "N", "M"}
@@ -479,5 +479,6 @@ barrier_option_price = mc.price_barrier_option(discretization="euler")
 print(f"Barrier Option price: {barrier_option_price:.2f}")
 mc.plot_paths(paths, title="Monte Carlo Paths for Barrier Option")
 '''
+
 
 
