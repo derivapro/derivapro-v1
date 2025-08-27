@@ -3,7 +3,7 @@ import math
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
-from ..models.market_data import StockData
+from app.models.market_data import StockData
 
 class Forwards:
     def __init__(self, ticker, risk_free_rate, dividend_yield, convenience_yield, entry_date, 
@@ -641,4 +641,5 @@ class FuturesAnalysis:
 
 
     
+
 
