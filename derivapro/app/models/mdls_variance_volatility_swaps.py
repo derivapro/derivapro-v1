@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 from pandas.tseries.offsets import BDay
 from dateutil.relativedelta import relativedelta
-from app.models.market_data import StockData
+from derivapro.app.models.market_data import StockData
 
 
 # class StockData:
@@ -399,6 +399,7 @@ class varianceSwaps:
 # # Get current value and print with label
 # current_value = variance_swap.current_value(position)
 # print(f"Current Value: {current_value}")
+
 
 
 
