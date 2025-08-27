@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import norm
 #import os
 import matplotlib.pyplot as plt
-from ..models.market_data import StockData
+from app.models.market_data import StockData
 import matplotlib
 matplotlib.use('Agg')   # Use the Agg backend for non-interactive plotting
 import importlib.util
