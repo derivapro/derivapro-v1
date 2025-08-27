@@ -1,18 +1,19 @@
 
 def register_routes(app):
-    from .index import index_bp
-    from .vanilla_options import vanilla_options_bp
-    from .exotic_options import exotic_options_bp
-    from .futures_forwards import futures_forwards_bp
-    from .swaps import swaps_bp
-    from .swaptions import swaptions_bp
-    from .volatility_derivatives import volatility_derivatives_bp
-    from .credit_derivatives import credit_derivatives_bp
-    from .equity_derivatives import equity_derivatives_bp
-    from .bonds import nc_bonds_bp
+    from app.routes.index import index_bp
+    from app.routes.vanilla_options import vanilla_options_bp
+    from app.routes.exotic_options import exotic_options_bp
+    from app.routes.futures_forwards import futures_forwards_bp
+    from app.routes.swaps import swaps_bp
+    from app.routes.swaptions import swaptions_bp
+    from app.routes.volatility_derivatives import volatility_derivatives_bp
+    from app.routes.credit_derivatives import credit_derivatives_bp
+    from app.routes.equity_derivatives import equity_derivatives_bp
+    from app.routes.bonds import nc_bonds_bp
     from app.routes.volatility_surface import volatility_surface_bp
     from app.routes.prepayment import prepayment_bp
-    from .term_structure import term_structure_bp
+    from app.routes.term_structure import term_structure_bp
+
 
     app.register_blueprint(index_bp, url_prefix='/')
     app.register_blueprint(vanilla_options_bp, url_prefix='/vanilla-options')
@@ -28,3 +29,4 @@ def register_routes(app):
     app.register_blueprint(volatility_surface_bp, url_prefix="/volatility_surface")
     app.register_blueprint(prepayment_bp, url_prefix="/prepayment")
     app.register_blueprint(term_structure_bp, url_prefix="/term-structure")
+
