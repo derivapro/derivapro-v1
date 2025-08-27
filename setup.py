@@ -1,15 +1,12 @@
 from setuptools import setup, find_packages
 
+with open("requirements.txt") as f:
+    requirements = f.read().splitlines()
+
 setup(
     name="derivapro",
     version="0.1.0",
-    packages=find_packages(),  # will find the derivapro/ package
-    install_requires=[
-        "flask",  # plus any other dependencies from requirements.txt
-    ],
-    entry_points={
-        "console_scripts": [
-            "derivapro-launch=derivapro:launch",  # optional CLI command
-        ],
-    },
+    packages=find_packages(),
+    install_requires=requirements,
 )
+
