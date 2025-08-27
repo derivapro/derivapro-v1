@@ -4,7 +4,7 @@ import numpy as np
 import seaborn as sns
 
 import matplotlib.pyplot as plt
-from app.models.market_data import StockData
+from derivapro.app.models.market_data import StockData
 
 class AsianOption:
     def __init__(self, ticker, K, sigma, r, q, T, averaging_dates, option_type="call", num_paths=100000, seed=42):
@@ -302,3 +302,4 @@ price = asian_option_test.price()
 print(f"Test Asian Option Price: ${round(price, 2)}")
 
 '''
+
