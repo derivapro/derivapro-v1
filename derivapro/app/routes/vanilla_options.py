@@ -1,11 +1,11 @@
 # Note: last updated on Aug 06
 
-from app.models.mdls_lattice_trees import LatticeModel, AmericanOptionSmoothnessTest, lattice_convergence_test
+from derivapro.app.models.mdls_lattice_trees import LatticeModel, AmericanOptionSmoothnessTest, lattice_convergence_test
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from flask import send_file
 #import pdfkit  # For PDF export (if needed)
-from app.models.mdls_vanilla_options import BlackScholes, SmoothnessTest
-from app.models.market_data import StockData
+from derivapro.app.models.mdls_vanilla_options import BlackScholes, SmoothnessTest
+from derivapro.app.models.market_data import StockData
 import matplotlib.pyplot as plt
 import os
 import markdown
@@ -18,7 +18,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 #import base64
 #from io import BytesIO
-from app.models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
+from derivapro.app.models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
 from openai import AzureOpenAI
 import os
 from dotenv import load_dotenv, find_dotenv
