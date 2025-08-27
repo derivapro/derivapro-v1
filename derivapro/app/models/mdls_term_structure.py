@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from fredapi import Fred
 from datetime import datetime
-from app.models.yieldterm_market_data import MarketRateProvider, TreasuryRateProvider, SOFRRateProvider, FREDSwapRatesProvider
+from derivapro.app.models.yieldterm_market_data import MarketRateProvider, TreasuryRateProvider, SOFRRateProvider, FREDSwapRatesProvider
 from scipy.optimize import least_squares
 
 class YieldTermStructure:
@@ -423,3 +423,4 @@ class YieldTermStructure:
 # print(f"Svensson R² (Discount Factors): {r2_df_sv:.4f}")
 
 # print(f"Svensson R² (Forward Rates): {r2_fwd_sv:.4f}")
+
