@@ -5,7 +5,7 @@ import math
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
-from ..models.market_data import StockData
+from app.models.market_data import StockData
 
 class LatticeModel:
 
@@ -543,3 +543,4 @@ rbpl = option.risk_pl_analysis(option_type = 'call', steps=100, price_change=0.0
 
 print(rbpl)
 '''
+
