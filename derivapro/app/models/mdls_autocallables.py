@@ -1,7 +1,7 @@
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from app.models.market_data import StockData
+from derivapro.app.models.market_data import StockData
 
 class AutoMonteCarlo:
     """
@@ -357,4 +357,5 @@ print(f"Autocallable option price: {price:.2f}")
 
 mc.plot_paths(mc.paths, title="Monte Carlo Paths for Autocallable Option")
 '''
+
 
