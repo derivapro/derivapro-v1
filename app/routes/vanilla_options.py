@@ -1,11 +1,11 @@
 # Note: last updated on Aug 06
 
-from ..models.mdls_lattice_trees import LatticeModel, AmericanOptionSmoothnessTest, lattice_convergence_test
+from app.models.mdls_lattice_trees import LatticeModel, AmericanOptionSmoothnessTest, lattice_convergence_test
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from flask import send_file
 #import pdfkit  # For PDF export (if needed)
-from ..models.mdls_vanilla_options import BlackScholes, SmoothnessTest
-from ..models.market_data import StockData
+from app.models.mdls_vanilla_options import BlackScholes, SmoothnessTest
+from app.models.market_data import StockData
 import matplotlib.pyplot as plt
 import os
 import markdown
