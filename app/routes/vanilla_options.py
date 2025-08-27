@@ -18,7 +18,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 #import base64
 #from io import BytesIO
-from ..models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
+from app.models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
 from openai import AzureOpenAI
 import os
 from dotenv import load_dotenv, find_dotenv
