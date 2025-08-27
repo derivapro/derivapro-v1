@@ -1,4 +1,4 @@
-from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+from app.models.mdls_bonds import NCFixedBonds, NCFloatingBonds
 from flask import Blueprint, render_template, request, json
 import QuantLib as ql
 import os
@@ -626,5 +626,6 @@ def nc_floating_amort_bonds():
         
     return render_template('ncfloatingamortbonds.html', form_data=form_data,
                            flam_bond_results=flam_bond_results, md_content=md_content, gpt_assessment=gpt_assessment)
+
 
 
