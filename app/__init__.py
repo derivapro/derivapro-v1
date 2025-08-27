@@ -17,3 +17,7 @@ def create_app():
     return app
 
 
+def launch():
+    """Launch the Flask app."""
+    app = create_app()
+    app.run(debug=True)
