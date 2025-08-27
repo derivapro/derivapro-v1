@@ -1,4 +1,4 @@
-from app.models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+from derivapro.app.models.mdls_bonds import NCFixedBonds, NCFloatingBonds
 from flask import Blueprint, render_template, request
 import QuantLib as ql
 import os
@@ -228,6 +228,7 @@ def swaps():
                
     return render_template('swaps.html', form_data=form_data, rec_results=rec_leg,
                            pay_results=pay_leg, md_content=md_content)
+
 
 
 
