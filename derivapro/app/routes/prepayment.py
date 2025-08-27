@@ -1,4 +1,4 @@
-from app.models.mdls_prepayment import Prepayment
+from derivapro.app.models.mdls_prepayment import Prepayment
 from flask import Blueprint, render_template, request, session
 import os
 import markdown
@@ -64,4 +64,5 @@ def prepayment():
         prepayment_results = prepayment_results, 
         md_content = md_content
         )
+
 
