@@ -3,7 +3,7 @@ import numpy as np
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+from app.models.mdls_bonds import NCFixedBonds, NCFloatingBonds
 
 class CreditDefaultSwap:
     def __init__(self, nominal, spread, recovery_rate, risk_free,
@@ -509,4 +509,5 @@ class CLNSensitivityAnalysis:
         plt.tight_layout()  # Adjust layout to prevent overlap
         # plt.legend(loc='upper right')  # Legend for the last subplot
         plt.show()  # Show the plot
+
 
