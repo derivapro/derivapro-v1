@@ -6,9 +6,9 @@ Created on Sun Jun  9 00:46:08 2024
 """
 
 from flask import Blueprint, render_template, request, session
-from app.models.mdls_futures_forwards import Forwards, Futures
-from app.models.mdls_futures_forwards import ForwardsAnalysis
-from app.models.mdls_futures_forwards import FuturesAnalysis
+from derivapro.app.models.mdls_futures_forwards import Forwards, Futures
+from derivapro.app.models.mdls_futures_forwards import ForwardsAnalysis
+from derivapro.app.models.mdls_futures_forwards import FuturesAnalysis
 import os
 import markdown
 import matplotlib.pyplot as plt
@@ -369,5 +369,6 @@ def futures():
     return render_template('futures.html', form_data=form_data, futures_price_results=futures_price_results, mark_to_market_results=mark_to_market_results,
                            futures_pL=futures_pL, margin_requirement=margin_dict,future_sensitivity_analysis_results=future_sensitivity_analysis_results,
                            future_scenario_results=future_scenario_results, future_risk_pl=future_risk_pl,md_content=md_content)
+
 
 
