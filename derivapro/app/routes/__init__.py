@@ -1,16 +1,16 @@
 def register_routes(app):
     # Relative imports for files in the same folder
-    from .index import index_bp
-    from .vanilla_options import vanilla_options_bp
-    from .exotic_options import exotic_options_bp
-    from .futures_forwards import futures_forwards_bp
-    from .swaps import swaps_bp
-    from .swaptions import swaptions_bp
-    from .volatility_derivatives import volatility_derivatives_bp
-    from .credit_derivatives import credit_derivatives_bp
-    from .equity_derivatives import equity_derivatives_bp
-    from .bonds import nc_bonds_bp
-    from .term_structure import term_structure_bp
+    from derivapro.index import index_bp
+    from derivapro.vanilla_options import vanilla_options_bp
+    from derivapro.exotic_options import exotic_options_bp
+    from derivapro.futures_forwards import futures_forwards_bp
+    from derivapro.swaps import swaps_bp
+    from derivapro.swaptions import swaptions_bp
+    from derivapro.volatility_derivatives import volatility_derivatives_bp
+    from derivapro.credit_derivatives import credit_derivatives_bp
+    from derivapro.equity_derivatives import equity_derivatives_bp
+    from derivapro.bonds import nc_bonds_bp
+    from derivapro.term_structure import term_structure_bp
 
     # Absolute imports for files outside this folder
     from derivapro.app.routes.volatility_surface import volatility_surface_bp
