@@ -6,7 +6,7 @@ Created on Sun Jun  9 00:47:03 2024
 """
 
 from flask import Blueprint, render_template
-from app.models.mdls_variance_volatility_swaps import varianceSwaps
+from derivapro.app.models.mdls_variance_volatility_swaps import varianceSwaps
 from flask import Blueprint, render_template, request
 import QuantLib as ql
 import os
@@ -86,5 +86,6 @@ def variance_swaps():
 
     return render_template('variance_swaps.html', form_data=form_data, content=md_content, variance_notional=variance_notional, realized_variance=realized_variance, settlement_amount=settlement_amount,
                            simulated_settlement_amount=simulated_settlement_amount, expected_real_variance=expected_real_variance, current_value=current_value)
+
 
 
