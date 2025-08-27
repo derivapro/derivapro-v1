@@ -6,8 +6,8 @@ Created on Sun Jun  9 00:47:33 2024
 """
 
 from flask import Blueprint, render_template, request, session
-from app.models.mdls_credit import CreditDefaultSwap, SyntheticCDO, CLNPricingFixed, CLNPricingFloat, CLNSensitivityAnalysis
-from app.models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+from derivapro.app.models.mdls_credit import CreditDefaultSwap, SyntheticCDO, CLNPricingFixed, CLNPricingFloat, CLNSensitivityAnalysis
+from derivapro.app.models.mdls_bonds import NCFixedBonds, NCFloatingBonds
 import QuantLib as ql
 import os
 import markdown
@@ -933,3 +933,4 @@ def creditLinkedNotes():
                            fl_bond_results=fl_bond_results, flam_bond_results=flam_bond_results, cds_results_fixed=cds_results_fixed, cds_results_float=cds_results_float, cln_pricing_fixed=cln_pricing_fixed, cln_pricing_float=cln_pricing_float,
 
                            cln_sensitivity_analysis_results_fixed=cln_sensitivity_analysis_results_fixed, cln_sensitivity_analysis_results_float=cln_sensitivity_analysis_results_float,baseline_CLN=baseline_CLN, stressed_CLN=stressed_CLN, baseline_CLN_float=baseline_CLN_float, stressed_CLN_float=stressed_CLN_float)
+
