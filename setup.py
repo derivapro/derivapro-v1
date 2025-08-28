@@ -11,6 +11,7 @@ setup(
     install_requires=requirements,
     include_package_data=True,  # ensures package_data and MANIFEST.in are used
     package_data={
-        "derivapro": ["*.md"],  # include all Markdown files in the package
+        "derivapro": ["*.md", "templates/*.html"],  # include Markdown and HTML templates
     },
 )
+
