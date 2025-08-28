@@ -126,7 +126,7 @@ def creditDefaultSwaps():
                     pass
                 
                 plot_filename = f'Credit Default Swap_{variable}_{range_span}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
                 plt.savefig(plot_path)   
                 session['cds_sensitivity_analysis_results'] = {'plot_filename': plot_filename,
                                                                    'range_span': range_span,
@@ -291,7 +291,7 @@ def syntheticCDO():
                     pass
                 
                 plot_filename = f'Synthetic CDO_{variable}_{range_span}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
                 plt.savefig(plot_path)   
                 session['cdo_analysis_results'] = {'plot_filename': plot_filename,
                                                                     'range_span': range_span,
@@ -579,7 +579,7 @@ def creditLinkedNotes():
 
                     
                     plot_filename = f'Credit Linked Notes_{variable}_{range_span}_sensitivity_plot.png'
-                    plot_path = os.path.join('app', 'static', plot_filename)
+                    plot_path = os.path.join('derivapro', 'static', plot_filename)
                     plt.savefig(plot_path)   
                     session['cln_sensitivity_analysis_results_fixed'] = {'plot_filename': plot_filename,
                                                                         'range_span': range_span,
@@ -872,7 +872,7 @@ def creditLinkedNotes():
 
                     
                     plot_filename = f'Credit Linked Notes Floating_{variable}_{range_span}_sensitivity_plot.png'
-                    plot_path = os.path.join('app', 'static', plot_filename)
+                    plot_path = os.path.join('derivapro', 'static', plot_filename)
                     plt.savefig(plot_path)   
                     session['cln_sensitivity_analysis_results_float'] = {'plot_filename': plot_filename,
                                                                         'range_span': range_span,

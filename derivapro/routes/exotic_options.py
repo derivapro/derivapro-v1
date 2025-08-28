@@ -293,7 +293,7 @@ def barrier_options():
                 # Save plot to static directory
                 print('start plotting')
                 plot_filename = f'barrier_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
@@ -343,7 +343,7 @@ def barrier_options():
             plot_convergence(barrier_step_results, mode)
 
             # Save plot to static directory
-            plt.savefig('app/static/barrier_convergence_plot.png')
+            plt.savefig('derivapro/static/barrier_convergence_plot.png')
             convergence_results = True
         elif action == 'scenario':
             try:
