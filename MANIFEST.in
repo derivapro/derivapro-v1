@@ -1,2 +1,3 @@
 include README.md
 recursive-include derivapro *.md
+recursive-include derivapro/templates *.html
