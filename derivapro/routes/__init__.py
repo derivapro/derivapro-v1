@@ -10,8 +10,8 @@ def register_routes(app):
     from .credit_derivatives import credit_derivatives_bp
     from .equity_derivatives import equity_derivatives_bp
     from .bonds import nc_bonds_bp
-    from app.routes.volatility_surface import volatility_surface_bp
-    from app.routes.prepayment import prepayment_bp
+    from .routes.volatility_surface import volatility_surface_bp
+    from .routes.prepayment import prepayment_bp
     from .term_structure import term_structure_bp
 
     app.register_blueprint(index_bp, url_prefix='/')
@@ -28,3 +28,4 @@ def register_routes(app):
     app.register_blueprint(volatility_surface_bp, url_prefix="/volatility_surface")
     app.register_blueprint(prepayment_bp, url_prefix="/prepayment")
     app.register_blueprint(term_structure_bp, url_prefix="/term-structure")
+
