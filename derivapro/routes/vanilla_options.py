@@ -102,7 +102,7 @@ def save_assessment():
     
     try:
         # Save the assessment to a file or database for later use
-        with open('app/static/assessment.txt', 'w') as f:
+        with open('derivapro/static/assessment.txt', 'w') as f:
             f.write(assessment_data)
         return jsonify({"status": "success"})
     except Exception as e:
@@ -217,7 +217,7 @@ def european_options():
 
                 # Save the plot to the static directory
                 plot_filename = f'{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
                 
                 plt.savefig(plot_path)
                 plt.close()
@@ -389,7 +389,7 @@ def model_performance():
                 # Save plot to static directory
                 print('start plotting')
                 plot_filename = f'european_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
@@ -656,9 +656,9 @@ def model_performance():
 
                 # Plot and save
                 plot_convergence(mc_results, mode="simulations")
-                plt.savefig('app/static/vanilla_convergence_plot.png')
+                plt.savefig('derivapro/static/vanilla_convergence_plot.png')
                 plt.close()
-                print("Plot file exists after save?", os.path.exists('app/static/vanilla_convergence_plot.png'))
+                print("Plot file exists after save?", os.path.exists('derivapro/static/vanilla_convergence_plot.png'))
 
                 session['convergence_results'] = {
                     'results': mc_results,
@@ -967,7 +967,7 @@ def american_options():
                     
                     # Save plot
                     plot_filename = f'american_{target_variable}-{variable}_sensitivity_plot.png'
-                    plot_path = os.path.join('app', 'static', plot_filename)
+                    plot_path = os.path.join('derivapro', 'static', plot_filename)
                     plt.savefig(plot_path)
                     plt.close()
                     
@@ -990,7 +990,7 @@ def american_options():
                     # Save plot to static directory
                     print('start plotting')
                     plot_filename = f'american_{target_variable}-{variable}_sensitivity_plot.png'
-                    plot_path = os.path.join('app', 'static', plot_filename)
+                    plot_path = os.path.join('derivapro', 'static', plot_filename)
 
                     plt.savefig(plot_path)
 
@@ -1143,7 +1143,7 @@ def american_options():
                             price = mc_engine.price_american_option(strike_price, "put")
                         mc_results.append((int(n_paths), float(price)))
                     plot_convergence(mc_results, mode="simulations")
-                    plt.savefig('app/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
+                    plt.savefig('derivapro/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
                     session['convergence_results'] = {
                         'results': mc_results,
                         'mode': "simulations",
@@ -1163,7 +1163,7 @@ def american_options():
                     american_step_results = lattice_convergence_test(max_steps, max_sims, obs, LatticeModel, convergence_params, model, option_type)
 
                     plot_convergence(american_step_results, mode)
-                    plt.savefig('app/static/lattice_convergence_plot.png')   # <-- CHANGE HERE
+                    plt.savefig('derivapro/static/lattice_convergence_plot.png')   # <-- CHANGE HERE
                     session['convergence_results'] = {
                         'results': american_step_results,
                         'mode': mode,
