@@ -1,0 +1,884 @@
+<!-- Note: last updated on Aug 06 -->
+
+{% extends "base.html" %}
+
+{% block content %}
+<h2>American Vanilla Options</h2>
+<h3>Introduction</h3>
+
+<div id="markdown-content">
+    {{ md_content|safe }}
+</div>
+
+<div class="loading-spinner" id="loadingSpinner" style="display: none;">
+    <div class="spinner"></div>
+</div>
+
+<h3>Option Pricing</h3>
+
+<form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">  
+    <div class="form-group">
+        <label for="ticker">Stock Ticker:</label>
+        <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
+    </div>
+                
+    <div class="form-group">
+        <label for="strike_price">Strike Price:</label>
+        <input type="number" step="0.01" id="strike_price" name="strike_price" value="{{ form_data.strike_price }}" min="0" required>
+        <div id="strike-price-error" style="color: red; font-size: 0.9em; display: none;">Strike price must be positive</div>
+    </div>
+                
+    <div class="form-group">
+        <label for="start_date">Start Date (YYYY-MM-DD):</label>
+        <input type="date" id="start_date" name="start_date" value="{{ form_data.start_date }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="end_date">End Date (YYYY-MM-DD):</label>
+        <input type="date" id="end_date" name="end_date" value="{{ form_data.end_date }}" required>
+    </div>
+                
+    <div class="form-group">
+        <label for="r">Risk-Free Rate:</label>
+        <input type="number" step="0.001" id="r" name="r" value="{{ form_data.r }}" required>
+    </div>
+                
+    <div class="form-group">
+        <label for="sigma">Volatility:</label>
+        <input type="number" step="0.001" id="sigma" name="sigma" value="{{ form_data.sigma }}" min="0" required>
+        <div id="volatility-error" style="color: red; font-size: 0.9em; display: none;">Volatility must be positive</div>
+    </div>
+                
+    <div class="form-group">
+        <label for="option_type">Option Type:</label>
+        <select id="option_type" name="option_type" required>
+            <option value="call" {% if form_data.option_type == 'call' %}selected{% endif %}>Call</option>
+            <option value="put" {% if form_data.option_type == 'put' %}selected{% endif %}>Put</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="num_steps">Number of Steps:</label>
+        <input type="number" step="1" id="num_steps" name="num_steps" value="{{ form_data.num_steps }}">
+    </div>
+    
+    <div class="form-group">
+    <label for="pricing_model">Model:</label>
+    <select id="pricing_model" name="pricing_model" required onchange="toggleMonteCarloParams()">
+        <option value="Cox Ross Rubinstein Tree" {% if form_data.pricing_model == 'Cox Ross Rubinstein Tree' %}selected{% endif %}>Cox Ross Rubinstein Tree</option>
+        <option value="Jarrow Rudd Tree" {% if form_data.pricing_model == 'Jarrow Rudd Tree' %}selected{% endif %}>Jarrow Rudd Tree</option>
+        <option value="Trinomial Asset Pricing" {% if form_data.pricing_model == 'Trinomial Asset Pricing' %}selected{% endif %}>Trinomial Asset Pricing</option>
+        <option value="Monte Carlo" {% if form_data.pricing_model == 'Monte Carlo' %}selected{% endif %}>Monte Carlo</option>
+    </select>
+    </div>
+    
+    <!-- Monte Carlo specific parameters -->
+    <div id="monte_carlo_params" style="display: none;">
+        <div class="form-group">
+            <label for="num_paths">Number of Paths:</label>
+            <input type="number" id="num_paths" name="num_paths" value="{{ form_data.num_paths|default(10000) }}" min="1000" max="200000" step="1000">
+        </div>
+        <div class="form-group">
+            <label for="mc_steps">Number of Time Steps:</label>
+            <input type="number" id="mc_steps" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}" min="50" max="1000" step="1">
+        </div>
+    </div>
+    
+    <div class="form-group full-width">
+        <button type="submit">Calculate Option Price</button>
+    </div>
+</form>
+
+{% if option_price is not none %}
+<div class="result">
+    {% if form_data.model == 'Monte Carlo' %}
+    <div class="info-box">
+        <p><strong>Monte Carlo Simulation:</strong> This result is based on {{ form_data.num_paths|default(10000) }} simulation paths with {{ form_data.mc_steps|default(252) }} time steps. Results may vary slightly due to the stochastic nature of the simulation.</p>
+    </div>
+    {% endif %}
+    <h4>Option Price: {{ option_price }}</h4>
+    
+    <!-- Gen AI Assessment Section -->
+    <div class="ai-assessment-section">
+        <h4>AI Assessment</h4>
+        {% if session.get('gpt_american_option_assessment') %}
+            <div class="assessment-box">
+                <p><strong>Gen AI Assessment:</strong></p>
+                <p>{{ session['gpt_american_option_assessment'] }}</p>
+            </div>
+                    <!-- Always show the form for generating new assessments -->
+            <div class="assessment-box">
+                <p><strong>Generate AI Assessment:</strong></p>
+                <p>Customize your prompt below and click the button to get an AI-powered assessment of your American option pricing result.</p>
+                <form method="post" style="display: block;">
+                    <input type="hidden" name="analysis_type" value="ai_american_option_assessment">
+                    
+                    <div class="form-group">
+                        <label for="custom_prompt">Custom Prompt (optional):</label>
+                        <textarea id="custom_prompt" name="custom_prompt" rows="4" placeholder="Enter your custom prompt here, or leave blank for default assessment. Example: 'Focus on early exercise considerations and American vs European option differences'"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-secondary">Generate AI Assessment</button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Analysis Tabs -->
+<div id="analysis-section">
+    <h3>Analysis</h3>
+    <div class="tabs">
+        <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
+        <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
+        <button class="tab-button" onclick="openTab(event, 'convergence-analysis')">Convergence Analysis</button>
+        <button class="tab-button" onclick="openTab(event, 'rbpl-analysis')">RBPL Analysis</button>
+    </div>
+    <div id="sensitivity-analysis" class="tab-content">
+        <h4>Sensitivity Analysis</h4>
+        <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="analysis_type" value="sensitivity">
+            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+            <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+            <input type="hidden" name="r" value="{{ form_data.r }}">
+            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+            <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+            <input type="hidden" name="model" value="{{ form_data.model }}">
+            <input type="hidden" name="num_paths" value="{{ form_data.num_paths|default(10000) }}">
+            <input type="hidden" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}">
+            <div class="form-group">
+                <label for="num_sensitivity_steps">Number of Steps:</label>
+                <input type="number" id="num_sensitivity_steps" name="num_sensitivity_steps" value="{{ form_data.num_sensitivity_steps }}" required>
+            </div>
+            <div class="form-group">
+                <label for="step_range">Step Range:</label>
+                <input type="number" step="0.01" id="step_range" name="step_range" value="{{ form_data.step_range }}" required>
+            </div>
+            <div class="form-group">
+                <label for="variable">Input Variable:</label>
+                <select id="variable" name="variable" required>
+                    <option value="strike_price" {% if form_data.variable == 'strike_price' %}selected{% endif %}>Strike Price</option>
+                    <option value="risk_free_rate" {% if form_data.variable == 'risk_free_rate' %}selected{% endif %}>Risk Free Rate</option>
+                    <option value="volatility" {% if form_data.variable == 'volatility' %}selected{% endif %}>Volatility</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="target_variable">Target Variable:</label>
+                <select id="target_variable" name="target_variable" required>
+                    <option value="option_price" {% if form_data.target_variable == 'option_price' %}selected{% endif %}>Option Price</option>
+                    <option value="delta" {% if form_data.target_variable == 'delta' %}selected{% endif %}>Delta</option>
+                    <option value="gamma" {% if form_data.target_variable == 'gamma' %}selected{% endif %}>Gamma</option>
+                    <option value="vega" {% if form_data.target_variable == 'vega' %}selected{% endif %}>Vega</option>
+                    <option value="theta" {% if form_data.target_variable == 'theta' %}selected{% endif %}>Theta</option>
+                    <option value="rho" {% if form_data.target_variable == 'rho' %}selected{% endif %}>Rho</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <button type="button" onclick="submitForm('sensitivity-form', '/vanilla-options/american', 'sensitivity-results');">Run Sensitivity Analysis</button>
+            </div>
+        </form>
+        <div id="sensitivity-results" class="sens-results">
+            {% if sensitivity_results %}
+            <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}" alt="Sensitivity Analysis Plot">
+            <div class="assessment-section">
+                <h4>AI Assessment</h4>
+                <form id="ai-sensitivity-assessment-form" onsubmit="return false;" class="form-grid">
+                    <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
+                    <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+                    <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+                    <input type="hidden" name="r" value="{{ form_data.r }}">
+                    <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+                    <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+                    <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+                    <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+                    <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+                    <input type="hidden" name="model" value="{{ form_data.model }}">
+                    <div class="form-group full-width">
+                        <button type="button" onclick="submitForm('ai-sensitivity-assessment-form', '/vanilla-options/american', 'sensitivity-assessment-section');" class="assessment-button">Get AI Assessment</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        <div id="sensitivity-assessment-section" class="assessment-section">
+            {% if session.get('sensitivity_results', {}).get('gpt_sensitivity_assessment') %}
+            <div class="assessment-container">
+                <textarea id="sensitivity-assessment" class="assessment-textarea" readonly>{{ session['sensitivity_results']['gpt_sensitivity_assessment'] }}</textarea>
+                <div class="assessment-buttons">
+                    <button onclick="editAssessment('sensitivity-assessment')" class="edit-button">Edit</button>
+                    <button onclick="saveAssessment('sensitivity-assessment')" class="save-button" style="display: none;">Save</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div id="scenario-analysis" class="tab-content">
+        <h4>Scenario Analysis</h4>
+        <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="analysis_type" value="scenario">
+            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+            <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+            <input type="hidden" name="r" value="{{ form_data.r }}">
+            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+            <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+            <input type="hidden" name="model" value="{{ form_data.model }}">
+            <input type="hidden" name="num_paths" value="{{ form_data.num_paths|default(10000) }}">
+            <input type="hidden" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}">
+            <div class="form-group">
+                <label for="spot_scenario">Spot Price Scenario (% change):</label>
+                <select id="spot_scenario" name="spot_scenario" required>
+                    <option value="-0.25">-25%</option>
+                    <option value="-0.10">-10%</option>
+                    <option value="-0.05">-5%</option>
+                    <option value="0">0%</option>
+                    <option value="0.05">5%</option>
+                    <option value="0.10">10%</option>
+                    <option value="0.25">25%</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="vol_scenario">Volatility Scenario (abs change):</label>
+                <select id="vol_scenario" name="vol_scenario" required>
+                    <option value="-0.30">-30%</option>
+                    <option value="-0.10">-10%</option>
+                    <option value="-0.05">-5%</option>
+                    <option value="0">0%</option>
+                    <option value="0.05">5%</option>
+                    <option value="0.10">10%</option>
+                    <option value="0.30">30%</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="rate_scenario">Interest Rate Scenario (abs change):</label>
+                <select id="rate_scenario" name="rate_scenario" required>
+                    <option value="-0.05">-5%</option>
+                    <option value="-0.02">-2%</option>
+                    <option value="-0.01">-1%</option>
+                    <option value="0">0%</option>
+                    <option value="0.01">1%</option>
+                    <option value="0.02">2%</option>
+                    <option value="0.05">5%</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <button type="button" onclick="submitForm('scenario-form', '/vanilla-options/american', 'scenario-results');">Run Scenario Analysis</button>
+            </div>
+        </form>
+        <!-- Scenario Analysis Results -->
+        <div id="scenario-results" class="sens-results">
+            {% if scenario_results %}
+            <h4>Scenario Analysis Results</h4>
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>Scenarios</th>
+                        <th>Option Price</th>
+                        <th>Delta</th>
+                        <th>Gamma</th>
+                        <th>Vega</th>
+                        <th>Theta</th>
+                        <th>Rho</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Baseline</td>
+                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_price'] }}</td>
+                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_delta'] }}</td>
+                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_gamma'] }}</td>
+                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_vega'] }}</td>
+                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_theta'] }}</td>
+                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_rho'] }}</td>
+                    </tr>
+                    <tr>
+                        <td>Stressed</td>
+                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_price'] }}</td>
+                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_delta'] }}</td>
+                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_gamma'] }}</td>
+                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_vega'] }}</td>
+                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_theta'] }}</td>
+                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_rho'] }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <form id="ai-scenario-assessment-form" method="post">
+                <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
+                <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+                <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+                <input type="hidden" name="r" value="{{ form_data.r }}">
+                <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+                <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+                <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+                <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+                <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+                <input type="hidden" name="model" value="{{ form_data.model }}">
+                <div class="form-group full-width">
+                    <button type="button" onclick="submitForm('ai-scenario-assessment-form', '/vanilla-options/american', 'gpt-scenario-assessment-section');">AI Assessment</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+        <div id="gpt-scenario-assessment-section" class="gpt-results" style="margin-top: 20px;">
+            {% if session.get('scenario_results', {}).get('gpt_scenario_assessment') %}
+            <h4>MRM Assessment:</h4>
+            <div class="assessment-container">
+                <textarea id="gpt-scenario-assessment" class="assessment-textarea" readonly>{{ session['scenario_results']['gpt_scenario_assessment'] }}</textarea>
+                <div class="assessment-buttons">
+                    <button type="button" id="edit-scenario-assessment-btn" onclick="editAssessment('gpt-scenario-assessment');">Edit</button>
+                    <button type="button" id="save-scenario-assessment-btn" onclick="saveAssessment('gpt-scenario-assessment', '/vanilla-options/save-scenario-assessment');" style="display: none;">Save</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div id="convergence-analysis" class="tab-content">
+        <h4>Convergence Analysis</h4>
+        <form id="convergence-form" method="post" class="form-grid">
+            <input type="hidden" name="analysis_type" value="convergence">
+            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+            <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+            <input type="hidden" name="r" value="{{ form_data.r }}">
+            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+            <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+            <!-- <input type="hidden" name="model" value="{{ form_data.model }}"> -->
+            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+
+            <!-- Monte Carlo parameter block (visible only as needed, controlled by JS) -->
+            <div id="convergence-monte-carlo-params" style="display: none;">
+                <div class="form-group">
+                    <label for="num_paths_convergence">Number of Monte Carlo Paths:</label>
+                    <input type="number" id="num_paths_convergence" name="num_paths"
+                        value="{{ form_data.num_paths|default(10000) }}"
+                        min="1000" max="200000" step="1000">
+                </div>
+                <div class="form-group">
+                    <label for="mc_steps_convergence">Number of Monte Carlo Time Steps:</label>
+                    <input type="number" id="mc_steps_convergence" name="mc_steps"
+                        value="{{ form_data.mc_steps|default(252) }}"
+                        min="50" max="1000" step="1">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="mode">Mode:</label>
+                <select id="mode" name="mode" required>
+                    <option value="steps" {% if form_data.mode == 'steps' %}selected{% endif %}>Steps</option>
+                    <option value="simulations" {% if form_data.mode == 'simulations' %}selected{% endif %}>Simulations</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="model">Model:</label>
+                <select id="model" name="model" required>
+                <option value="Cox Ross Rubinstein Tree">Cox Ross Rubinstein Tree</option>
+                <option value="Jarrow Rudd Tree">Jarrow Rudd Tree</option>
+                <option value="Trinomial Asset Pricing">Trinomial Asset Pricing</option>
+                <option value="Monte Carlo">Monte Carlo</option>
+                </select>
+            </div>
+
+            <!-- No duplicate MC block here, only the ONE above remains  -->
+            <div class="form-group" id="max_steps_group">
+                <label for="max_steps"># of Time Steps (Maximum if Mode=Steps):</label>
+                <input type="number" id="max_steps" name="max_steps"
+                    value="{{ form_data.max_steps|default('') }}">
+            </div>
+
+            <div class="form-group">
+                <label for="obs">Observations:</label>
+                <input type="number" id="obs" name="obs" value="{{ form_data.obs }}" required>
+            </div>
+
+            <div class="form-group full-width">
+                <button type="submit" name="run_convergence_analysis" onclick="this.form.dataset.action='run_convergence_analysis';">Run Convergence Analysis</button>
+            </div>
+        </form>
+        <div id="convergence-results" class="sens-results">
+            {% if convergence_results %}
+            {% set plot_file = session.get('convergence_results', {}).get('plot_filename', 'lattice_convergence_plot.png') %}
+            <img src="{{ url_for('static', filename=plot_file) }}" alt="Convergence Analysis Plot">
+            <form id="ai-convergence-assessment-form" onsubmit="return false;" class="form-grid">
+                <input type="hidden" name="analysis_type" value="ai_convergence_assessment">
+                <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+                <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+                <input type="hidden" name="r" value="{{ form_data.r }}">
+                <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+                <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+                <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+                <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+                <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+                <!-- <input type="hidden" name="model" value="{{ form_data.model }}"> -->
+                <div class="form-group full-width">
+                    <button type="button" onclick="submitForm('ai-convergence-assessment-form', '/vanilla-options/american', 'convergence-assessment-section');" class="assessment-button">Get AI Assessment</button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+        <div id="convergence-assessment-section">
+            {% if session.get('convergence_results', {}).get('gpt_convergence_assessment') %}
+            <div class="assessment-container">
+                <textarea id="convergence-assessment" class="assessment-textarea" readonly>{{ session['convergence_results']['gpt_convergence_assessment'] }}</textarea>
+                <div class="assessment-buttons">
+                    <button onclick="editAssessment('convergence-assessment')" class="edit-button">Edit</button>
+                    <button onclick="saveAssessment('convergence-assessment')" class="save-button" style="display: none;">Save</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    <div id="rbpl-analysis" class="tab-content">
+        <h4>RBPL Analysis</h4>
+        <form id="rbpl-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="analysis_type" value="risk_pl">
+            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+            <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+            <input type="hidden" name="r" value="{{ form_data.r }}">
+            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+            <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+            <input type="hidden" name="model" value="{{ form_data.model }}">
+            <input type="hidden" name="num_paths" value="{{ form_data.num_paths|default(10000) }}">
+            <input type="hidden" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}">
+            
+            <div class="form-group">
+                <label for="price_change">Bump in Spot Price:</label>
+                <input type="number" step="0.01" id="price_change" name="price_change" value="{{ form_data.price_change }}" required>
+            </div>
+            <div class="form-group">
+                <label for="vol_change">Bump in Volatility:</label>
+                <input type="number" step="0.01" id="vol_change" name="vol_change" value="{{ form_data.vol_change }}" required>
+            </div>            
+            <div class="form-group full-width">
+                <button type="button" onclick="submitForm('rbpl-form', '/vanilla-options/american', 'rbpl-results');">Run RBPL Analysis</button>
+            </div>                           
+        </form>
+        <div id="rbpl-results">
+            {% if risk_pl_results %}
+            <div class="result">
+                <h4>Results:</h4>
+                <div class="horizontal-table">
+                    <div class="table-row">
+                        <div class="table-cell">Actual P&L</div>
+                        <div class="table-cell">Greek P&L Sum</div>
+                        <div class="table-cell">Difference</div>
+                    </div>
+                    <div class="table-row">
+                        <div class="table-cell">{{ risk_pl_results['Actual P&L'] }}</div>
+                        <div class="table-cell">{{ risk_pl_results['Greek P&L Sum'] }}</div>
+                        <div class="table-cell">{{ risk_pl_results['Difference'] }}</div>
+                    </div>
+                    <br>
+            <h4>Intermediate Calcuations:</h4>
+                    <div class="table-row">
+                        <div class="table-cell">Initial Price</div>
+                        <div class="table-cell">Bumped Price</div>
+                        <div class="table-cell">Delta P&L</div>
+                        <div class="table-cell">Gamma P&L</div>
+                        <div class="table-cell">Vega P&L</div>
+                    </div>
+                    <div class="table-row">
+                        <div class="table-cell">{{ risk_pl_results['Initial Price'] }}</div>
+                        <div class="table-cell">{{ risk_pl_results['Bumped Price'] }}</div>
+                        <div class="table-cell">{{ risk_pl_results['Delta P&L'] }}</div>
+                        <div class="table-cell">{{ risk_pl_results['Gamma P&L'] }}</div>
+                        <div class="table-cell">{{ risk_pl_results['Vega P&L'] }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Assessment Section -->
+            <div class="assessment-section">
+                <h4>AI Assessment</h4>
+                <form id="ai-rpbl-assessment-form" onsubmit="return false;" class="form-grid">
+                    <input type="hidden" name="analysis_type" value="ai_rpbl_assessment">
+                    <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+                    <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+                    <input type="hidden" name="r" value="{{ form_data.r }}">
+                    <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+                    <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+                    <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+                    <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+                    <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+                    <input type="hidden" name="model" value="{{ form_data.model }}">
+                    <div class="form-group full-width">
+                        <button type="button" onclick="submitForm('ai-rpbl-assessment-form', '/vanilla-options/american', 'rpbl-assessment-section');" class="assessment-button">Get AI Assessment</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        <div id="rpbl-assessment-section">
+            {% if session.get('risk_pl_results', {}).get('gpt_rpbl_assessment') %}
+            <div class="assessment-container">
+                <textarea id="rpbl-assessment" class="assessment-textarea" readonly>{{ session['risk_pl_results']['gpt_rpbl_assessment'] }}</textarea>
+                <div class="assessment-buttons">
+                    <button onclick="editAssessment('rpbl-assessment')" class="edit-button">Edit</button>
+                    <button onclick="saveAssessment('rpbl-assessment')" class="save-button" style="display: none;">Save</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Form Submission and Loading Spinner -->
+<script>
+var formData = {{ form_data|tojson|safe }};
+document.getElementById('options-form').addEventListener('submit', function(event) {
+    var loadingSpinner = document.getElementById('loadingSpinner');
+    loadingSpinner.style.display = 'block';  // Show spinner on form submit
+
+    window.addEventListener('load', function() {
+        loadingSpinner.style.display = 'none';  // Hide spinner on page load
+    });
+});
+
+// JavaScript for AJAX Form Submission
+function submitForm(formId, url, updateId) {
+    var form = document.getElementById(formId);
+    var formData = new FormData(form);
+    var xhr = new XMLHttpRequest();
+
+    xhr.open("POST", url, true);
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4 && xhr.status === 200) {
+            console.log("Form submitted successfully");
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(xhr.responseText, 'text/html');
+
+            // Update the relevant section
+            var updateSection = doc.getElementById(updateId);
+            if (updateSection) {
+                document.getElementById(updateId).innerHTML = updateSection.innerHTML;
+                // Show the results section after successfully updating it
+                document.getElementById(updateId).style.display = 'block';
+                
+                // If this is a sensitivity assessment form submission, ensure we stay on the sensitivity tab
+                if (formId === 'ai-sensitivity-assessment-form') {
+                    // Keep the sensitivity tab active
+                    var sensitivityTab = document.querySelector('button[onclick="openTab(event, \'sensitivity-analysis\')"]');
+                    if (sensitivityTab) {
+                        sensitivityTab.click();
+                    }
+                }
+            } else {
+                console.log("Update section not found");
+            }
+        } else if (xhr.readyState === 4) {
+            console.log("Error in form submission: " + xhr.status);
+        }
+    };
+
+    xhr.onerror = function() {
+        console.log("Request failed");
+    };
+
+    xhr.send(formData);
+}
+
+// JavaScript for Tabs
+function openTab(evt, tabName) {
+    var i, tabcontent, tablinks;
+
+    // Hide all tab contents
+    tabcontent = document.getElementsByClassName("tab-content");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+
+    // Remove the active class from all tab buttons
+    tablinks = document.getElementsByClassName("tab-button");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+
+    // Show the current tab content and add an active class to the button that opened the tab
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+
+    // If switching to sensitivity tab, ensure the assessment section is visible if it has content
+    if (tabName === 'sensitivity-analysis') {
+        var sensitivityAssessment = document.getElementById('sensitivity-assessment-section');
+        if (sensitivityAssessment && sensitivityAssessment.innerHTML.trim() !== '') {
+            sensitivityAssessment.style.display = 'block';
+        }
+    }
+}
+
+// By default, open the first tab
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelector(".tab-button").click();
+});
+
+function editAssessment(textareaId) {
+    const textarea = document.getElementById(textareaId);
+    const saveBtn = document.getElementById('save-scenario-assessment-btn');
+    textarea.readOnly = false;
+    saveBtn.style.display = 'inline-block';
+}
+
+function saveAssessment(textareaId, url) {
+    const textarea = document.getElementById(textareaId);
+    const saveBtn = document.getElementById('save-scenario-assessment-btn');
+    
+    // Send the updated assessment to the server
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            assessment: textarea.value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            textarea.readOnly = true;
+            saveBtn.style.display = 'none';
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function toggleMonteCarloParams() {
+    const modelType = document.getElementById('pricing_model').value;
+    const mcParams = document.getElementById('monte_carlo_params');
+    const numStepsField = document.getElementById('num_steps').parentElement;
+    const numStepsInput = document.getElementById('num_steps');
+
+    if (modelType === 'Monte Carlo') {
+        mcParams.style.display = 'block';
+        numStepsField.style.display = 'none';
+        numStepsInput.disabled = true;
+    } else {
+        mcParams.style.display = 'none';
+        numStepsField.style.display = 'block';
+        numStepsInput.disabled = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleMonteCarloParams();
+});
+
+function validateForm() {
+    // Clear all previous error messages
+    document.getElementById('strike-price-error').style.display = 'none';
+    document.getElementById('volatility-error').style.display = 'none';
+    
+    const strikePrice = parseFloat(document.getElementById('strike_price').value);
+    const volatility = parseFloat(document.getElementById('sigma').value);
+    
+    let hasErrors = false;
+    
+    // Validate strike price
+    if (isNaN(strikePrice) || strikePrice <= 0) {
+        document.getElementById('strike-price-error').style.display = 'block';
+        hasErrors = true;
+    }
+    
+    // Validate volatility
+    if (isNaN(volatility) || volatility <= 0) {
+        document.getElementById('volatility-error').style.display = 'block';
+        hasErrors = true;
+    }
+    
+    // If there are errors, prevent form submission
+    if (hasErrors) {
+        alert('Please fix all validation errors before submitting the form.');
+        return false;
+    }
+    
+    return true;
+}
+
+const latticeModels = [
+  { value: "Cox Ross Rubinstein Tree", text: "Cox Ross Rubinstein Tree" },
+  { value: "Jarrow Rudd Tree", text: "Jarrow Rudd Tree" },
+  { value: "Trinomial Asset Pricing", text: "Trinomial Asset Pricing" }
+];
+const mcModels = [
+  { value: "Monte Carlo", text: "Monte Carlo" }
+];
+
+function updateConvergenceModelOptions() {
+  const mode = document.getElementById('mode').value;
+  const modelSelect = document.getElementById('model');
+  // Clear existing options
+  modelSelect.innerHTML = '';
+  let options = [];
+  if (mode === "steps") {
+    options = latticeModels;
+  } else if (mode === "simulations") {
+    options = mcModels;
+  }
+  options.forEach(opt => {
+    const option = document.createElement('option');
+    option.value = opt.value;
+    option.text = opt.text;
+    // If the saved value matches, set selected
+    if (typeof formData !== 'undefined' && formData.model === opt.value) {
+      option.selected = true;
+    }
+    modelSelect.appendChild(option);
+  });
+
+  // (Optionally) Show/hide MC parameter inputs
+  const mcParamsDiv = document.getElementById('convergence-monte-carlo-params');
+  if (mode === "simulations") {
+    mcParamsDiv.style.display = 'block';
+  } else {
+    mcParamsDiv.style.display = 'none';
+  }
+  
+  if (!modelSelect.value && modelSelect.options.length > 0) {
+    modelSelect.selectedIndex = 0;
+  }
+}
+
+// Attach event on mode change, and initialize on DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('mode').addEventListener('change', function() {
+    updateConvergenceModelOptions();
+    updateConvergenceFields();
+  });
+  document.getElementById('model').addEventListener('change', updateConvergenceFields);
+  updateConvergenceModelOptions();
+  updateConvergenceFields();
+});
+
+function updateConvergenceFields() {
+  const mode = document.getElementById('mode').value;
+  const model = document.getElementById('model').value;
+
+  // Monte Carlo convergence step fields
+  const mcParams = document.getElementById('convergence-monte-carlo-params');
+  // The regular "max_steps" (Tree models)
+  const maxStepsGroup = document.getElementById('max_steps_group');
+
+  if (mode === "simulations" && model === "Monte Carlo") {
+    mcParams.style.display = 'block';
+    maxStepsGroup.style.display = 'none';
+  } else if (mode === "steps") {
+    // Only tree models possible (MC not available)
+    mcParams.style.display = 'none';
+    maxStepsGroup.style.display = 'block';
+  } else {
+    // Fallback case
+    mcParams.style.display = 'none';
+    maxStepsGroup.style.display = 'block';
+  }
+}
+</script>
+
+<style>
+.assessment-container {
+    margin: 20px 0;
+}
+
+.assessment-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.assessment-buttons {
+    margin-top: 10px;
+}
+
+.assessment-buttons button {
+    margin-right: 10px;
+    padding: 5px 15px;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+.assessment-buttons button:hover {
+    background-color: #0056b3;
+}
+
+.gpt-results {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 4px;
+    margin-top: 20px;
+}
+
+.assessment-section {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.assessment-container {
+    margin: 20px 0;
+}
+
+.assessment-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    background-color: white;
+}
+
+.assessment-buttons {
+    margin-top: 10px;
+}
+
+.assessment-buttons button {
+    margin-right: 10px;
+    padding: 5px 15px;
+    border: none;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+.assessment-buttons button:hover {
+    background-color: #0056b3;
+}
+
+.assessment-button {
+    background-color: #28a745;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.assessment-button:hover {
+    background-color: #218838;
+}
+</style>
+
+{% endblock %}
