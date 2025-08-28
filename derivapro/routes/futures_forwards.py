@@ -104,7 +104,7 @@ def forwards():
                     pass
                 
                 plot_filename = f'forwards_{variable}_{step_range}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
                 plt.savefig(plot_path)   
                 session['forward_sensitivity_analysis_results'] = {'plot_filename': plot_filename,
                                                                    'step_range': step_range,
@@ -287,7 +287,7 @@ def futures():
                     pass
                 
                 plot_filename = f'futures-{variable}-{step_range}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
                 plt.savefig(plot_path)   
                 
                 session['future_sensitivity_analysis_results'] = {'plot_filename': plot_filename,
