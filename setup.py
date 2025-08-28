@@ -9,9 +9,13 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=requirements,
-    include_package_data=True,  # ensures package_data and MANIFEST.in are used
+    include_package_data=True,
     package_data={
-        "derivapro": ["*.md", "templates/*.html"],  # include Markdown and HTML templates
+        "derivapro": [
+            "*.md",
+            "templates/*.html",   # HTML templates
+            "static/**/*",        # all files in static and subfolders
+        ],
     },
 )
 
