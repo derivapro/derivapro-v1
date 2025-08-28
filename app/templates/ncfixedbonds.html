@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>NonCallable Fixed Bonds</h2>
+<h3>Introduction</h3>
+
+<div id="markdown-content">
+    {{ md_content|safe }}
+</div>
+
+<div class="loading-spinner" id="loadingSpinner" style="display: none;">
+    <div class="spinner"></div>
+</div>
+
+<h3>Bond Pricing</h3>
+
+<form id="fixed-bond-form" method="post" class="form-grid">
+    <div class="form-group">
+        <label for="value_date">Evaluation Date:</label>
+        <input type="date" id="value_date" name="value_date" value="{{ form_data.value_date }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="spot_dates">Spot Dates (Comma separated list; YYYY-MM-DD):</label>
+        <input type="text" id="spot_dates" name="spot_dates" value="{{ form_data.spot_dates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="spot_rates">Spot Rates (Comma separated list):</label>
+        <input type="text" id="spot_rates" name="spot_rates" value="{{ form_data.spot_rates }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="shocks">Shocks (Comma separated list (%)):</label>
+        <input type="text" id="shocks" name="shocks" value="{{ form_data.shocks }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="day_count">Day Count Convention:</label>
+        <select id="day_count" name="day_count" required>
+            <option value="Actual360" {% if form_data.day_count == 'Actual360' %}selected{% endif %}>Actual/360</option>
+            <option value="Actual365Fixed" {% if form_data.day_count == 'Actual365Fixed' %}selected{% endif %}>Actual/365 (Fixed)</option>
+            <option value="Thirty360" {% if form_data.day_count == 'Thirty360' %}selected{% endif %}>30/360</option>
+            <option value="ActualActual" {% if form_data.day_count == 'ActualActual' %}selected{% endif %}>Actual/Actual</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="interpolation">Interpolation Method:</label>
+        <select id="interpolation" name="interpolation" required>
+            <option value="Linear" {% if form_data.interpolation == 'Linear' %}selected{% endif %}>Linear</option>
+            <option value="LogLinear" {% if form_data.interpolation == 'LogLinear' %}selected{% endif %}>Log Linear</option>
+            <option value="Cubic" {% if form_data.interpolation == 'Cubic' %}selected{% endif %}>Cubic</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="compounding">Compounding Method:</label>
+        <select id="compounding" name="compounding" required>
+            <option value="Simple" {% if form_data.compounding == 'Simple' %}selected{% endif %}>Simple</option>
+            <option value="Compounded" {% if form_data.compounding == 'Compounded' %}selected{% endif %}>Compounded</option>
+            <option value="Continuous" {% if form_data.compounding == 'Continuous' %}selected{% endif %}>Continuous</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="calendar">Calendar:</label>
+        <select id="calendar" name="calendar" required>
+            <option value="UnitedStates" {% if form_data.calendar == 'UnitedStates' %}selected{% endif %}>United States</option>
+            <option value="UnitedKingdom" {% if form_data.calendar == 'UnitedKingdom' %}selected{% endif %}>United Kingdom</option>
+            <option value="TARGET" {% if form_data.calendar == 'TARGET' %}selected{% endif %}>TARGET</option>
+            <option value="China" {% if form_data.calendar == 'China' %}selected{% endif %}>China</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="tenor">Tenor:</label>
+        <select id="tenor" name="tenor" required>
+            <option value="Monthly" {% if form_data.tenor == 'Monthly' %}selected{% endif %}>Monthly</option>
+            <option value="Quarterly" {% if form_data.tenor == 'Quarterly' %}selected{% endif %}>Quarterly</option>
+            <option value="Semiannual" {% if form_data.tenor == 'Semiannual' %}selected{% endif %}>Semiannual</option>
+            <option value="Annual" {% if form_data.tenor == 'Annual' %}selected{% endif %}>Annual</option>
+        </select>
+    </div>
+    
+    <div class="form-group">
+        <label for="compounding_frequency">Compounding Frequency:</label>
+        <select id="compounding_frequency" name="compounding_frequency" required>
+            <option value="Annual" {% if form_data.compounding_frequency == 'Annual' %}selected{% endif %}>Annual</option>
+            <option value="Semiannual" {% if form_data.compounding_frequency == 'Semiannual' %}selected{% endif %}>Semi-Annual</option>
+            <option value="Quarterly" {% if form_data.compounding_frequency == 'Quarterly' %}selected{% endif %}>Quarterly</option>
+            <option value="Monthly" {% if form_data.compounding_frequency == 'Monthly' %}selected{% endif %}>Monthly</option>
+            <option value="Daily" {% if form_data.compounding_frequency == 'Daily' %}selected{% endif %}>Daily</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="issue_date">Issue Date:</label>
+        <input type="date" id="issue_date" name="issue_date" value="{{ form_data.issue_date }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="maturity_date">Maturity Date:</label>
+        <input type="date" id="maturity_date" name="maturity_date" value="{{ form_data.maturity_date }}" required>
+    </div>
+
+    <div class="form-group">
+        <label for="notional">Notional:</label>
+        <input type="number" step="0.01" id="notional" name="notional" value="{{ form_data.notional }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label for="coupon_rate">Coupon:</label>
+        <input type="number" step="0.01" id="coupon_rate" name="coupon_rate" value="{{ form_data.coupon_rate }}" required>
+    </div>
+
+    <div class="form-group full-width">
+        <button type="submit">Calculate Fixed Bond Price</button>
+    </div>
+</form>
+
+{% if fr_bond_results is not none %}
+<div class="result">
+    <h2>Fixed Bond Results:</h2>
+    {% for shock_result in fr_bond_results %}
+        {% if shock_result != 'Values' %}
+        <div class="shock-section">
+            <h3>Shock in bps: {{ shock_result }}</h3>
+            <div class="horizontal-table">
+                <div class="table-row">
+                    <div class="table-cell">NPV</div>
+                    <div class="table-cell">Price</div>
+                    <div class="table-cell">YTM</div>
+                    <div class="table-cell">Duration</div>
+                    <div class="table-cell">Dollar Duration</div>
+                    <div class="table-cell">Convexity</div>
+                    <div class="table-cell">Dollar Convexity</div>
+                </div>
+                <div class="table-row">
+                    <div class="table-cell">{{ fr_bond_results[shock_result]['NPV'] }}</div>
+                    <div class="table-cell">{{ fr_bond_results[shock_result]['Price'] }}</div>
+                    <div class="table-cell">{{ fr_bond_results[shock_result]['YTM'] }}</div>
+                    <div class="table-cell">{{ fr_bond_results[shock_result]['Duration'] }}</div>
+                    <div class="table-cell">{{ fr_bond_results[shock_result]['Dollar Duration'] }}</div>
+                    <div class="table-cell">{{ fr_bond_results[shock_result]['Convexity'] }}</div>
+                    <div class="table-cell">{{ fr_bond_results[shock_result]['Dollar Convexity'] }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+
+    <!-- AI Assessment Button and Form -->
+    <div class="assessment-section" style="margin-top: 20px;">
+        <form method="POST" id="assessment-form" onsubmit="return submitAssessment(event)">
+            <input type="hidden" name="analysis_type" value="ai_assessment">
+            <!-- Include all original form data -->
+            <input type="hidden" name="value_date" value="{{ form_data.value_date }}">
+            <input type="hidden" name="spot_dates" value="{{ form_data.spot_dates }}">
+            <input type="hidden" name="spot_rates" value="{{ form_data.spot_rates }}">
+            <input type="hidden" name="shocks" value="{{ form_data.shocks }}">
+            <input type="hidden" name="day_count" value="{{ form_data.day_count_val }}">
+            <input type="hidden" name="calendar" value="{{ form_data.calendar_val }}">
+            <input type="hidden" name="interpolation" value="{{ form_data.interpolation_val }}">
+            <input type="hidden" name="compounding" value="{{ form_data.compounding_val }}">
+            <input type="hidden" name="compounding_frequency" value="{{ form_data.compounding_frequency_val }}">
+            <input type="hidden" name="issue_date" value="{{ form_data.issue_date }}">
+            <input type="hidden" name="maturity_date" value="{{ form_data.maturity_date }}">
+            <input type="hidden" name="tenor" value="{{ form_data.tenor_val }}">
+            <input type="hidden" name="coupon_rate" value="{{ form_data.coupon_rate }}">
+            <input type="hidden" name="notional" value="{{ form_data.notional }}">
+            
+            <button type="submit" class="assessment-btn" id="assessmentBtn">
+                <i class="fas fa-robot"></i> Get AI Assessment
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if gpt_assessment %}
+<div class="assessment-result" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+    <h3>AI Assessment</h3>
+    <div class="assessment-content" style="white-space: pre-wrap;">{{ gpt_assessment|safe }}</div>
+</div>
+{% endif %}
+
+<style>
+.assessment-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.assessment-btn:hover {
+    background-color: #45a049;
+}
+
+.assessment-btn:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.assessment-btn i {
+    font-size: 18px;
+}
+
+.assessment-content {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    margin-top: 10px;
+}
+
+.assessment-result {
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.loading-spinner {
+    display: none;
+    margin: 20px 0;
+    text-align: center;
+}
+
+.spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+function submitAssessment(event) {
+    event.preventDefault();
+    const form = event.target;
+    const button = form.querySelector('.assessment-btn');
+    const spinner = document.getElementById('loadingSpinner');
+    
+    // Disable button and show spinner
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    if (spinner) spinner.style.display = 'block';
+
+    // Submit form via AJAX
+    fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+    })
+    .then(html => {
+        // Parse the response HTML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Update the assessment result section
+        const assessmentResult = doc.querySelector('.assessment-result');
+        if (assessmentResult) {
+            const currentResult = document.querySelector('.assessment-result');
+            if (currentResult) {
+                currentResult.remove();
+            }
+            document.querySelector('.assessment-section').after(assessmentResult);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Show error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'alert alert-danger';
+        errorDiv.style.marginTop = '20px';
+        errorDiv.innerHTML = `Error getting assessment: ${error.message}. Please try again.`;
+        document.querySelector('.assessment-section').after(errorDiv);
+    })
+    .finally(() => {
+        // Re-enable button and hide spinner
+        button.disabled = false;
+        button.innerHTML = '<i class="fas fa-robot"></i> Get AI Assessment';
+        if (spinner) spinner.style.display = 'none';
+    });
+
+    return false;
+}
+</script>
+
+{% endblock %}

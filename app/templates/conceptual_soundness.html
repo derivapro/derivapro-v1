@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="content">
+    <h2>Conceptual Soundness</h2>
+    <div id="markdown-content">
+        {{ content | safe }}
+    </div>
+</div>
+{% endblock %}
