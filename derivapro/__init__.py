@@ -10,10 +10,13 @@ from .routes import register_routes
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object('app.config.Config')
+    app.config.from_object('derivapro.config.Config')  # updated package name
 
     register_routes(app)
 
     return app
 
+def launch():
+    app = create_app()
+    app.run(debug=True)
 
