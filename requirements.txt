@@ -12,3 +12,5 @@ reportlab>=3.6.12
 python-dotenv>=1.0.0
 fredapi >= 0.5.2
 python-dateutil==2.8.2
+
+# testing
