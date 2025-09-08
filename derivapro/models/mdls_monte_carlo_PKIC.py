@@ -1,4 +1,4 @@
-# Note: last updated on Aug 06
+# Last updated Sep 08
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -349,6 +349,11 @@ def brownian_bridge_insert(times, path, randoms):
         
     # Interpolate between closest surrounding pillars
     interpolate(0, n_steps-1)
+
+def get_year_fraction_dates(start_date, date_list):
+    """Convert list of datetimes to list of year-fraction offsets from start_date."""
+    start = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    return [(date - start).days / 365.25 for date in date_list]
 
 class MonteCarloSimulationEngine:
     """
@@ -726,6 +731,7 @@ class MonteCarloSimulationEngine:
         Returns:
         - Option price (guaranteed non-negative)
         """
+
         print("---[DEBUG: New MC Inputs]---")
         print(f"Spot (S0): {self.S0}")
         print(f"Strike: {strike_price}")
@@ -746,100 +752,46 @@ class MonteCarloSimulationEngine:
         if option_type.lower() not in ["call", "put"]:
             raise ValueError("Option type must be 'call' or 'put'")
 
-        # Ensure averaging_dates are sorted and calculate their indices in the MC grid
-        averaging_dates = sorted(averaging_dates)
-        time_indices = self._convert_dates_to_indices(averaging_dates)
-        print("[DEBUG] MC time grid:")
-        # Print to verify if index 0 (S0) is included in MC averaging
-        print(f"[DEBUG] MC time_indices: {time_indices}")
-        print(f"[DEBUG] First averaging datetime: {averaging_dates[0]}")
-        # Remove index 0 from MC averaging indices unless the user explicitly picked the simulation start date
-        if 0 in time_indices:
-            # The simulation start date (today) as a date object (rounded to day)
-            sim_start_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-            first_avg_dt = averaging_dates[0].replace(hour=0, minute=0, second=0, microsecond=0)
+        # 1. Set "today" to match QuantLib's calculation date
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-            # If the first averaging date is not today (i.e., the simulation start), remove index 0
-            if abs((first_avg_dt - sim_start_dt).days) > 0:
-                print("[DEBUG] Removing MC index 0 from time_indices (S0 not explicitly requested by user for averaging)")
-                time_indices = [idx for idx in time_indices if idx != 0]
-                
-        grid = [i * self.T / self.num_steps for i in range(self.num_steps + 1)]
-        for idx in time_indices:
-            print(f"  Averaging index: {idx}, corresponds to MC time: {grid[idx]:.6f} yrs")
+        # 2. Sort and de-duplicate averaging dates as before
+        averaging_dates_sorted = sorted(list(set(averaging_dates)))
 
-        # Print comparison: MC grid "calendar" date vs. user input date
-        for i, idx in enumerate(time_indices):
-            # Convert MC step years to approx calendar date (assume valuation is today)
-            approx_date = datetime.now() + timedelta(days=grid[idx]*365.25)
-            user_date = averaging_dates[i]
-            print(f"[DEBUG] Averaging idx: {idx}, MC grid: {grid[idx]:.6f} yrs, "
-                f"approx_date: {approx_date.date()}, user_date: {user_date.date()}, "
-                f"days_diff: {(approx_date.date() - user_date.date()).days}")
+        # 3. Build the time grid as year fractions from today
+        time_grid = [(d - today).days / 365.0 for d in averaging_dates_sorted]
 
-        # Generate random numbers and simulate asset paths with negative price protection
-        uniform_randoms = self.generate_uniform_randoms()
-        normal_randoms = self.generate_normal_randoms(uniform_randoms)
-        paths = self.safe_euler_paths(normal_randoms)
+        print(f"[New MC] Anchor 'today' = {today}")
+        print(f"[New MC] Averaging Dates and time grid:")
+        for d, tfrac in zip(averaging_dates_sorted, time_grid):
+            print(f"  Averaging Date: {d.date()}  |  Year fraction from today: {tfrac:.6f}")
 
-        # stock_paths shape: (num_paths, num_steps+1)
-        stock_paths = paths[:, :, 0]
+        num_steps = len(time_grid) - 1
 
-        # Compute arithmetic average along the relevant dates (steps)
-        # average_prices = self._calculate_average_prices(stock_paths, time_indices)
+        n_paths = self.num_paths
+        S_paths = np.zeros((n_paths, len(time_grid)))
+        S_paths[:, 0] = self.S0[0] if isinstance(self.S0, np.ndarray) else self.S0
 
-        averaged_path_values = []
-        dt = self.T / self.num_steps
-        sim_start_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        Z = np.random.normal(size=(n_paths, num_steps))
+        for i in range(1, len(time_grid)):
+            dt = time_grid[i] - time_grid[i-1]
+            drift = (self.r - dividend_yield - 0.5 * self.sigma[0] ** 2) * dt
+            vol = self.sigma[0] * np.sqrt(dt)
+            S_paths[:, i] = S_paths[:, i-1] * np.exp(drift + vol * Z[:, i-1])
 
-        for date in averaging_dates:
-            # Find the year fraction for this averaging date:
-            avg_years = (date - sim_start_dt).days / 365.25
-            grid_loc = avg_years / dt
-            low = int(floor(grid_loc))
-            high = int(ceil(grid_loc))
-            alpha = grid_loc - low  # Fractional part
-
-            # Prevent out-of-bounds indexing at the right edge
-            max_idx = stock_paths.shape[1] - 1
-            if high > max_idx:
-                high = max_idx
-                low = max_idx
-                alpha = 0.0
-
-            print(f"[DEBUG] Interpolating: date={date}, grid_loc={grid_loc:.3f}, low={low}, high={high}, alpha={alpha:.4f}")
-
-            interpolated = (
-                (1 - alpha) * stock_paths[:, low] +
-                alpha     * stock_paths[:, high]
-            )
-            averaged_path_values.append(interpolated)
-
-        # Stack to shape (num_paths, num_averaging_dates) and take mean across the correct axis
-        averaged_path_values = np.vstack(averaged_path_values).T  # shape: (num_paths, num_avg_dates)
-        average_prices = np.mean(averaged_path_values, axis=1)
-
-        print(f"[DEBUG] Sample of average prices calculated (first 5 paths): {average_prices[:5]}")
-        # Optional: print out paths at those indices for the first path
-        print("[DEBUG] Path values at averaging indices (first path):")
-        print([stock_paths[0, idx] for idx in time_indices])
-
-        # Calculate payoffs
+        average_prices = np.mean(S_paths, axis=1)
         if option_type.lower() == "call":
             payoffs = np.maximum(average_prices - strike_price, 0)
         else:
             payoffs = np.maximum(strike_price - average_prices, 0)
 
-        # Discount to present value
-        T_years = self.T
-        option_price = np.exp(-self.r * T_years) * np.mean(payoffs)
+        print("[New MC] MC mean of average prices (before payoff):", np.mean(average_prices))
+        print("[New MC] MC mean payoff before discounting:", np.mean(payoffs))
 
+        # 4. Discount using final time_grid entry (which is exactly years from today to expiry)
+        T_discount = time_grid[-1]
+        option_price = np.exp(-self.r * T_discount) * np.mean(payoffs)
         print(f"Asian {option_type} option priced: ${option_price:.4f}")
-        print(f"Strike price: ${strike_price:.2f}")
-        print(f"Number of averaging dates: {len(averaging_dates)}")
-        print(f"Average price range: [{average_prices.min():.2f}, {average_prices.max():.2f}]")
-        print(f"Payoff range: [{payoffs.min():.4f}, {payoffs.max():.4f}]")
-
         return option_price
 
     def price_autocallable_option(

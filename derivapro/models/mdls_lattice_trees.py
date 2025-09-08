@@ -1,4 +1,4 @@
-# Note: last updated on Aug 06
+# Last updated Sep 08
 
 import math
 #from cgitb import small
@@ -18,7 +18,8 @@ class LatticeModel:
         self.spot_price = float(StockData(ticker, start_date, end_date).get_closing_price())
         self.risk_free_rate = risk_free_rate
         self.volatility = volatility
-        
+
+      
     def Cox_Ross_Rubinstein_Tree(self, option_type='call', steps=100, plot_vis='no', greeks=False):
         print(f"[DEBUG] Running Cox Ross Rubinstein Tree: steps={steps}, option_type={option_type}")
 
@@ -34,8 +35,8 @@ class LatticeModel:
         pd=1-pu
         disc=math.exp(-self.risk_free_rate*self.time_to_expiry/steps)
 
-        St = [0] * (steps+1)
-        C = [0] * (steps+1)
+        St: list[float] = [0] * (steps+1)
+        C: list[float] = [0] * (steps+1)
         
         St[0]=self.spot_price*d**steps
         
@@ -129,8 +130,8 @@ class LatticeModel:
         pd=1-pu
         disc=math.exp(-self.risk_free_rate*self.time_to_expiry/steps)
 
-        St = [0] * (steps+1)
-        C = [0] * (steps+1)
+        St: list[float] = [0] * (steps+1)
+        C: list[float] = [0] * (steps+1)
         
         St[0]=self.spot_price*d**steps
         
@@ -170,8 +171,10 @@ class LatticeModel:
             return C[0]
 
     def JRTGreeks(self, option_type, steps):
-        delta = self.Jarrow_Rudd_Tree(option_type, steps, greeks=True)['Delta']
-        gamma = self.Jarrow_Rudd_Tree(option_type, steps, greeks=True)['Gamma']
+        result = self.Jarrow_Rudd_Tree(option_type, steps, greeks=True)
+        delta = result['Delta']
+        gamma = result['Gamma']
+    
         # Calculate Theta (using a small change in time)
         small_change = 1e-4  # A small change in time
         price_up = self.Jarrow_Rudd_Tree(option_type, steps)
@@ -527,19 +530,3 @@ def plot_convergence(results, mode):
 
     plt.ylabel("Option Price")
     plt.tight_layout()
-    #plt.show()
-
-
-
-'''
-option = LatticeModel(ticker='TSLA', spot_price=250, strike_price=251, time_to_expiry=0.5, risk_free_rate=0.05, volatility=0.2)
-print(option.Cox_Ross_Rubinstein_Tree(steps=1000))
-print(option.Cox_Ross_Rubinstein_Tree(option_type='put'))
-print(option.Jarrow_Rudd_Tree(option_type='call', plot_vis='yes'))
-print(option.Trinomial_Asset_Pricing(option_type='call'))
-
-option = LatticeModel('AAPL', 80, '2024-01-01', '2025-01-01', 0.05, 0.2)
-rbpl = option.risk_pl_analysis(option_type = 'call', steps=100, price_change=0.001, vol_change=0.001, model='CRR')
-
-print(rbpl)
-'''
