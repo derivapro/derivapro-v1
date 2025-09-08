@@ -1,4 +1,4 @@
-<!-- Note: last updated on Aug 06 -->
+<!-- Note: last updated on Aug 26 -->
 
 {% extends "base.html" %}
 
@@ -91,13 +91,13 @@
 
 {% if option_price is not none %}
 <div class="result">
-    {% if form_data.model == 'Monte Carlo' %}
+    {% if form_data.model == 'Monte Carlo' and (action is none or action == 'price' or action == '') %}
     <div class="info-box">
         <p><strong>Monte Carlo Simulation:</strong> This result is based on {{ form_data.num_paths|default(10000) }} simulation paths with {{ form_data.mc_steps|default(252) }} time steps. Results may vary slightly due to the stochastic nature of the simulation.</p>
     </div>
     {% endif %}
     <h4>Option Price: {{ option_price }}</h4>
-    
+
     <!-- Gen AI Assessment Section -->
     <div class="ai-assessment-section">
         <h4>AI Assessment</h4>
@@ -341,6 +341,7 @@
     <div id="convergence-analysis" class="tab-content">
         <h4>Convergence Analysis</h4>
         <form id="convergence-form" method="post" class="form-grid">
+            <input type="hidden" name="pricing_model" value="{{ form_data.pricing_model }}">
             <input type="hidden" name="analysis_type" value="convergence">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
