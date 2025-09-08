@@ -102,7 +102,7 @@ def save_assessment():
     
     try:
         # Save the assessment to a file or database for later use
-        with open('derivapro/static/assessment.txt', 'w') as f:
+        with open('app/static/assessment.txt', 'w') as f:
             f.write(assessment_data)
         return jsonify({"status": "success"})
     except Exception as e:
@@ -166,7 +166,6 @@ def european_options():
         # Save form data to session
         session['form_data'] = form_data
 
-
         ticker = form_data['ticker']
         strike_price = form_data['strike_price']
         start_date = form_data['start_date']
@@ -217,7 +216,7 @@ def european_options():
 
                 # Save the plot to the static directory
                 plot_filename = f'{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join('app', 'static', plot_filename)
                 
                 plt.savefig(plot_path)
                 plt.close()
@@ -389,7 +388,7 @@ def model_performance():
                 # Save plot to static directory
                 print('start plotting')
                 plot_filename = f'european_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join('app', 'static', plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
@@ -656,9 +655,9 @@ def model_performance():
 
                 # Plot and save
                 plot_convergence(mc_results, mode="simulations")
-                plt.savefig('derivapro/static/vanilla_convergence_plot.png')
+                plt.savefig('app/static/vanilla_convergence_plot.png')
                 plt.close()
-                print("Plot file exists after save?", os.path.exists('derivapro/static/vanilla_convergence_plot.png'))
+                print("Plot file exists after save?", os.path.exists('app/static/vanilla_convergence_plot.png'))
 
                 session['convergence_results'] = {
                     'results': mc_results,
@@ -763,6 +762,7 @@ def ongoing_monitoring():
 
 @vanilla_options_bp.route('/american', methods=['GET', 'POST'])
 def american_options():
+    action = None
     readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'american_options.md')
     with open(readme_path, 'r') as readme_file:
         content = readme_file.read()
@@ -797,7 +797,14 @@ def american_options():
             'num_paths': safe_int(request.form.get('num_paths'), 10000),
             'mc_steps': safe_int(request.form.get('mc_steps'), 252)
         }
-                
+
+        if 'pricing_model' not in form_data or not form_data.get('pricing_model'):
+            last_session_data = session.get('form_data', {})
+            if 'pricing_model' in last_session_data and last_session_data['pricing_model']:
+                form_data['pricing_model'] = last_session_data['pricing_model']
+            else:
+                form_data['pricing_model'] = "Cox Ross Rubinstein Tree"  # fallback default
+
         ticker = form_data['ticker']
         strike_price = form_data['strike_price']
         start_date = form_data['start_date']
@@ -839,6 +846,8 @@ def american_options():
             vega = "{:.4f}".format(greeks['Vega'])
             theta = "{:.4f}".format(greeks['Theta'])
             rho = "{:.4f}".format(greeks['Rho'])
+
+            session['form_data'] = form_data
             
         else:
             # Use existing lattice models
@@ -868,6 +877,8 @@ def american_options():
             vega = "{:.4f}".format(greeks['Vega'])
             theta = "{:.4f}".format(greeks['Theta'])
             rho = "{:.4f}".format(greeks['Rho'])
+
+            session['form_data'] = form_data
 
         option_price = "${:,.4f}".format(option_price)
 
@@ -967,7 +978,7 @@ def american_options():
                     
                     # Save plot
                     plot_filename = f'american_{target_variable}-{variable}_sensitivity_plot.png'
-                    plot_path = os.path.join('derivapro', 'static', plot_filename)
+                    plot_path = os.path.join('app', 'static', plot_filename)
                     plt.savefig(plot_path)
                     plt.close()
                     
@@ -990,7 +1001,7 @@ def american_options():
                     # Save plot to static directory
                     print('start plotting')
                     plot_filename = f'american_{target_variable}-{variable}_sensitivity_plot.png'
-                    plot_path = os.path.join('derivapro', 'static', plot_filename)
+                    plot_path = os.path.join('app', 'static', plot_filename)
 
                     plt.savefig(plot_path)
 
@@ -1101,6 +1112,12 @@ def american_options():
 
                 form_data['mode'] = request.form['mode']
                 form_data['model'] = request.form['model']
+
+                if 'pricing_model' not in form_data or not form_data['pricing_model']:
+                    last_session_data = session.get('form_data', {})
+                    if 'pricing_model' in last_session_data and last_session_data['pricing_model']:
+                        form_data['pricing_model'] = last_session_data['pricing_model']
+
                 form_data['option_type'] = str(request.form['option_type'])
                 form_data['obs'] = safe_int(request.form.get('obs'), 10)
                 mode = form_data['mode']
@@ -1143,7 +1160,7 @@ def american_options():
                             price = mc_engine.price_american_option(strike_price, "put")
                         mc_results.append((int(n_paths), float(price)))
                     plot_convergence(mc_results, mode="simulations")
-                    plt.savefig('derivapro/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
+                    plt.savefig('app/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
                     session['convergence_results'] = {
                         'results': mc_results,
                         'mode': "simulations",
@@ -1161,13 +1178,16 @@ def american_options():
                     if 'pricing_model' in convergence_params:
                         del convergence_params['pricing_model']
                     american_step_results = lattice_convergence_test(max_steps, max_sims, obs, LatticeModel, convergence_params, model, option_type)
+                    print("[DEBUG] american_step_results =")
+                    for tup in american_step_results:
+                        print(f"  Steps/Param: {tup[0]}, Option Price: {tup[1]}")
 
                     plot_convergence(american_step_results, mode)
-                    plt.savefig('derivapro/static/lattice_convergence_plot.png')   # <-- CHANGE HERE
+                    plt.savefig('app/static/lattice_convergence_plot.png')
                     session['convergence_results'] = {
                         'results': american_step_results,
                         'mode': mode,
-                        'plot_filename': 'lattice_convergence_plot.png'      # <-- CHANGE HERE
+                        'plot_filename': 'lattice_convergence_plot.png'
                     }
                     convergence_results = True
                     plt.close()
@@ -1344,16 +1364,16 @@ def american_options():
             if baseline_table and stressed_table:
                 # Format the scenario results for the assessment
                 table_text = f"""
-Baseline Scenario:
-Option Price={baseline_table['baseline_price']}, Delta={baseline_table['baseline_delta']}, 
-Gamma={baseline_table['baseline_gamma']}, Vega={baseline_table['baseline_vega']}, 
-Theta={baseline_table['baseline_theta']}, Rho={baseline_table['baseline_rho']}
+                Baseline Scenario:
+                Option Price={baseline_table['baseline_price']}, Delta={baseline_table['baseline_delta']}, 
+                Gamma={baseline_table['baseline_gamma']}, Vega={baseline_table['baseline_vega']}, 
+                Theta={baseline_table['baseline_theta']}, Rho={baseline_table['baseline_rho']}
 
-Stressed Scenario:
-Option Price={stressed_table['stressed_price']}, Delta={stressed_table['stressed_delta']}, 
-Gamma={stressed_table['stressed_gamma']}, Vega={stressed_table['stressed_vega']}, 
-Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
-"""
+                Stressed Scenario:
+                Option Price={stressed_table['stressed_price']}, Delta={stressed_table['stressed_delta']}, 
+                Gamma={stressed_table['stressed_gamma']}, Vega={stressed_table['stressed_vega']}, 
+                Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
+                """
                 assessment_input = f"Please assess the scenario analysis of the option price and Greeks based on the following results: {table_text}. Please limit the assessment to be less than 100 words."
                 gpt_scenario_assessment = ask_gpt(assessment_input)
 
@@ -1367,14 +1387,15 @@ Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
     form_data.setdefault('num_paths', 10000)
     form_data.setdefault('mc_steps', 252)
 
+    print(f"[DEBUG] pricing_model used for main pricing: {form_data.get('pricing_model')}")
     return render_template('american_options.html', option_price=option_price, form_data=form_data,
                            sensitivity_results=sensitivity_results, risk_pl_results=risk_pl_results,
                            convergence_results=convergence_results,
                            scenario_results=scenario_results, md_content=md_content,
                            gpt_rpbl_assessment=session.get('risk_pl_results', {}).get('gpt_rpbl_assessment'),
                            gpt_sensitivity_assessment=session.get('sensitivity_results', {}).get('gpt_sensitivity_assessment'),
-                           gpt_convergence_assessment=session.get('convergence_results', {}).get('gpt_convergence_assessment'))
-
+                           gpt_convergence_assessment=session.get('convergence_results', {}).get('gpt_convergence_assessment'), 
+                           action=action)
 
 @vanilla_options_bp.route('/reporting', methods=['GET'])
 def reporting():

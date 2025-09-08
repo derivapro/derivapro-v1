@@ -1,3 +1,4 @@
+# Last updated Sep 08
 import QuantLib as ql
 import pandas as pd
 import numpy as np
@@ -61,6 +62,14 @@ class AsianOption:
             bs_process, "PseudoRandom", requiredSamples=self.num_paths, seed=self.seed
         )
 
+        # engine = ql.MCDiscreteArithmeticAPEngine(
+        #     bs_process, "PseudoRandom",
+        #     requiredSamples=self.num_paths,
+        #     seed=self.seed,
+        #     controlVariate=False,
+        #     antitheticVariate=False
+        # )
+
         averaging_dates = [
             ql.Date(date.day, date.month, date.year) for date in self.averaging_dates
         ]
@@ -80,6 +89,7 @@ class AsianOption:
 
         asian_option.setPricingEngine(engine)
         price = asian_option.NPV()
+        print(f"Asian option price: {price}")
 
         return price
 

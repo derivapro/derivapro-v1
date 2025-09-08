@@ -201,37 +201,33 @@ def asian_options():
 
         if simulation_engine == 'pkic':
             try:
-                # Get stock data
                 from ..models.market_data import StockData
                 stock_data = StockData(ticker)
                 S0 = float(stock_data.get_current_price())
-                # Estimate T in years (from now to expiry)
-                T_years = (T - datetime.now()).days / 365.25
-                T_years = max(T_years, 1/365)  # Avoid zero or negative
-                # Create PKIC Monte Carlo engine
+                averaging_dates_sorted = sorted(averaging_dates)
+                num_steps = len(averaging_dates_sorted) - 1  # one fewer than the number of dates
+                T_years = (averaging_dates_sorted[-1] - averaging_dates_sorted[0]).days / 365.25
+
                 mc_engine = monte_carlo_pkic_module.create_monte_carlo_engine(
                     S0=S0,
                     r=r,
                     sigma=sigma,
                     T=T_years,
                     num_paths=num_paths,
-                    num_steps=252,
+                    num_steps=num_steps,     # <<- Now exactly matches intervals between averaging dates
                     random_type="sobol"
                 )
-                # Price Asian option using PKIC engine
+
                 option_price = mc_engine.price_asian_option(
                     strike_price=K,
-                    averaging_dates=averaging_dates,
+                    averaging_dates=averaging_dates_sorted,
                     option_type=option_type,
                     dividend_yield=q
                 )
                 option_price = "${:,.4f}".format(option_price)
             except Exception as e:
                 print(f"Error using PKIC engine: {e}")
-                # Fallback to original engine
-                option = AsianOption(ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths)
-                option_price = option.price()
-                option_price = "${:,.4f}".format(option_price)
+                option_price = f"New MC error: {e}"
         else:
             option = AsianOption(ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths)
             option_price = option.price()
@@ -293,7 +289,7 @@ def barrier_options():
                 # Save plot to static directory
                 print('start plotting')
                 plot_filename = f'barrier_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join('app', 'static', plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
@@ -343,7 +339,7 @@ def barrier_options():
             plot_convergence(barrier_step_results, mode)
 
             # Save plot to static directory
-            plt.savefig('derivapro/static/barrier_convergence_plot.png')
+            plt.savefig('app/static/barrier_convergence_plot.png')
             convergence_results = True
         elif action == 'scenario':
             try:
