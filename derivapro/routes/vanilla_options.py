@@ -38,10 +38,18 @@ else:
 
 vanilla_options_bp = Blueprint('vanilla_options', __name__)
 
+# Import PKIC Binomial Engine
+pkic_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'mdls_binomial_tree_model_PKIC.py')
+spec = importlib.util.spec_from_file_location("pkic_binomial_tree", pkic_path)
+if spec is not None:
+    pkic_module = importlib.util.module_from_spec(spec)
+    if spec.loader is not None:
+        spec.loader.exec_module(pkic_module)
+else:
+    raise ImportError(f"Could not load PKIC model from {pkic_path}")
 
 # Initialize OpenAI API
 #api_key = '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'
-
 
 # Load the environment variables from the .env file
 load_dotenv(find_dotenv())
@@ -102,7 +110,7 @@ def save_assessment():
     
     try:
         # Save the assessment to a file or database for later use
-        with open('app/static/assessment.txt', 'w') as f:
+        with open('derivapro/static/assessment.txt', 'w') as f:
             f.write(assessment_data)
         return jsonify({"status": "success"})
     except Exception as e:
@@ -655,9 +663,9 @@ def model_performance():
 
                 # Plot and save
                 plot_convergence(mc_results, mode="simulations")
-                plt.savefig('app/static/vanilla_convergence_plot.png')
+                plt.savefig('derivapro/static/vanilla_convergence_plot.png')
                 plt.close()
-                print("Plot file exists after save?", os.path.exists('app/static/vanilla_convergence_plot.png'))
+                print("Plot file exists after save?", os.path.exists('derivapro/static/vanilla_convergence_plot.png'))
 
                 session['convergence_results'] = {
                     'results': mc_results,
@@ -848,7 +856,47 @@ def american_options():
             rho = "{:.4f}".format(greeks['Rho'])
 
             session['form_data'] = form_data
-            
+        
+        elif pricing_model == 'PKIC Binomial Tree':
+            # --- PARSE DIVIDENDS FIELD (user entered string) ---
+            raw_dividends = request.form.get('dividends', '').strip()
+            parsed_dividends = []
+            if raw_dividends:
+                for entry in raw_dividends.split(','):
+                    parts = entry.strip().split(':')
+                    if len(parts) == 2:
+                        # proportional dividend: "YYYY-MM-DD:0.02"
+                        parsed_dividends.append((parts[0], float(parts[1])))
+                    elif len(parts) == 3:
+                        # cash dividend: "YYYY-MM-DD:1.5:1.0"
+                        parsed_dividends.append((parts[0], float(parts[1]), float(parts[2])))
+            # Now parsed_dividends is a list: [("2025-11-15", 1.5, 1.0), ("2025-12-15", 0.02), ...]
+
+            # --- INSTANTIATE PKIC ENGINE ---
+            engine = pkic_module.BinomialTreeEngineCRR(
+                ticker=ticker,
+                strike_price=strike_price,
+                start_date=start_date,
+                end_date=end_date,
+                risk_free_rate=risk_free_rate,
+                volatility=volatility,
+                num_steps=num_steps,
+                option_type=option_type,
+                dividends=parsed_dividends
+            )
+            option_price = engine.price_american_option()
+            greeks = engine.get_greeks()  # Returns dict
+
+            delta = "{:.4f}".format(greeks['delta'])
+            gamma = "{:.4f}".format(greeks['gamma'])
+            vega  = "{:.4f}".format(greeks['vega'])
+            theta = "{:.4f}".format(greeks['theta'])
+            rho   = "{:.4f}".format(greeks['rho'])
+
+            session['form_data'] = form_data   # Save last-used form
+            # Optionally, save raw_dividends to session so the input remains filled
+            session['form_data']['dividends'] = raw_dividends
+
         else:
             # Use existing lattice models
             option = LatticeModel(ticker, strike_price, start_date, end_date, risk_free_rate, volatility)
@@ -1160,7 +1208,7 @@ def american_options():
                             price = mc_engine.price_american_option(strike_price, "put")
                         mc_results.append((int(n_paths), float(price)))
                     plot_convergence(mc_results, mode="simulations")
-                    plt.savefig('app/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
+                    plt.savefig('derivapro/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
                     session['convergence_results'] = {
                         'results': mc_results,
                         'mode': "simulations",
@@ -1183,7 +1231,7 @@ def american_options():
                         print(f"  Steps/Param: {tup[0]}, Option Price: {tup[1]}")
 
                     plot_convergence(american_step_results, mode)
-                    plt.savefig('app/static/lattice_convergence_plot.png')
+                    plt.savefig('derivapro/static/lattice_convergence_plot.png')
                     session['convergence_results'] = {
                         'results': american_step_results,
                         'mode': mode,

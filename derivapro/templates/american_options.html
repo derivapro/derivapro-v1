@@ -69,7 +69,14 @@
         <option value="Jarrow Rudd Tree" {% if form_data.pricing_model == 'Jarrow Rudd Tree' %}selected{% endif %}>Jarrow Rudd Tree</option>
         <option value="Trinomial Asset Pricing" {% if form_data.pricing_model == 'Trinomial Asset Pricing' %}selected{% endif %}>Trinomial Asset Pricing</option>
         <option value="Monte Carlo" {% if form_data.pricing_model == 'Monte Carlo' %}selected{% endif %}>Monte Carlo</option>
+        <option value="PKIC Binomial Tree" {% if form_data.pricing_model == 'PKIC Binomial Tree' %}selected{% endif %}>PKIC Binomial Tree</option>
     </select>
+    </div>
+
+    <div id="pkic_dividends_field" class="form-group" style="display: none;">
+        <label for="dividends">Dividends</label>
+        <input type="text" id="dividends" name="dividends" value="{{ form_data.dividends|default('') }}" placeholder="2025-11-15:1.5:1.0,2025-12-15:0.02">
+        <small>Format: (comma separated) YYYY-MM-DD:amount:CF or YYYY-MM-DD:rate</small>
     </div>
     
     <!-- Monte Carlo specific parameters -->
@@ -656,6 +663,7 @@ function saveAssessment(textareaId, url) {
 function toggleMonteCarloParams() {
     const modelType = document.getElementById('pricing_model').value;
     const mcParams = document.getElementById('monte_carlo_params');
+    const pkicDiv = document.getElementById('pkic_dividends_field');
     const numStepsField = document.getElementById('num_steps').parentElement;
     const numStepsInput = document.getElementById('num_steps');
 
@@ -667,6 +675,13 @@ function toggleMonteCarloParams() {
         mcParams.style.display = 'none';
         numStepsField.style.display = 'block';
         numStepsInput.disabled = false;
+    }
+
+    // Show dividends field only for PKIC Binomial Tree
+    if (modelType === 'PKIC Binomial Tree') {
+        pkicDiv.style.display = 'block';
+    } else {
+        pkicDiv.style.display = 'none';
     }
 }
 

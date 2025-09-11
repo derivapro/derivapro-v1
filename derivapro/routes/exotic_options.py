@@ -339,7 +339,7 @@ def barrier_options():
             plot_convergence(barrier_step_results, mode)
 
             # Save plot to static directory
-            plt.savefig('app/static/barrier_convergence_plot.png')
+            plt.savefig('derivapro/static/barrier_convergence_plot.png')
             convergence_results = True
         elif action == 'scenario':
             try:
