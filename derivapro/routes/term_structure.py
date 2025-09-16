@@ -18,6 +18,7 @@ API_KEY = 'a7a1a9c282ee0093003008999c337857'
 
 @term_structure_bp.route('/calculate-term-structure', methods=['GET', 'POST'])
 
+
 def calculate_term_structure():
     readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'term_structure.md')
     with open(readme_path, 'r') as readme_file:
@@ -35,6 +36,7 @@ def calculate_term_structure():
             'forward_tenor_str': request.form['forward_tenor_str'],
             'method_name': request.form['method_name'],
             'fit_selection': request.form['fit_selection'],
+            'yield_curve_tenors_str': request.form.getlist('yield_curve_tenors_str')
         }
         start_date_str = form_data['start_date'] 
         year, month, day = map(int, start_date_str.split('-'))
@@ -44,9 +46,15 @@ def calculate_term_structure():
         forward_tenor_str = form_data['forward_tenor_str']
         method_name = form_data['method_name']
         fit_selection = form_data['fit_selection']
+        yield_curve_tenors_str = form_data['yield_curve_tenors_str']
         
         #day, month, year = map(int, start_date_str.split('-'))
         #start_date = ql.Date(day, month, year)
+        
+        print(yield_curve_tenors_str)
+        yield_tenors = [ql.Period(t) for t in yield_curve_tenors_str]
+        print(yield_tenors)
+
         forward_tenor = ql.Period(forward_tenor_str)
 
         # Initialize rate providers
@@ -54,10 +62,38 @@ def calculate_term_structure():
         sofr_provider = SOFRRateProvider()
         swap_provider = FREDSwapRatesProvider(API_KEY)
 
-        # Get market rates
+        # Get market rates and apply selected tenor points
+        # Treasury Rates
         treasury_rates = treasury_provider.get_market_rates(start_date=start_date)
+        selected_treasury_rates = []
+        for (tenor, rate) in treasury_rates:
+            if tenor in yield_tenors:
+                selected_treasury_rates.append((tenor, rate))
+            else:
+                continue
+        print(selected_treasury_rates)
+
+        #Sofr Rates
         sofr_rates = sofr_provider.get_market_rates(startDate=start_date)
+        selected_sofr_rates = []
+        for (tenor, rate) in sofr_rates:
+            if tenor in yield_tenors:
+                selected_sofr_rates.append((tenor, rate))
+            else:
+                continue
+        print(selected_sofr_rates)
+        
+        #Swap Rates
         swap_rates = swap_provider.get_market_rates(start_date=start_date)
+        selected_swap_rates = []
+        for (tenor, rate) in swap_rates:
+            if tenor in yield_tenors: 
+                selected_swap_rates.append((tenor, rate))
+            else:
+                continue
+        print(selected_swap_rates)
+
+        session_id = uuid.uuid4().hex
 
         if action == 'parallel':
             try:
@@ -68,69 +104,69 @@ def calculate_term_structure():
 
                 if parallelShockValue == '+50':
                     print('+50 read')
-                    shocked_treasury_rates = [(tenor, rate + 0.005) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate + 0.005) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate + 0.005) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate + 0.005) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate + 0.005) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate + 0.005) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '+100':
                     print('+100 read')
-                    shocked_treasury_rates = [(tenor, rate + 0.01) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate + 0.01) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate + 0.01) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate + 0.01) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate + 0.01) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate + 0.01) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '+150':
                     print('+150 read')
-                    shocked_treasury_rates = [(tenor, rate + 0.015) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate + 0.015) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate + 0.015) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate + 0.015) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate + 0.015) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate + 0.015) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '+200':
                     print('+200 read')
-                    shocked_treasury_rates = [(tenor, rate + 0.02) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate + 0.02) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate + 0.02) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate + 0.02) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate + 0.02) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate + 0.02) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '+250':
                     print('+250 read')
-                    shocked_treasury_rates = [(tenor, rate + 0.025) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate + 0.025) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate + 0.025) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate + 0.025) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate + 0.025) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate + 0.025) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '+300':
                     print('+300 read')
-                    shocked_treasury_rates = [(tenor, rate + 0.03) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate + 0.03) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate + 0.03) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate + 0.03) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate + 0.03) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate + 0.03) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '-50':
                     print('-50 read')
-                    shocked_treasury_rates = [(tenor, rate - 0.005) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate - 0.005) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate - 0.005) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate - 0.005) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate - 0.005) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate - 0.005) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '-100':
                     print('-100 read')
-                    shocked_treasury_rates = [(tenor, rate - 0.01) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate - 0.01) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate - 0.01) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate - 0.01) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate - 0.01) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate - 0.01) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '-150':
                     print('-150 read')
-                    shocked_treasury_rates = [(tenor, rate - 0.015) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate - 0.015) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate - 0.015) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate - 0.015) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate - 0.015) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate - 0.015) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '-200':
                     print('-200 read')
-                    shocked_treasury_rates = [(tenor, rate - 0.02) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate - 0.02) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate - 0.02) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate - 0.02) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate - 0.02) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate - 0.02) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '-250':
                     print('-250 read')
-                    shocked_treasury_rates = [(tenor, rate - 0.025) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate - 0.025) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate - 0.025) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate - 0.025) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate - 0.025) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate - 0.025) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif parallelShockValue == '-300':
                     print('-300 read')
-                    shocked_treasury_rates = [(tenor, rate - 0.03) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, rate - 0.03) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, rate - 0.03) for tenor, rate in swap_rates] if swap_rates else []
+                    shocked_treasury_rates = [(tenor, rate - 0.03) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, rate - 0.03) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, rate - 0.03) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 else:
-                    print('no shock read')
-                    shocked_treasury_rates = treasury_rates
-                    shocked_sofr_rates = sofr_rates
-                    shocked_swap_rates = swap_rates
+                    print('No shock read')
+                    shocked_treasury_rates = selected_treasury_rates
+                    shocked_sofr_rates = selected_sofr_rates
+                    shocked_swap_rates = selected_swap_rates
                 
                 # Initialize YieldTermStructure and append rates
                 ts_shocked = YieldTermStructure()
@@ -140,9 +176,11 @@ def calculate_term_structure():
 
                 ts_shocked.average_duplicate_rates(start_date)
 
+                print(ts_shocked.market_rates)
+
                 # 1. Create filename first
                 safe_parallelShockValue = parallelShockValue.replace('+', 'plus').replace('-', 'minus') if parallelShockValue else "none"
-                plot1_filename = f'shocked_yield_curve_plot_{safe_parallelShockValue}.png'
+                plot1_filename = f'shocked_yield_curve_plot_{session_id}_{safe_parallelShockValue}.png'
                 #plot1_filename = f'shocked_yield_curve_plot_{parallelShockValue if parallelShockValue else "none"}.png'
 
                 # 2. Build full path
@@ -173,11 +211,8 @@ def calculate_term_structure():
                         'term_structure.html',
                         form_data=form_data,
                         plot=True,
+                        market_rates=ts_shocked.market_rates,
                         md_content=md_content,
-                        #start_date1=start_date_str,
-                        #forward_tenor1=forward_tenor_str,
-                        #method_name1=method_name,
-                        #fit_selection1=fit_selection,
                         r2_ns_zero=r2_zero_ns1,
                         r2_ns_df=r2_df_ns1,
                         r2_ns_fwd=r2_fwd_ns1,
@@ -193,11 +228,8 @@ def calculate_term_structure():
                         form_data=form_data,
                         plot=True,
                         md_content=md_content
-                        #start_date1=start_date_str,
-                        #forward_tenor1=forward_tenor_str,
-                        #method_name1=method_name,
-                        #fit_selection1=fit_selection
                     )
+                
             except Exception as e:
                 print('break1', e)
                 return render_template(
@@ -242,33 +274,35 @@ def calculate_term_structure():
                     return rate
                 
                 if nonParallelShockValue == 'Steepener':
-                    print('steepener read')
-                    shocked_treasury_rates = [(tenor, apply_steepener_shock(tenor, rate)) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, apply_steepener_shock(tenor, rate)) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, apply_steepener_shock(tenor, rate)) for tenor, rate in swap_rates] if swap_rates else []
+                    print('Steepener read')
+                    shocked_treasury_rates = [(tenor, apply_steepener_shock(tenor, rate)) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, apply_steepener_shock(tenor, rate)) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, apply_steepener_shock(tenor, rate)) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 elif nonParallelShockValue == 'Flattener':
-                    print('flattener read')
-                    shocked_treasury_rates = [(tenor, apply_flattener_shock(tenor, rate)) for tenor, rate in treasury_rates]
-                    shocked_sofr_rates = [(tenor, apply_flattener_shock(tenor, rate)) for tenor, rate in sofr_rates]
-                    shocked_swap_rates = [(tenor, apply_flattener_shock(tenor, rate)) for tenor, rate in swap_rates] if swap_rates else []
+                    print('Flattener read')
+                    shocked_treasury_rates = [(tenor, apply_flattener_shock(tenor, rate)) for tenor, rate in selected_treasury_rates]
+                    shocked_sofr_rates = [(tenor, apply_flattener_shock(tenor, rate)) for tenor, rate in selected_sofr_rates]
+                    shocked_swap_rates = [(tenor, apply_flattener_shock(tenor, rate)) for tenor, rate in selected_swap_rates] if selected_swap_rates else []
                 else:
-                    print('no shock read')
-                    shocked_treasury_rates = treasury_rates
-                    shocked_sofr_rates = sofr_rates
-                    shocked_swap_rates = swap_rates
+                    print('No shock read')
+                    shocked_treasury_rates = selected_treasury_rates
+                    shocked_sofr_rates = selected_sofr_rates
+                    shocked_swap_rates = selected_swap_rates
                 
                 # Initialize YieldTermStructure and append rates
                 ts_shocked = YieldTermStructure()
                 ts_shocked.append_market_rates(shocked_treasury_rates, source="treasury")
                 ts_shocked.append_market_rates(shocked_sofr_rates, source="sofr")
                 ts_shocked.append_market_rates(shocked_swap_rates, source="swap")
+                #print(ts_shocked.market_rates)
 
                 ts_shocked.average_duplicate_rates(start_date)
                 #Create a replica of this in here (average duplicate rates worked for baseline)
 
                 # 1. Create filename first
                 safe_nonParallelShockValue = nonParallelShockValue if nonParallelShockValue else "none"
-                plot2_filename = f'shocked_yield_curve_plot_{safe_nonParallelShockValue}.png'
+                safe_nonParallelAbsoluteShock = nonParallelAbsoluteShock if nonParallelAbsoluteShock else "none"
+                plot2_filename = f'shocked_yield_curve_plot_{session_id}_{safe_nonParallelShockValue}_{safe_nonParallelAbsoluteShock}.png'
                 #plot1_filename = f'shocked_yield_curve_plot_{parallelShockValue if parallelShockValue else "none"}.png'
 
                 # 2. Build full path
@@ -276,9 +310,7 @@ def calculate_term_structure():
                 os.makedirs(os.path.dirname(plot2_path), exist_ok=True)
 
                 # 3. Generate plot and save once
-                print('Early Checkpoint')
                 fig2 = ts_shocked.yield_curve(start_date, fit_selection, method_name, forward_tenor)
-                print('Checkpoint')
                 fig2.savefig(plot2_path)
                 plt.close(fig2)
                 # session['shocked_yield_curve_plot'] = {'filename': plot1_filename}
@@ -300,12 +332,9 @@ def calculate_term_structure():
                     return render_template(
                         'term_structure.html',
                         form_data=form_data,
+                        market_rates=ts_shocked.market_rates,
                         plot=True,
                         md_content=md_content,
-                        #start_date1=start_date_str,
-                        #forward_tenor1=forward_tenor_str,
-                        #method_name1=method_name,
-                        #fit_selection1=fit_selection,
                         r2_ns_zero=r2_zero_ns2,
                         r2_ns_df=r2_df_ns2,
                         r2_ns_fwd=r2_fwd_ns2,
@@ -320,11 +349,7 @@ def calculate_term_structure():
                         'term_structure.html',
                         form_data=form_data,
                         plot=True,
-                        md_content=md_content,
-                        #start_date1=start_date_str,
-                        #forward_tenor1=forward_tenor_str,
-                        #method_name1=method_name,
-                        #fit_selection1=fit_selection
+                        md_content=md_content
                     )
             except Exception as e:
                 print('break2', e)
@@ -340,15 +365,31 @@ def calculate_term_structure():
                 # Initialize YieldTermStructure and append rates
                 print('plot = true')
                 ts = YieldTermStructure()
-                ts.append_market_rates(treasury_rates, source="treasury")
-                ts.append_market_rates(sofr_rates, source="sofr")
-                ts.append_market_rates(swap_rates, source="swap")
+                #print(yield_tenors)
 
+                print('Selected Treasury Rates')
+                ts.append_market_rates(selected_treasury_rates, source="treasury")
+                #ts.append_market_rates(treasury_rates, source="treasury")
+                #for tenor in treasury_rates:
+                    #print(tenor)
+
+                print('Selected Sofr Rates')
+                ts.append_market_rates(selected_sofr_rates, source="sofr")
+                #ts.append_market_rates(sofr_rates, source="sofr")
+                #for tenor in sofr_rates:
+                    #print(tenor)
+                
+                print('Selected Swap Rates')
+                ts.append_market_rates(selected_swap_rates, source="swap")
+                #ts.append_market_rates(swap_rates, source="swap")
+                #for tenor in swap_rates:
+                    #print(tenor)
+                
                 ts.average_duplicate_rates(start_date)
 
                 # Generate and save the plot
                 fig = ts.yield_curve(start_date, fit_selection, method_name, forward_tenor)
-                plot_filename = f'yield_curve_plot_{uuid.uuid4().hex}.png'
+                plot_filename = f'yield_curve_{session_id}_plot.png'
                 plot_path = os.path.join(current_app.root_path, 'static', 'plots', plot_filename)
                 os.makedirs(os.path.dirname(plot_path), exist_ok=True)
                 fig.savefig(plot_path)
@@ -370,11 +411,8 @@ def calculate_term_structure():
                         'term_structure.html',
                         form_data=form_data,
                         plot=True,
+                        market_rates=ts.market_rates,
                         md_content=md_content,
-                        #start_date=start_date_str,
-                        #forward_tenor=forward_tenor_str,
-                        #method_name=method_name,
-                        #fit_selection=fit_selection,
                         r2_ns_zero=r2_zero_ns,
                         r2_ns_df=r2_df_ns,
                         r2_ns_fwd=r2_fwd_ns,
@@ -390,11 +428,8 @@ def calculate_term_structure():
                         form_data=form_data,
                         plot=True,
                         md_content=md_content
-                        #start_date1=start_date_str,
-                        #forward_tenor1=forward_tenor_str,
-                        #method_name1=method_name,
-                        #fit_selection1=fit_selection
                     )
+                
             except Exception as e:
                 print('break3', e)
                 return render_template(

@@ -47,8 +47,8 @@ class YieldTermStructure:
                 continue
             
             if source.lower() == "swap":
-                # Check for known invalid swap data (e.g., placeholder -999 or missing rate)
-                if rate is None or rate < 0 or np.isnan(rate):
+                #Check for known invalid rate data (e.g., placeholder -999 or missing rate)
+                if rate is None or rate == -999 or np.isnan(rate):
                     print(f"Skipping invalid swap rate for tenor {tenor}")
                     continue
             self.market_rates.append((tenor, rate, source))
@@ -58,7 +58,7 @@ class YieldTermStructure:
         self.rate_helpers = []
 
         for tenor, rate, source in self.market_rates:
-            if source.lower() == "swap" and (rate is None or rate < 0 or np.isnan(rate)):
+            if source.lower() == "swap" and (rate is None or rate == -999 or np.isnan(rate)):
                 print(f"Skipping invalid swap rate for tenor {tenor}")
                 continue
             quote = ql.QuoteHandle(ql.SimpleQuote(rate))
