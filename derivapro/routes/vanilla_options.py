@@ -27,7 +27,7 @@ import numpy as np
 import importlib.util
 
 # Import the Monte Carlo module with space in filename
-monte_carlo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'mdls_monte_carlo_PKIC.py')
+monte_carlo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'mdls_monte_carlo_NEW.py')
 spec = importlib.util.spec_from_file_location("monte_carlo_module", monte_carlo_path)
 if spec is not None:
     monte_carlo_module = importlib.util.module_from_spec(spec)
@@ -38,15 +38,15 @@ else:
 
 vanilla_options_bp = Blueprint('vanilla_options', __name__)
 
-# Import PKIC Binomial Engine
-pkic_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'mdls_binomial_tree_model_PKIC.py')
-spec = importlib.util.spec_from_file_location("pkic_binomial_tree", pkic_path)
+# Import New Binomial Engine
+new_mc_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'models', 'mdls_binomial_tree_model_NEW.py')
+spec = importlib.util.spec_from_file_location("new_binomial_tree", new_mc_path)
 if spec is not None:
-    pkic_module = importlib.util.module_from_spec(spec)
+    new_module = importlib.util.module_from_spec(spec)
     if spec.loader is not None:
-        spec.loader.exec_module(pkic_module)
+        spec.loader.exec_module(new_module)
 else:
-    raise ImportError(f"Could not load PKIC model from {pkic_path}")
+    raise ImportError(f"Could not load the new Binomial Tree model from {new_mc_path}")
 
 # Initialize OpenAI API
 #api_key = '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'
@@ -857,7 +857,7 @@ def american_options():
 
             session['form_data'] = form_data
         
-        elif pricing_model == 'PKIC Binomial Tree':
+        elif pricing_model == 'Binomial Tree':
             # --- PARSE DIVIDENDS FIELD (user entered string) ---
             raw_dividends = request.form.get('dividends', '').strip()
             parsed_dividends = []
@@ -872,8 +872,8 @@ def american_options():
                         parsed_dividends.append((parts[0], float(parts[1]), float(parts[2])))
             # Now parsed_dividends is a list: [("2025-11-15", 1.5, 1.0), ("2025-12-15", 0.02), ...]
 
-            # --- INSTANTIATE PKIC ENGINE ---
-            engine = pkic_module.BinomialTreeEngineCRR(
+            # --- INSTANTIATE New Binomial Tree ENGINE ---
+            engine = new_module.BinomialTreeEngineCRR(
                 ticker=ticker,
                 strike_price=strike_price,
                 start_date=start_date,
