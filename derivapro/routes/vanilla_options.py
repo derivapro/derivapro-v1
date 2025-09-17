@@ -224,7 +224,7 @@ def european_options():
 
                 # Save the plot to the static directory
                 plot_filename = f'{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
                 
                 plt.savefig(plot_path)
                 plt.close()
@@ -396,7 +396,7 @@ def model_performance():
                 # Save plot to static directory
                 print('start plotting')
                 plot_filename = f'european_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
@@ -1026,7 +1026,7 @@ def american_options():
                     
                     # Save plot
                     plot_filename = f'american_{target_variable}-{variable}_sensitivity_plot.png'
-                    plot_path = os.path.join('app', 'static', plot_filename)
+                    plot_path = os.path.join('derivapro', 'static', plot_filename)
                     plt.savefig(plot_path)
                     plt.close()
                     
@@ -1049,7 +1049,7 @@ def american_options():
                     # Save plot to static directory
                     print('start plotting')
                     plot_filename = f'american_{target_variable}-{variable}_sensitivity_plot.png'
-                    plot_path = os.path.join('app', 'static', plot_filename)
+                    plot_path = os.path.join('derivapro', 'static', plot_filename)
 
                     plt.savefig(plot_path)
 

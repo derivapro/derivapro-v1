@@ -289,7 +289,7 @@ def barrier_options():
                 # Save plot to static directory
                 print('start plotting')
                 plot_filename = f'barrier_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('app', 'static', plot_filename)
+                plot_path = os.path.join('derivapro', 'static', plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
