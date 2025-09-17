@@ -69,16 +69,135 @@
         <option value="Jarrow Rudd Tree" {% if form_data.pricing_model == 'Jarrow Rudd Tree' %}selected{% endif %}>Jarrow Rudd Tree</option>
         <option value="Trinomial Asset Pricing" {% if form_data.pricing_model == 'Trinomial Asset Pricing' %}selected{% endif %}>Trinomial Asset Pricing</option>
         <option value="Monte Carlo" {% if form_data.pricing_model == 'Monte Carlo' %}selected{% endif %}>Monte Carlo</option>
-        <option value="PKIC Binomial Tree" {% if form_data.pricing_model == 'PKIC Binomial Tree' %}selected{% endif %}>PKIC Binomial Tree</option>
+        <option value="Binomial Tree" {% if form_data.pricing_model == 'Binomial Tree' %}selected{% endif %}>New Binomial Tree</option>
     </select>
     </div>
 
-    <div id="pkic_dividends_field" class="form-group" style="display: none;">
-        <label for="dividends">Dividends</label>
-        <input type="text" id="dividends" name="dividends" value="{{ form_data.dividends|default('') }}" placeholder="2025-11-15:1.5:1.0,2025-12-15:0.02">
-        <small>Format: (comma separated) YYYY-MM-DD:amount:CF or YYYY-MM-DD:rate</small>
+    <div id="new_dividends_field" class="form-group" style="display: none;">
+    <label>Dividends</label>
+    <!-- Dynamic dividend rows: each row aligned horizontally -->
+    <div id="dividends-entries"></div>
+
+    <!-- Buttons below all fields, side by side -->
+    <div class="dividends-buttons">
+        <button type="button" onclick="addDividendEntry();" class="assessment-button">Add Dividend</button>
+        <button type="button" onclick="removeLastDividendEntry();" class="assessment-button remove-btn">Remove Dividend</button>
     </div>
-    
+
+    <!-- Instructions -->
+    <small style="display:block; margin-top:8px;">
+        Date: YYYY-MM-DD,
+        Rate: proportional (e.g. 0.02),
+        Amount: (USD),
+        CF: capitalization factor (required if Amount is entered).<br>
+        At least "Rate" or "Amount+CF" must be provided for each row.
+    </small>
+    <input type="hidden" id="dividends" name="dividends">
+    </div>
+
+    <style>
+    .dividend-entry-row {
+    margin-bottom: 4px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    }
+    .dividend-entry-row input[type=date] {
+    width: 140px;
+    }
+    .dividend-entry-row input {
+    width: 80px;
+    }
+    .dividends-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    }
+    .remove-btn {
+    background-color: #dc3545;
+    }
+    .remove-btn:hover {
+    background-color: #a71d2a;
+    }
+    </style>
+
+    <script>
+    function addDividendEntry(exDate='', rate='', amount='', cf='') {
+    const entriesDiv = document.getElementById('dividends-entries');
+    const entryDiv = document.createElement('div');
+    entryDiv.className = 'dividend-entry-row';
+    entryDiv.innerHTML = `
+        <input type="date" class="dividend-date" value="${exDate}" placeholder="Date">
+        <input type="text" class="dividend-rate" value="${rate}" placeholder="Rate">
+        <input type="text" class="dividend-amount" value="${amount}" placeholder="Amount">
+        <input type="text" class="dividend-cf" value="${cf}" placeholder="CF">
+    `;
+    entriesDiv.appendChild(entryDiv);
+    updateDividendsHiddenField();
+    }
+
+    function removeLastDividendEntry() {
+    const entriesDiv = document.getElementById('dividends-entries');
+    if (entriesDiv.children.length > 0) {
+        entriesDiv.removeChild(entriesDiv.lastChild);
+        updateDividendsHiddenField();
+    }
+    }
+
+    function updateDividendsHiddenField() {
+    const entriesDiv = document.getElementById('dividends-entries');
+    let csvEntries = [];
+    for (const row of entriesDiv.children) {
+        const date = row.querySelector('.dividend-date').value;
+        const rate = row.querySelector('.dividend-rate').value.trim();
+        const amount = row.querySelector('.dividend-amount').value.trim();
+        const cf = row.querySelector('.dividend-cf').value.trim();
+        if (date) {
+        if (rate && !amount) { csvEntries.push(date + ':' + rate); }
+        else if (amount) { csvEntries.push(date + ':' + amount + ':' + (cf || '1.0')); }
+        }
+    }
+    document.getElementById('dividends').value = csvEntries.join(',');
+    }
+
+    document.addEventListener('input', function(e) {
+    if (
+        e.target.classList.contains('dividend-date') ||
+        e.target.classList.contains('dividend-rate') ||
+        e.target.classList.contains('dividend-amount') ||
+        e.target.classList.contains('dividend-cf')
+    ) {
+        updateDividendsHiddenField();
+    }
+    });
+
+    // Correctly map proportional vs cash dividend fields on reload:
+    // 2 parts -> Date, Rate; 3 parts -> Date, Amount, CF
+    document.addEventListener('DOMContentLoaded', function() {
+        if ('{{ form_data.dividends|default('') }}') {
+            const initialVals = '{{ form_data.dividends|default('') }}'.split(',');
+            initialVals.forEach(divstr => {
+                if (divstr.trim() !== '') {
+                    const parts = divstr.split(':');
+                    if (parts.length === 2) {
+                        // Proportional: Date and Rate
+                        addDividendEntry(parts[0] || '', parts[1] || '', '', '');
+                    } else if (parts.length === 3) {
+                        // Cash dividend: Date, Amount, CF
+                        addDividendEntry(parts[0] || '', '', parts[1] || '', parts[2] || '');
+                    } else {
+                        // Fallback (very rare)
+                        addDividendEntry(parts[0] || '', parts[1] || '', parts[2] || '', parts[3] || '');
+                    }
+                }
+            });
+        }
+        if (document.getElementById('dividends-entries').children.length === 0) {
+            addDividendEntry();
+        }
+    });
+    </script>
+
     <!-- Monte Carlo specific parameters -->
     <div id="monte_carlo_params" style="display: none;">
         <div class="form-group">
@@ -663,7 +782,7 @@ function saveAssessment(textareaId, url) {
 function toggleMonteCarloParams() {
     const modelType = document.getElementById('pricing_model').value;
     const mcParams = document.getElementById('monte_carlo_params');
-    const pkicDiv = document.getElementById('pkic_dividends_field');
+    const newDiv = document.getElementById('new_dividends_field');
     const numStepsField = document.getElementById('num_steps').parentElement;
     const numStepsInput = document.getElementById('num_steps');
 
@@ -677,11 +796,11 @@ function toggleMonteCarloParams() {
         numStepsInput.disabled = false;
     }
 
-    // Show dividends field only for PKIC Binomial Tree
-    if (modelType === 'PKIC Binomial Tree') {
-        pkicDiv.style.display = 'block';
+    // Show dividends field only for Binomial Tree
+    if (modelType === 'Binomial Tree') {
+        newDiv.style.display = 'block';
     } else {
-        pkicDiv.style.display = 'none';
+        newDiv.style.display = 'none';
     }
 }
 

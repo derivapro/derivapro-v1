@@ -12,15 +12,15 @@ import importlib.util
 import sys
 import os
 
-# Import the Monte Carlo PKIC module
-monte_carlo_pkic_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'mdls_monte_carlo_PKIC.py')
-spec = importlib.util.spec_from_file_location("monte_carlo_pkic_module", monte_carlo_pkic_path)
+# Import the New Monte Carlo module
+monte_carlo_newMC_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'mdls_monte_carlo_NEW.py')
+spec = importlib.util.spec_from_file_location("monte_carlo_New_module", monte_carlo_newMC_path)
 if spec is not None:
-    monte_carlo_pkic_module = importlib.util.module_from_spec(spec)
+    monte_carlo_New_module = importlib.util.module_from_spec(spec)
     if spec.loader is not None:
-        spec.loader.exec_module(monte_carlo_pkic_module)
+        spec.loader.exec_module(monte_carlo_New_module)
 else:
-    raise ImportError(f"Could not load Monte Carlo PKIC module from {monte_carlo_pkic_path}")
+    raise ImportError(f"Could not load NEw Monte Carlo module from {monte_carlo_newMC_path}")
 import matplotlib.pyplot as plt
 import os
 import markdown
@@ -123,12 +123,12 @@ def autocallable_options():
         simulation_engine = form_data.get('simulation_engine', 'original')
         option_type = form_data.get('option_type', 'call')
 
-        if simulation_engine == 'pkic':
+        if simulation_engine == 'new_MC':
             try:
                 from ..models.market_data import StockData
                 stock_data = StockData(ticker)
                 S0 = float(stock_data.get_current_price())
-                mc_engine = monte_carlo_pkic_module.create_monte_carlo_engine(
+                mc_engine = monte_carlo_New_module.create_monte_carlo_engine(
                     S0=S0,
                     r=r,
                     sigma=sigma,
@@ -148,7 +148,7 @@ def autocallable_options():
                 )
                 option_price = "${:,.4f}".format(option_price)
             except Exception as e:
-                print(f"Error using PKIC engine: {e}")
+                print(f"Error using New MC engine: {e}")
                 option = AutoMonteCarlo(ticker, K, r, sigma, T, q, N, M)
                 option_price = option.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
                 option_price = "${:,.4f}".format(option_price)
@@ -199,7 +199,7 @@ def asian_options():
         option_type = form_data['option_type']
         simulation_engine = form_data.get('simulation_engine', 'original')
 
-        if simulation_engine == 'pkic':
+        if simulation_engine == 'new_MC':
             try:
                 from ..models.market_data import StockData
                 stock_data = StockData(ticker)
@@ -208,7 +208,7 @@ def asian_options():
                 num_steps = len(averaging_dates_sorted) - 1  # one fewer than the number of dates
                 T_years = (averaging_dates_sorted[-1] - averaging_dates_sorted[0]).days / 365.25
 
-                mc_engine = monte_carlo_pkic_module.create_monte_carlo_engine(
+                mc_engine = monte_carlo_New_module.create_monte_carlo_engine(
                     S0=S0,
                     r=r,
                     sigma=sigma,
@@ -226,7 +226,7 @@ def asian_options():
                 )
                 option_price = "${:,.4f}".format(option_price)
             except Exception as e:
-                print(f"Error using PKIC engine: {e}")
+                print(f"Error using New MC engine: {e}")
                 option_price = f"New MC error: {e}"
         else:
             option = AsianOption(ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths)
@@ -496,8 +496,8 @@ Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
             # Get necessary form data for option pricing
             simulation_engine = request.form.get('simulation_engine', 'original')
             
-            if simulation_engine == 'pkic':
-                # Use PKIC Monte Carlo engine
+            if simulation_engine == 'new_MC':
+                # Use New Monte Carlo engine
                 try:
                     # Get stock data
                     from ..models.market_data import StockData
@@ -505,8 +505,8 @@ Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
                     S0 = float(stock_data.get_closing_price())
                     T = stock_data.get_years_difference()
                     
-                    # Create PKIC Monte Carlo engine
-                    mc_engine = monte_carlo_pkic_module.create_monte_carlo_engine(
+                    # Create New Monte Carlo engine
+                    mc_engine = monte_carlo_New_module.create_monte_carlo_engine(
                         S0=S0,
                         r=form_data['r'],
                         sigma=form_data['sigma'],
@@ -516,7 +516,7 @@ Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
                         random_type="sobol"
                     )
                     
-                    # Price barrier option using PKIC engine
+                    # Price barrier option using New MC engine
                     option_price = mc_engine.price_barrier_option(
                         strike_price=form_data['K'],
                         barrier_level=form_data['barrier'],
@@ -528,7 +528,7 @@ Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
                     option_price = "${:,.4f}".format(option_price)
                     
                 except Exception as e:
-                    print(f"Error using PKIC engine: {e}")
+                    print(f"Error using new MC engine: {e}")
                     # Fallback to original engine
                     option = MonteCarlo(**form_data)
                     option_price = option.price_barrier_option()
