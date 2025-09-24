@@ -135,7 +135,9 @@ class SmoothnessTest:
                 option = BlackScholes(self.ticker, self.strike_price, self.start_date, self.end_date, val, self.volatility, self.option_type)
             elif variable == 'volatility':
                 option = BlackScholes(self.ticker, self.strike_price, self.start_date, self.end_date, self.risk_free_rate, val, self.option_type)
-
+            else:
+                raise ValueError(f"Unsupported variable: {variable}")
+            
             greek_values.append(self.calculate_single_greek(option, target_variable))
 
         return values, greek_values
