@@ -8,9 +8,7 @@ import json
 import pickle
 from datetime import datetime
 from werkzeug.utils import secure_filename
-from flask import current_app  # ← Add this import
 from sklearn.ensemble import RandomForestClassifier  # Add this import
-import os  # ← Add this import
 
 class PrepaymentDataUploader:
     """
@@ -621,9 +619,8 @@ class Validation:
             # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            # return self._save_plot_to_static(fig, 'feature_selection')
-            # To this:
-            return self._fig_to_base64(fig)
+            return self._save_plot_to_static(fig, 'feature_selection')
+            
         except Exception as e:
             print(f"Error creating correlation plot: {e}")
             import traceback
@@ -717,8 +714,7 @@ class Validation:
             # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            # return self._save_plot_to_static(fig, 'spearman_correlation')
-            return self._fig_to_base64(fig)  # ← Change this back to _fig_to_base64
+            return self._save_plot_to_static(fig, 'spearman_correlation')
             
         except Exception as e:
             print(f"Error creating Spearman correlation plot: {e}")
@@ -779,8 +775,8 @@ class Validation:
             plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
             fig.tight_layout()
             
-            # return self._save_plot_to_static(fig, 'feature_importance')
-            return self._fig_to_base64(fig)  # ← Change this back to _fig_to_base64
+            return self._save_plot_to_static(fig, 'feature_importance')
+            
         except Exception as e:
             print(f"Error in create_importance_plot: {e}")
             # Return a simple error plot
@@ -788,8 +784,7 @@ class Validation:
             ax.text(0.5, 0.5, f'Error creating importance plot: {str(e)}', 
                     ha='center', va='center', transform=ax.transAxes, fontsize=14)
             ax.set_title(f'Feature Importance Analysis Error', fontsize=14)
-            # return self._save_plot_to_static(fig, 'importance_error')
-            return self._fig_to_base64(fig)
+            return self._save_plot_to_static(fig, 'importance_error')
     
     def _fig_to_base64(self, fig):
         buf = io.BytesIO()
@@ -806,12 +801,9 @@ class Validation:
         import os
         
         # Create static/plots directory if it doesn't exist
-        # plots_dir = 'derivapro/static/plots'
-        # os.makedirs(plots_dir, exist_ok=True)
-        # Create static/plots directory if it doesn't exist - use app-relative path
-        plots_dir = os.path.join(current_app.static_folder, 'plots')  # ← Change this line
+        plots_dir = 'derivapro/static/plots'
         os.makedirs(plots_dir, exist_ok=True)
-    
+        
         # Generate unique filename
         unique_id = str(uuid.uuid4())[:8]  # Short unique ID
         filename = f"{plot_type}_{unique_id}.png"
