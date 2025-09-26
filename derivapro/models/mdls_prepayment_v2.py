@@ -945,6 +945,7 @@ class Validation:
         # Get model name from method parameter
         model_name_mapping = {
             'logistic_regression': 'Logistic Regression',
+            'hazard_models': 'Hazard Models',
             'random_forest': 'Random Forest', 
             'gradient_boosting': 'GBM',
             'lightgbm': 'LightGBM'
@@ -969,6 +970,8 @@ class Validation:
                 
             if model_name == 'Logistic Regression':
                 model = LogisticRegression(**params)
+            elif model_name == 'Hazard Models':
+                model = HazardModels(**params)
             elif model_name == 'Random Forest':
                 model = RandomForestClassifier(**params)
             elif model_name == 'GBM':
@@ -1000,6 +1003,8 @@ class Validation:
                 # For regression, use Linear Regression instead
                 from sklearn.linear_model import LinearRegression
                 model = LinearRegression()
+            elif model_name == 'Hazard Models':
+                model = HazardModels(**params)
             elif model_name == 'Random Forest':
                 model = RandomForestRegressor(**params)
             elif model_name == 'GBM':
@@ -1336,3 +1341,34 @@ class Validation:
                 'success': False,
                 'error': f'Cleanup failed: {str(e)}'
             }
+# Placeholder for Model Performance Testing
+class ValidationPerformanceTesting:
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.data = pd.read_csv(filepath)
+        self.metadata_file = filepath.replace('.csv', '_metadata.json')
+        
+        # Apply conversions first, then imputations to handle any NaN values created by conversions
+        self._load_conversions()
+        self._apply_stored_conversions()
+        self._apply_stored_imputations()
+    
+    def _load_conversions(self):
+        """Load stored data conversions from metadata file - placeholder"""
+        # TODO: Implement loading of stored conversions
+        pass
+    
+    def _apply_stored_conversions(self):
+        """Apply stored data type conversions - placeholder"""
+        # TODO: Implement application of stored conversions
+        pass
+    
+    def _apply_stored_imputations(self):
+        """Apply stored data imputations - placeholder"""
+        # TODO: Implement application of stored imputations
+        pass
+    
+    def run_performance_tests(self):
+        """Run model performance testing suite - placeholder"""
+        # TODO: Implement performance testing logic
+        pass
