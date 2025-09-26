@@ -621,8 +621,9 @@ class Validation:
             # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            return self._save_plot_to_static(fig, 'feature_selection')
-            
+            # return self._save_plot_to_static(fig, 'feature_selection')
+            # To this:
+            return self._fig_to_base64(fig)
         except Exception as e:
             print(f"Error creating correlation plot: {e}")
             import traceback
