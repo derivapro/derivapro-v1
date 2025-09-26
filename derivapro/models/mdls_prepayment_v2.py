@@ -801,9 +801,12 @@ class Validation:
         import os
         
         # Create static/plots directory if it doesn't exist
-        plots_dir = 'derivapro/static/plots'
+        # plots_dir = 'derivapro/static/plots'
+        # os.makedirs(plots_dir, exist_ok=True)
+        # Create static/plots directory if it doesn't exist - use app-relative path
+        plots_dir = os.path.join(current_app.static_folder, 'plots')  # ← Change this line
         os.makedirs(plots_dir, exist_ok=True)
-        
+    
         # Generate unique filename
         unique_id = str(uuid.uuid4())[:8]  # Short unique ID
         filename = f"{plot_type}_{unique_id}.png"

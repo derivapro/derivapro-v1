@@ -917,7 +917,8 @@ def start_over():
                     cleanup_results.append(f"✓ Deleted metadata file: {os.path.basename(metadata_file)}")
         
         # 3. Delete feature selection plot files
-        plots_dir = 'derivapro/static/plots'
+        # plots_dir = 'derivapro/static/plots'
+        plots_dir = os.path.join(current_app.static_folder, 'plots')  # ← Change this line
         if os.path.exists(plots_dir):
             plot_files_deleted = 0
             for filename in os.listdir(plots_dir):
