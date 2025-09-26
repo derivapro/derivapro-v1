@@ -8,7 +8,9 @@ import json
 import pickle
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from flask import current_app  # ← Add this import
 from sklearn.ensemble import RandomForestClassifier  # Add this import
+import os  # ← Add this import
 
 class PrepaymentDataUploader:
     """
