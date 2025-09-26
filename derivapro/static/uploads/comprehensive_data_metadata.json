@@ -1,1 +1,0 @@
-{"conversions": {}, "imputations": {}, "normalizations": {}, "data_split": {"target": "LTV", "task": "regression", "test_ratio": 0.2, "random_state": 42}, "selected_modeling_columns": ["FICO Score", "LTV", "DSCR", "Credit Utilization", "Credit Score", "Original Balance", "Current Balance"], "registered_model_info": {}}

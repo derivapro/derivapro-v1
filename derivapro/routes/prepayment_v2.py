@@ -860,7 +860,10 @@ def deregister_model():
     except Exception as e:
         return jsonify({'success': False, 'error': f'Model deregistration failed: {str(e)}'})
 
-
+# Model Performance Testing Placeholder
+@prepayment_v2_bp.route('/prepayment-model-validator/model_performance_testing', methods=['POST'])
+def model_performance_testing():
+    pass
 
 @prepayment_v2_bp.route('/delete_upload', methods=['POST'])
 def delete_upload():

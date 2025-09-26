@@ -558,6 +558,7 @@
   <!-- Model Training Tabs -->
   <div class="model-training-tabs">
     <button class="model-training-tab-button active" onclick="openModelTab(event, 'logistic-regression-tab')">📊 Logistic Regression</button>
+    <button class="model-training-tab-button" onclick="openModelTab(event, 'hazard-models-tab')">🔍 Hazard Models</button>
     <button class="model-training-tab-button" onclick="openModelTab(event, 'random-forest-tab')">🌲 Random Forest</button>
     <button class="model-training-tab-button" onclick="openModelTab(event, 'gradient-boosting-tab')">⚡ Gradient Boosting</button>
     <button class="model-training-tab-button" onclick="openModelTab(event, 'lightgbm-tab')">💡 LightGBM</button>
@@ -720,11 +721,12 @@
     <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
       <h5 style="color: #dc3545; margin-bottom: 15px;">💡 LightGBM</h5>
       <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
-        <strong>Best for:</strong> Large datasets with fast training speed. 
-        Advanced gradient boosting with memory efficiency and high accuracy.
+        <!-- <strong>Best for:</strong> Large datasets with fast training speed.  -->
+        <!-- Advanced gradient boosting with memory efficiency and high accuracy. -->
+        Under development.
       </p>
       
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+      <!-- <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
         <div>
           <label style="display: block; margin-bottom: 5px; font-weight: bold;">Number of Estimators:</label>
           <input type="number" id="lgb_n_estimators" min="50" max="1000" value="100" 
@@ -770,8 +772,18 @@
         </button>
       </div>
       
-      <div id="lightgbmStatus" class="model-training-status"></div>
+      <div id="lightgbmStatus" class="model-training-status"></div> -->
     </div>
+  </div>
+
+  <!-- Hazard Models Tab -->
+  <div id="hazard-models-tab" class="model-training-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #dc3545; margin-bottom: 15px;">🔍 Hazard Models</h5>
+    </div>
+    <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        Under development.
+      </p>
   </div>
 </div>
 
@@ -784,8 +796,8 @@
   <!-- When no model is registered -->
   <div id="no-model-state" style="display: block;">
     <div style="background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
-      <h6 style="margin: 0 0 10px 0; color: #495057;">📝 No Model Registered</h6>
-      <p style="margin: 0; color: #6c757d;">Train a model first, then register it for use in production.</p>
+      <h4 style="margin: 0 0 20px 0; color: #495057;">No Model Registered</h4>
+      <p style="margin: 0; color: #6c757d;"></p>
     </div>
     
     <div id="register-controls" style="display: none;">
@@ -821,6 +833,70 @@
   <div id="model-registry-status" style="margin-top: 15px; padding: 10px; border-radius: 4px; display: none;"></div>
 </div>
 
+<!-- Model Performance Testing Interface -->
+<h1 style="color: #2E86C1">
+  Model Performance Testing
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <!-- Model Training Tabs -->
+  <div class="model-performance_testing-tabs">
+    <button class="model-performance_testing-tab-button active" onclick="openModelPerformanceTestingTab(event, 'scenario-analysis-tab')">Scenario Analysis</button>
+    <button class="model-performance_testing-tab-button" onclick="openModelPerformanceTestingTab(event, 'sensitivity-analysis-tab')">Sensitivity Analysis</button>
+    <button class="model-performance_testing-tab-button" onclick="openModelPerformanceTestingTab(event, 'in-sample-performance-tab')">In-Sample Performance</button>
+    <button class="model-performance_testing-tab-button" onclick="openModelPerformanceTestingTab(event, 'out-of-sample-performance-tab')">Out-of-Sample Performance</button>
+    <button class="model-performance_testing-tab-button" onclick="openModelPerformanceTestingTab(event, 'out-of-time-performance-tab')">Out-of-Time Performance</button>
+  </div>
+
+  <!-- Scenario Analysis Tab -->
+  <div id="scenario-analysis-tab" class="model-performance_testing-tab-content" style="display: block;">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #007bff; margin-bottom: 15px;">Scenario Analysis</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        Under Development
+      </p>
+    </div>
+  </div>
+
+  <!-- Sensitivity Analysis Tab -->
+  <div id="sensitivity-analysis-tab" class="model-performance_testing-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #007bff; margin-bottom: 15px;">Sensitivity Analysis</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        Under Development
+      </p>
+    </div>
+  </div>
+
+  <!-- In-Sample Performance Tab -->
+  <div id="in-sample-performance-tab" class="model-performance_testing-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #007bff; margin-bottom: 15px;">In-Sample Performance</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        Under Development
+      </p>
+    </div>
+  </div> 
+
+  <!-- Out-of-Sample Performance Tab -->
+  <div id="out-of-sample-performance-tab" class="model-performance_testing-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #007bff; margin-bottom: 15px;">Out-of-Sample Performance</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        Under Development
+      </p>
+    </div>
+  </div>
+
+  <!-- Out-of-Time Performance Tab -->
+  <div id="out-of-time-performance-tab" class="model-performance_testing-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #007bff; margin-bottom: 15px;">Out-of-Time Performance</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        Under Development
+      </p>
+    </div>
+  </div>
+</div>
 
 
 
@@ -1343,6 +1419,32 @@ function openModelTab(evt, tabName) {
   document.getElementById(tabName).classList.add("active");
   evt.currentTarget.classList.add("active");
 }
+
+
+
+// Model Performance Testing Tab Management
+function openModelPerformanceTestingTab(evt, tabName) {
+  var i, tabcontent, tablinks;
+  
+  // Hide all model performance testing tab content
+  tabcontent = document.getElementsByClassName("model-performance_testing-tab-content");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+    tabcontent[i].classList.remove("active");
+  }
+  
+  // Remove active class from all model performance testing tab buttons
+    tablinks = document.getElementsByClassName("model-performance_testing-tab-button");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].classList.remove("active");
+  }
+  
+  // Show the selected tab and mark button as active
+  document.getElementById(tabName).style.display = "block";
+  document.getElementById(tabName).classList.add("active");
+  evt.currentTarget.classList.add("active");
+}
+
 
 // Model Training Functions
 function trainModel(method) {
@@ -2253,5 +2355,57 @@ function showStatus(message, type) {
   display: none;
 }
 </style>
+
+<style>
+  /* Model Performance Testing Tab Styles */
+  .model-training-tabs {
+    display: flex;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 0;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  
+  .model-performance_testing-tab-button {
+    background: #e9ecef;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    font-weight: 500;
+    color: #495057;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    font-size: 14px;
+  }
+  
+  .model-performance_testing-tab-button:hover {
+    background: #dee2e6;
+    color: #212529;
+  }
+  
+  .model-performance_testing-tab-button.active {
+    background: white;
+    color: #212529;
+    border-bottom: 3px solid #007bff;
+    font-weight: 600;
+  }
+  
+  .model-performance_testing-tab-content {
+    display: none;
+  }
+  
+  .model-performance_testing-tab-content.active {
+    display: block;
+  }
+  
+  .model-performance_testing-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+  }
+</style>
+
 
 {% endblock %}
