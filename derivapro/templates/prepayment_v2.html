@@ -1,0 +1,2257 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Prepayment Model Validator</h1>
+
+<div class="card mb-3" style="border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
+  {% if upload_success %}
+    <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 15px; color: #155724;">
+      <strong>✓ File Uploaded:</strong> {{ uploaded_filename }}
+      <div style="margin-top: 10px;">
+        <form method="POST" action="{{ url_for('prepayment_v2.delete_upload') }}" style="display: inline; margin-right: 10px;">
+          <button type="submit" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">Delete File Only</button>
+        </form>
+        <button onclick="startOver()" style="background: #fd7e14; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
+          🔄 Start Over (Clear All)
+        </button>
+      </div>
+    </div>
+  {% else %}
+    <form method="POST" enctype="multipart/form-data">
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Select Loan Data:</label>
+        <input type="file" name="file" accept=".csv" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 400px;" required>
+      </div>
+      <input type="submit" value="Upload" class="btn-primary">
+    </form>
+  {% endif %}
+</div>
+
+{% if upload_success %}
+
+
+<!-- Data Summary Interface -->
+<h1 style="color: #2E86C1">
+  Data Summary
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  
+  <!-- Interactive Tab System -->
+  <div class="tabs">
+    <button class="tab-button active" onclick="openTab(event, 'num')">Numerical</button>
+    <button class="tab-button" onclick="openTab(event, 'cat')">Categorical</button>
+    <button class="tab-button" onclick="openTab(event, 'missing')">Missing</button>
+    <button class="tab-button" onclick="openTab(event, 'corr')">Correlation</button>
+    <button class="tab-button" onclick="openTab(event, 'univariate')">Univariate Analysis</button>
+  </div>
+
+  <div id="num" class="tab-content" style="display: block;">
+    <h4>Numerical Summary</h4>
+    {{ summary_num|safe }}
+  </div>
+
+  <div id="cat" class="tab-content">
+    <h4>Categorical Summary</h4>
+    {{ summary_cat|safe }}
+  </div>
+
+  <div id="missing" class="tab-content">
+    <h4>Missing Values</h4>
+    {{ missing_table|safe }}
+  </div>
+
+  <div id="corr" class="tab-content">
+    <h4>Correlation Heatmap</h4>
+    {% if heatmap_plot %}
+      <img src="data:image/png;base64,{{ heatmap_plot }}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 30px;">
+    {% endif %}
+  </div>
+
+  <div id="univariate" class="tab-content">
+    <h4>Univariate Analysis</h4>
+    <form method="get" style="margin-bottom: 20px;">
+      <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: end;">
+        <div style="min-width: 200px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Distribution:</label>
+          <select name="dist_col" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            <option value="">Select column...</option>
+            {% for c in df_columns %}
+              <option value="{{c}}" {% if request.args.get('dist_col') == c %}selected{% endif %}>{{c}}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="min-width: 200px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Scatter X:</label>
+          <select name="scatter_x" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            <option value="">Select column...</option>
+            {% for c in df_columns %}
+              <option value="{{c}}" {% if request.args.get('scatter_x') == c %}selected{% endif %}>{{c}}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="min-width: 200px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Scatter Y:</label>
+          <select name="scatter_y" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            <option value="">Select column...</option>
+            {% for c in df_columns %}
+              <option value="{{c}}" {% if request.args.get('scatter_y') == c %}selected{% endif %}>{{c}}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit" class="btn-primary" style="padding: 8px 16px;">Update Plots</button>
+        </div>
+      </div>
+    </form>
+
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 300px;">
+        {% if dist_plot %}
+          <h5>Distribution Plot</h5>
+          <img src="data:image/png;base64,{{ dist_plot }}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+        {% endif %}
+      </div>
+      <div style="flex: 1; min-width: 300px;">
+        {% if scatter_plot %}
+          <h5>Scatter Plot</h5>
+          <img src="data:image/png;base64,{{ scatter_plot }}" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Column Conversion Interface -->
+<h1 style="color: #2E86C1">
+  Column Type Conversion
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap;">
+    <div style="min-width: 200px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Select Column:</label>
+      <select id="columnSelect" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        <option value="">Choose a column...</option>
+        {% for c in df_columns %}
+          <option value="{{c}}">{{c}}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width: 150px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Convert To:</label>
+      <select id="conversionType" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        <option value="">Select type...</option>
+        <option value="numeric">Numerical</option>
+        <option value="categorical">Categorical</option>
+      </select>
+    </div>
+    <div>
+      <button onclick="convertSingleColumn()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Convert Column
+      </button>
+    </div>
+  </div>
+  <div id="conversionStatus" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
+</div>
+
+<!-- Data Imputation & Normalization Interface -->
+<h1 style="color: #2E86C1">
+  Data Processing
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <p style="color: #6c757d; margin-bottom: 15px;">Choose either imputation or normalization for your selected column.</p>
+  
+  <!-- Column Selection (shared) -->
+  <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap; margin-bottom: 20px;">
+    <div style="min-width: 200px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Select Column:</label>
+      <select id="processingColumnSelect" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        <option value="">Select Variable...</option>
+        {% for c in df_columns %}
+          <option value="{{c}}">{{c}}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- Processing Type Selection -->
+  <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+    <div style="flex: 1; padding: 15px; border: 2px solid #dee2e6; border-radius: 6px; background: white;">
+      <h5 style="margin-top: 0; color: #17a2b8;">Data Imputation</h5>
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Method:</label>
+        <select id="imputationMethod" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <option value="">Select Method...</option>
+          <option value="mean">Mean</option>
+          <option value="median">Median</option>
+          <option value="mode">Mode</option>
+          <option value="constant">Constant</option>
+        </select>
+      </div>
+      <button onclick="processData('imputation')" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%;">
+        Impute Data
+      </button>
+    </div>
+
+    <div style="flex: 1; padding: 15px; border: 2px solid #dee2e6; border-radius: 6px; background: white;">
+      <h5 style="margin-top: 0; color: #28a745;">Data Normalization</h5>
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Method:</label>
+        <select id="normalizationMethod" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <option value="">Select Method...</option>
+          <option value="standard">Standard (Z-score)</option>
+          <option value="minmax">Min-Max (0-1)</option>
+        </select>
+      </div>
+      <button onclick="processData('normalization')" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%;">
+        Normalize Data
+      </button>
+    </div>
+  </div>
+
+  <!-- Status display -->
+  <div id="processingStatus" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
+</div>
+
+<!-- Data Preparation Interface -->
+<h1 style="color: #2E86C1">
+  Model Preparation
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap;">
+    <div style="min-width: 200px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Select Target Variable:</label>
+      <select id="targetVariableSelect" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        <option value="">Choose a column...</option>
+        {% for c in df_columns %}
+          <option value="{{c}}">{{c}}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width: 150px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Task:</label>
+      <select id="taskType" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        <option value="">Select type...</option>
+        <option value="classification">Classification</option>
+        <option value="regression">Regression</option>
+      </select>
+    </div>
+    <div style="min-width: 120px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Test Ratio:</label>
+      <input type="number" id="testRatio" step="0.1" min="0.1" max="0.5" value="0.2" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+    </div>
+    <!-- <div style="min-width: 120px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Random State:</label>
+      <input type="number" id="randomState" min="1" value="42" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+    </div> -->
+    <div>
+      <button onclick="prepareData()" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Prepare Data
+      </button>
+    </div>
+  </div>
+  <div id="preparationStatus" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
+  
+  <!-- Split Results Display -->
+  {% if split_results %}
+    <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; padding: 15px; color: #155724; margin-top: 15px;">
+      <h5 style="margin-top: 0; margin-bottom: 10px;">✓ Data Split Completed</h5>
+      <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+        <div>
+          <strong>Training Set:</strong><br>
+          {{ split_results.train_rows }} rows × {{ split_results.train_cols }} columns
+        </div>
+        <div>
+          <strong>Test Set:</strong><br>
+          {{ split_results.test_rows }} rows × {{ split_results.test_cols }} columns
+        </div>
+        <div>
+          <strong>Target Variable:</strong><br>
+          {{ split_results.target_variable }}
+        </div>
+        <div>
+          <strong>Task Type:</strong><br>
+          {{ split_results.task }}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Column Selection Interface -->
+<h1 style="color: #2E86C1">
+  Column Selection
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <p style="color: #6c757d; margin-bottom: 15px;">Select which columns to include/exclude from model training. Remove identifier columns, irrelevant features, etc.</p>
+  
+  <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+    <!-- Available Columns -->
+    <div style="flex: 1;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Available Columns:</label>
+      <select id="availableColumns" multiple size="8" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <!-- Will be populated dynamically -->
+      </select>
+      <small style="color: #6c757d;">Hold Ctrl/Cmd to select multiple</small>
+    </div>
+    
+    <!-- Control Buttons -->
+    <div style="display: flex; flex-direction: column; justify-content: center; gap: 10px; min-width: 120px;">
+      <button onclick="moveColumns('include')" style="padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Add
+      </button>
+      <button onclick="moveColumns('exclude')" style="padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Remove
+      </button>
+    </div>
+    
+    <!-- Selected Columns -->
+    <div style="flex: 1;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Selected for Modeling:</label>
+      <select id="selectedColumns" multiple size="8" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <!-- Will be populated dynamically -->
+      </select>
+      <small style="color: #6c757d;">These columns will be used for modeling</small>
+    </div>
+  </div>
+  
+  <div style="display: flex; gap: 15px; align-items: center;">
+    <button onclick="applyColumnSelection()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+      Apply Column Selection
+    </button>
+    <button onclick="resetColumnSelection()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      Reset
+    </button>
+  </div>
+  
+  <div id="columnSelectionStatus" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
+</div>
+
+
+<!-- Add this after the column selection interface -->
+<div id="columnSelectionSummary" style="background: #e9ecef; padding: 10px; border-radius: 4px; margin-top: 10px; display: none;">
+  <strong>Current Selection Summary:</strong>
+  <div id="selectionSummaryContent"></div>
+</div>
+
+<!-- Feature Selection Interface -->
+<h1 style="color: #2E86C1">
+  Feature Selection
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <!-- Feature Selection Tabs -->
+  <div class="feature-tabs">
+    <button class="feature-tab-button active" onclick="openFeatureTab(event, 'pearson-tab')"> Pearson Correlation</button>
+    <button class="feature-tab-button" onclick="openFeatureTab(event, 'spearman-tab')"> Spearman Correlation</button>
+    <button class="feature-tab-button" onclick="openFeatureTab(event, 'importance-tab')"> Feature Importance</button>
+  </div>
+
+  <!-- Pearson Correlation Tab -->
+  <div id="pearson-tab" class="feature-tab-content" style="display: block;">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #28a745; margin-bottom: 15px;"> Pearson Correlation Analysis</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        <strong>What it measures:</strong> Linear relationships between features and target variable. 
+        Values range from -1 (perfect negative) to +1 (perfect positive correlation).
+      </p>
+      
+      <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap; margin-bottom: 15px;">
+        <div style="min-width: 150px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Correlation Threshold:</label>
+          <input type="number" id="pearsonThreshold" step="0.1" min="0.1" max="0.9" value="0.5" 
+                style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        </div>
+        <div>
+          <button onclick="runFeatureSelection('pearson')" 
+                  style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            🔍 Analyze Pearson Correlation
+          </button>
+        </div>
+        <div>
+          <button onclick="removeFeaturesByThreshold('pearson')" 
+                  style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            🗑️ Remove Features Below Threshold
+          </button>
+        </div>
+      </div>
+      
+      <div id="pearsonStatus" class="feature-status"></div>
+      <div id="pearsonPlotContainer" class="plot-container"></div>
+    </div>
+  </div>
+
+  <!-- Spearman Correlation Tab -->
+  <div id="spearman-tab" class="feature-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #007bff; margin-bottom: 15px;"> Spearman Rank Correlation Analysis</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        <strong>What it measures:</strong> Monotonic relationships (doesn't require linearity). 
+        Better for detecting rankings and ordinal relationships between variables.
+      </p>
+      
+      <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap; margin-bottom: 15px;">
+        <div style="min-width: 150px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Correlation Threshold:</label>
+          <input type="number" id="spearmanThreshold" step="0.1" min="0.1" max="0.9" value="0.5" 
+                style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        </div>
+        <div>
+          <button onclick="runFeatureSelection('spearman')" 
+                  style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            📈 Analyze Spearman Correlation
+          </button>
+        </div>
+        <div>
+          <button onclick="removeFeaturesByThreshold('spearman')" 
+                  style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            🗑️ Remove Features Below Threshold
+          </button>
+        </div>
+      </div>
+      
+      <div id="spearmanStatus" class="feature-status"></div>
+      <div id="spearmanPlotContainer" class="plot-container"></div>
+    </div>
+  </div>
+
+  <!-- Feature Importance Tab -->
+  <div id="importance-tab" class="feature-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #dc3545; margin-bottom: 15px;"> Random Forest Feature Importance</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        <strong>What it measures:</strong> How much each feature contributes to reducing prediction error in a Random Forest model. 
+        Based on actual predictive power rather than just correlation.
+      </p>
+      
+      <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap; margin-bottom: 15px;">
+        <div style="min-width: 150px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Importance Threshold:</label>
+          <input type="number" id="importanceThreshold" step="0.01" min="0.01" max="0.5" value="0.1" 
+                style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        </div>
+        <div>
+          <button onclick="runFeatureSelection('feature_importance')" 
+                  style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            🎯 Analyze Feature Importance
+          </button>
+        </div>
+        <div>
+          <button onclick="removeFeaturesByThreshold('feature_importance')" 
+                  style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            🗑️ Remove Features Below Threshold
+          </button>
+        </div>
+      </div>
+      
+      <div id="importanceStatus" class="feature-status"></div>
+      <div id="importancePlotContainer" class="plot-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Final Column Selection Interface -->
+<h1 style="color: #2E86C1">
+  Final Column Selection
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <p style="color: #6c757d; margin-bottom: 15px;">
+    Review and manually select your final features from the list that passed feature selection and threshold validation. 
+    This is your last chance to fine-tune your feature set before model training.
+  </p>
+  
+  <!-- Current Features Display -->
+  <div style="background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+    <h6 style="margin: 0 0 10px 0; color: #495057;">📊 Features Available for Final Selection:</h6>
+    <div id="availableFeaturesDisplay" style="font-family: monospace; font-size: 14px; color: #6c757d;">
+      <em>Run feature selection first to see available features here...</em>
+    </div>
+    <button onclick="loadCurrentFeatures()" 
+            style="margin-top: 10px; padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      🔄 Refresh Available Features
+    </button>
+  </div>
+  
+  <!-- Final Selection Interface -->
+  <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+    <!-- Available Features -->
+    <div style="flex: 1;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Available Features:</label>
+      <select id="finalAvailableColumns" multiple size="10" 
+              style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <!-- Will be populated dynamically -->
+      </select>
+      <small style="color: #6c757d;">Features that passed threshold validation</small>
+    </div>
+    
+    <!-- Transfer Buttons -->
+    <div style="display: flex; flex-direction: column; justify-content: center; gap: 10px;">
+      <button onclick="addToFinalSelection()" 
+              style="padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Add
+      </button>
+      <button onclick="removeFromFinalSelection()" 
+              style="padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Remove
+      </button>
+      <button onclick="clearFinalSelection()" 
+              style="padding: 8px 12px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        🗑️ Clear
+      </button>
+    </div>
+    
+    <!-- Final Selected Features -->
+    <div style="flex: 1;">
+      <label style="display: block; margin-bottom: 5px; font-weight: bold;">Final Selected Features:</label>
+      <select id="finalSelectedColumns" multiple size="10" 
+              style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        <!-- Will be populated dynamically -->
+      </select>
+      <small style="color: #6c757d;">Features for model training</small>
+    </div>
+  </div>
+  
+  <!-- Action Buttons -->
+  <div style="display: flex; gap: 15px; align-items: center;">
+    <button onclick="applyFinalColumnSelection()" 
+            style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 16px;">
+      ✅ Apply Final Selection
+    </button>
+    <button onclick="resetFinalSelection()" 
+            style="padding: 12px 24px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      🔄 Reset
+    </button>
+  </div>
+  
+  <!-- Status Display -->
+  <div id="finalColumnSelectionStatus" style="margin-top: 15px; padding: 10px; border-radius: 4px; display: none;"></div>
+  
+  <!-- Selection Summary -->
+  <div id="finalSelectionSummary" style="background: #e9ecef; padding: 15px; border-radius: 6px; margin-top: 15px; display: none;">
+    <h6 style="margin: 0 0 10px 0; color: #495057;">📋 Final Selection Summary:</h6>
+    <div id="finalSelectionSummaryContent"></div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Model Training Interface -->
+<h1 style="color: #2E86C1">
+  Model Training
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  <!-- Model Training Tabs -->
+  <div class="model-training-tabs">
+    <button class="model-training-tab-button active" onclick="openModelTab(event, 'logistic-regression-tab')">📊 Logistic Regression</button>
+    <button class="model-training-tab-button" onclick="openModelTab(event, 'random-forest-tab')">🌲 Random Forest</button>
+    <button class="model-training-tab-button" onclick="openModelTab(event, 'gradient-boosting-tab')">⚡ Gradient Boosting</button>
+    <button class="model-training-tab-button" onclick="openModelTab(event, 'lightgbm-tab')">💡 LightGBM</button>
+  </div>
+
+  <!-- Logistic Regression Tab -->
+  <div id="logistic-regression-tab" class="model-training-tab-content" style="display: block;">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #007bff; margin-bottom: 15px;">📊 Logistic Regression</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        <strong>Best for:</strong> Binary classification problems with linear decision boundaries. 
+        Fast training and good interpretability with feature importance.
+      </p>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">C (Regularization Strength):</label>
+          <input type="number" id="lr_C" step="0.1" min="0.001" value="1.0" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Lower values = stronger regularization</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Penalty:</label>
+          <select id="lr_penalty" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            <option value="l2">L2 (Ridge)</option>
+            <option value="l1">L1 (Lasso)</option>
+            <option value="elasticnet">Elastic Net</option>
+            <option value="">None</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Solver:</label>
+          <select id="lr_solver" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+            <option value="lbfgs">lbfgs (default)</option>
+            <option value="liblinear">liblinear</option>
+            <option value="newton-cg">newton-cg</option>
+            <option value="sag">sag</option>
+            <option value="saga">saga</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Max Iterations:</label>
+          <input type="number" id="lr_max_iter" min="100" value="1000" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+        </div>
+      </div>
+      
+      <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 10px; margin-bottom: 15px; font-size: 12px;">
+        <strong>⚠️ Solver-Penalty Compatibility:</strong><br>
+        • <strong>lbfgs:</strong> L2, None &nbsp; • <strong>liblinear:</strong> L1, L2 &nbsp; • <strong>saga:</strong> All penalties
+      </div>
+      
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <button onclick="trainModel('logistic_regression')" 
+                style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+          🚀 Train Logistic Regression
+        </button>
+      </div>
+      
+      <div id="logisticRegressionStatus" class="model-training-status"></div>
+    </div>
+  </div>
+
+  <!-- Random Forest Tab -->
+  <div id="random-forest-tab" class="model-training-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #28a745; margin-bottom: 15px;">🌲 Random Forest</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        <strong>Best for:</strong> Both classification and regression with good performance out-of-the-box. 
+        Handles non-linear relationships and provides feature importance.
+      </p>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Number of Estimators:</label>
+          <input type="number" id="rf_n_estimators" min="10" max="1000" value="100" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Number of trees in the forest</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Max Depth:</label>
+          <input type="number" id="rf_max_depth" min="1" max="50" value="10" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Maximum depth of trees</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Min Samples Split:</label>
+          <input type="number" id="rf_min_samples_split" min="2" max="20" value="2" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Min samples to split a node</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Min Samples Leaf:</label>
+          <input type="number" id="rf_min_samples_leaf" min="1" max="10" value="1" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Min samples in leaf nodes</small>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <button onclick="trainModel('random_forest')" 
+                style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+          🚀 Train Random Forest
+        </button>
+      </div>
+      
+      <div id="randomForestStatus" class="model-training-status"></div>
+    </div>
+  </div>
+
+  <!-- Gradient Boosting Tab -->
+  <div id="gradient-boosting-tab" class="model-training-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #ffc107; margin-bottom: 15px;">⚡ Gradient Boosting (GBM)</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        <strong>Best for:</strong> High-performance models with careful tuning. 
+        Sequential learning that often achieves better accuracy than Random Forest.
+      </p>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Number of Estimators:</label>
+          <input type="number" id="gbm_n_estimators" min="50" max="1000" value="100" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Number of boosting stages</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Learning Rate:</label>
+          <input type="number" id="gbm_learning_rate" step="0.01" min="0.01" max="1.0" value="0.1" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Step size shrinkage</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Max Depth:</label>
+          <input type="number" id="gbm_max_depth" min="1" max="10" value="3" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Maximum depth of trees</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Subsample:</label>
+          <input type="number" id="gbm_subsample" step="0.1" min="0.1" max="1.0" value="1.0" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Fraction of samples for fitting</small>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <button onclick="trainModel('gradient_boosting')" 
+                style="padding: 10px 20px; background: #ffc107; color: black; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+          🚀 Train Gradient Boosting
+        </button>
+      </div>
+      
+      <div id="gradientBoostingStatus" class="model-training-status"></div>
+    </div>
+  </div>
+
+  <!-- LightGBM Tab -->
+  <div id="lightgbm-tab" class="model-training-tab-content">
+    <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 15px;">
+      <h5 style="color: #dc3545; margin-bottom: 15px;">💡 LightGBM</h5>
+      <p style="color: #6c757d; font-size: 14px; margin-bottom: 15px;">
+        <strong>Best for:</strong> Large datasets with fast training speed. 
+        Advanced gradient boosting with memory efficiency and high accuracy.
+      </p>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Number of Estimators:</label>
+          <input type="number" id="lgb_n_estimators" min="50" max="1000" value="100" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Number of boosting iterations</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Learning Rate:</label>
+          <input type="number" id="lgb_learning_rate" step="0.01" min="0.01" max="1.0" value="0.1" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Boosting learning rate</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Number of Leaves:</label>
+          <input type="number" id="lgb_num_leaves" min="10" max="300" value="31" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">Max number of leaves in one tree</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Max Depth:</label>
+          <input type="number" id="lgb_max_depth" min="-1" max="20" value="-1" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">-1 means no limit</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">L1 Regularization:</label>
+          <input type="number" id="lgb_reg_alpha" step="0.1" min="0.0" max="10.0" value="0.0" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">L1 regularization term</small>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">L2 Regularization:</label>
+          <input type="number" id="lgb_reg_lambda" step="0.1" min="0.0" max="10.0" value="0.0" 
+                 style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+          <small style="color: #6c757d;">L2 regularization term</small>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 15px; align-items: center;">
+        <button onclick="trainModel('lightgbm')" 
+                style="padding: 10px 20px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+          🚀 Train LightGBM
+        </button>
+      </div>
+      
+      <div id="lightgbmStatus" class="model-training-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Model Registry Interface -->
+<h1 style="color: #2E86C1">
+  Model Registry
+</h1>
+<div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+  
+  <!-- When no model is registered -->
+  <div id="no-model-state" style="display: block;">
+    <div style="background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+      <h6 style="margin: 0 0 10px 0; color: #495057;">📝 No Model Registered</h6>
+      <p style="margin: 0; color: #6c757d;">Train a model first, then register it for use in production.</p>
+    </div>
+    
+    <div id="register-controls" style="display: none;">
+      <p style="color: #555; margin-bottom: 15px;">
+        <strong>✅ Model ready for registration!</strong> Register your trained model to save it for production use.
+      </p>
+      <button onclick="registerModel()" 
+              style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">
+        📋 Register Model
+      </button>
+    </div>
+  </div>
+  
+  <!-- When model is registered -->
+  <div id="model-registered-state" style="display: none;">
+    <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+      <h6 style="margin: 0 0 10px 0; color: #155724;">✅ Model Registered</h6>
+      <div id="registered-model-info" style="color: #155724;">
+        <!-- Model info will be populated here -->
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 15px; align-items: center;">
+      <button onclick="deleteModel()" 
+              style="padding: 12px 24px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        🗑️ Delete Model
+      </button>
+      <small style="color: #6c757d;">Delete the registered model so you can train and register a new one.</small>
+    </div>
+  </div>
+  
+  <!-- Status messages -->
+  <div id="model-registry-status" style="margin-top: 15px; padding: 10px; border-radius: 4px; display: none;"></div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+function openTab(evt, tabName) {
+  var i, tabcontent, tablinks;
+
+  // Hide all tab content
+  tabcontent = document.getElementsByClassName("tab-content");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+  // Remove active class from all tab buttons
+  tablinks = document.getElementsByClassName("tab-button");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+  // Show the selected tab and mark button as active
+  document.getElementById(tabName).style.display = "block";
+  evt.currentTarget.className += " active";
+}
+
+function convertSingleColumn() {
+  const columnSelect = document.getElementById('columnSelect');
+  const conversionType = document.getElementById('conversionType');
+  const statusDiv = document.getElementById('conversionStatus');
+  
+  const selectedColumn = columnSelect.value;
+  const selectedType = conversionType.value;
+  
+  if (!selectedColumn || !selectedType) {
+    showStatus('Please select both a column and conversion type.', 'error');
+    return;
+  }
+  
+  // Show loading
+  showStatus('Converting column...', 'info');
+  
+  fetch('/prepayment-v2/prepayment-model-validator/convert_columns', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      columns: [selectedColumn],
+      type: selectedType
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showStatus(data.message, 'success');
+      // Reset dropdowns
+      columnSelect.value = '';
+      conversionType.value = '';
+      // Reload page after 1.5 seconds to show updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } else {
+      showStatus('Error: ' + data.error, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showStatus('Network error: Unable to convert column. Please try again.', 'error');
+  });
+}
+function processData(operationType) {
+  const columnSelect = document.getElementById('processingColumnSelect');
+  const selectedColumn = columnSelect.value;
+  
+  if (!selectedColumn) {
+    showProcessingStatus('Please select a column first.', 'error');
+    return;
+  }
+
+  let method, endpoint, methodSelect;
+  
+  if (operationType === 'imputation') {
+    methodSelect = document.getElementById('imputationMethod');
+    method = methodSelect.value;
+    endpoint = '/prepayment-v2/prepayment-model-validator/impute_data';
+    
+    if (!method) {
+      showProcessingStatus('Please select an imputation method.', 'error');
+      return;
+    }
+    
+    showProcessingStatus('Imputing data...', 'info');
+    
+  } else if (operationType === 'normalization') {
+    methodSelect = document.getElementById('normalizationMethod');
+    method = methodSelect.value;
+    endpoint = '/prepayment-v2/prepayment-model-validator/normalize_data';
+    
+    if (!method) {
+      showProcessingStatus('Please select a normalization method.', 'error');
+      return;
+    }
+    
+    showProcessingStatus('Normalizing data...', 'info');
+  }
+  
+  fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      columns: [selectedColumn],
+      method: method
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showProcessingStatus(data.message, 'success');
+      // Reset dropdowns
+      columnSelect.value = '';
+      methodSelect.value = '';
+      // Reload page after 1.5 seconds to show updated data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } else {
+      showProcessingStatus('Error: ' + data.error, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showProcessingStatus('Network error: Unable to process data. Please try again.', 'error');
+  });
+}
+
+
+function prepareData() {
+  const targetVariableSelect = document.getElementById('targetVariableSelect');
+  const taskType = document.getElementById('taskType');
+  const testRatio = document.getElementById('testRatio');
+  // const randomState = document.getElementById('randomState');
+  
+  const selectedTargetVariable = targetVariableSelect.value;
+  const selectedTask = taskType.value;
+  const selectedTestRatio = parseFloat(testRatio.value);
+  // const selectedRandomState = parseInt(randomState.value);
+  
+  if (!selectedTargetVariable || !selectedTask) {
+    showPreparationStatus('Please select both a target variable and task.', 'error');
+    return;
+  }
+  
+  if (isNaN(selectedTestRatio) || selectedTestRatio <= 0 || selectedTestRatio >= 1) {
+    showPreparationStatus('Test ratio must be between 0 and 1.', 'error');
+    return;
+  }
+  
+  showPreparationStatus('Preparing data...', 'info');
+  
+  fetch('/prepayment-v2/prepayment-model-validator/prepare_data', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      columns: [selectedTargetVariable],
+      task: selectedTask,
+      train_test_split_ratio: selectedTestRatio,
+      // random_state: selectedRandomState
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Create enhanced success message with split details
+      let successMessage = data.message;
+      if (data.split_info) {
+        successMessage += `<br><br><strong>Split Results:</strong><br>
+          <span style="color: #0d6efd;">Training:</span> ${data.split_info.train_rows} rows × ${data.split_info.train_cols} columns<br>
+          <span style="color: #0d6efd;">Test:</span> ${data.split_info.test_rows} rows × ${data.split_info.test_cols} columns`;
+      }
+      
+      showPreparationStatus(successMessage, 'success');
+      
+      // Reset dropdowns after a delay so user can see results
+      setTimeout(() => {
+        targetVariableSelect.value = '';
+        taskType.value = '';
+        testRatio.value = '0.2';
+        // randomState.value = '42';
+      }, 4000);  // Increased delay to 4 seconds
+    } else {
+      showPreparationStatus('Error: ' + data.error, 'error');
+    }
+  })
+}
+
+function showPreparationStatus(message, type) {
+  const statusDiv = document.getElementById('preparationStatus');
+  statusDiv.style.display = 'block';
+  statusDiv.innerHTML = message;  // Changed from textContent to innerHTML to support HTML
+  
+  // Set background color based on type
+  if (type === 'success') {
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.style.border = '1px solid #c3e6cb';
+  } else if (type === 'error') {
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.style.border = '1px solid #f5c6cb';
+  } else {
+    statusDiv.style.background = '#d1ecf1';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.style.border = '1px solid #bee5eb';
+  }
+}
+
+
+// Feature Tab Management
+function openFeatureTab(evt, tabName) {
+  var i, tabcontent, tablinks;
+  
+  // Hide all tab content
+  tabcontent = document.getElementsByClassName("feature-tab-content");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+    tabcontent[i].classList.remove("active");
+  }
+  
+  // Remove active class from all tab buttons
+  tablinks = document.getElementsByClassName("feature-tab-button");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].classList.remove("active");
+  }
+  
+  // Show the selected tab and mark button as active
+  document.getElementById(tabName).style.display = "block";
+  document.getElementById(tabName).classList.add("active");
+  evt.currentTarget.classList.add("active");
+}
+
+// Enhanced Feature Selection Function
+function runFeatureSelection(method) {
+  let threshold, statusDiv, plotContainer;
+  
+  // Get method-specific elements
+  if (method === 'pearson') {
+    threshold = parseFloat(document.getElementById('pearsonThreshold').value);
+    statusDiv = document.getElementById('pearsonStatus');
+    plotContainer = document.getElementById('pearsonPlotContainer');
+  } else if (method === 'spearman') {
+    threshold = parseFloat(document.getElementById('spearmanThreshold').value);
+    statusDiv = document.getElementById('spearmanStatus');
+    plotContainer = document.getElementById('spearmanPlotContainer');
+  } else if (method === 'feature_importance') {
+    threshold = parseFloat(document.getElementById('importanceThreshold').value);
+    statusDiv = document.getElementById('importanceStatus');
+    plotContainer = document.getElementById('importancePlotContainer');
+  }
+  
+  // Validation
+  if (!threshold || threshold <= 0) {
+    showFeatureTabStatus(statusDiv, 'Please enter a valid threshold value.', 'error');
+    return;
+  }
+  
+  // Show loading
+  showFeatureTabStatus(statusDiv, `Running ${method.replace('_', ' ')} analysis...`, 'info');
+  plotContainer.innerHTML = ''; // Clear previous plot
+  
+  // Make API call
+  fetch('/prepayment-v2/prepayment-model-validator/feature_selection', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      method: method,
+      threshold: threshold
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showFeatureTabStatus(statusDiv, `${data.message}`, 'success');
+      
+      // Display plot if available
+      if (data.feature_selection_plot) {
+        plotContainer.innerHTML = `
+          <h6 style="color: #495057; margin-bottom: 10px;">
+            ${method === 'pearson' ? 'Pearson Correlation' : 
+              method === 'spearman' ? 'Spearman Correlation' : 
+              'Feature Importance'} Results
+          </h6>
+          <img src="/static/${data.feature_selection_plot}" 
+               alt="${method} plot" 
+               style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px;">
+        `;
+      }
+      
+      // Show feature count summary
+      if (data.feature_selection_result) {
+        const featureCount = Object.keys(data.feature_selection_result).length;
+        const significantCount = Object.values(data.feature_selection_result)
+          .filter(val => Math.abs(val) >= threshold).length;
+        
+        statusDiv.innerHTML += `
+          <br><small><strong>Summary:</strong> ${significantCount}/${featureCount} features meet the threshold criteria.</small>
+        `;
+      }
+      
+    } else {
+      showFeatureTabStatus(statusDiv, `❌ Error: ${data.error}`, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showFeatureTabStatus(statusDiv, '❌ Network error: Unable to perform analysis. Please try again.', 'error');
+  });
+}
+
+function removeFeaturesByThreshold(method) {
+  let threshold, statusDiv;
+  
+  // Get method-specific elements
+  if (method === 'pearson') {
+    threshold = parseFloat(document.getElementById('pearsonThreshold').value);
+    statusDiv = document.getElementById('pearsonStatus');
+  } else if (method === 'spearman') {
+    threshold = parseFloat(document.getElementById('spearmanThreshold').value);
+    statusDiv = document.getElementById('spearmanStatus');
+  } else if (method === 'feature_importance') {
+    threshold = parseFloat(document.getElementById('importanceThreshold').value);
+    statusDiv = document.getElementById('importanceStatus');
+  }
+  
+  // Validation
+  if (!threshold || threshold <= 0) {
+    showFeatureTabStatus(statusDiv, 'Please enter a valid threshold value.', 'error');
+    return;
+  }
+  
+  // Show confirmation dialog
+  const methodName = method === 'feature_importance' ? 'Feature Importance' : 
+                    method === 'pearson' ? 'Pearson Correlation' : 'Spearman Correlation';
+  
+  if (!confirm(`⚠️ This will permanently remove features that don't meet the ${methodName} threshold of ${threshold}.\n\nThis action will modify your training/test datasets and cannot be undone.\n\nContinue?`)) {
+    return;
+  }
+  
+  // Show loading
+  showFeatureTabStatus(statusDiv, `Removing features below ${methodName} threshold...`, 'info');
+  
+  // Make API call
+  fetch('/prepayment-v2/prepayment-model-validator/remove_features', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      method: method,
+      threshold: threshold
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const result = data.removal_result;
+      
+      // Create detailed success message
+      let message = `✅ ${data.message}<br><br>`;
+      message += `<strong>Removal Summary:</strong><br>`;
+      message += `• Features kept: ${result.features_kept.length}<br>`;
+      message += `• Features removed: ${result.features_removed.length}<br>`;
+      message += `• New dataset shape: ${result.new_shape.X_train[0]} rows × ${result.new_shape.X_train[1]} columns<br><br>`;
+      
+      if (result.features_removed.length > 0) {
+        message += `<strong>Removed features:</strong><br>`;
+        message += `<small>${result.features_removed.join(', ')}</small><br><br>`;
+      }
+      
+      message += `<strong>Remaining features:</strong><br>`;
+      message += `<small>${result.features_kept.join(', ')}</small>`;
+      
+      showFeatureTabStatus(statusDiv, message, 'success');
+      
+      // Update column selection interface if visible
+      setTimeout(() => {
+        loadAvailableColumns();
+      }, 1000);
+      
+    } else {
+      showFeatureTabStatus(statusDiv, ` Error: ${data.error}`, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showFeatureTabStatus(statusDiv, 'Network error: Unable to remove features. Please try again.', 'error');
+  });
+}
+
+
+
+function showFeatureTabStatus(statusDiv, message, type) {
+  statusDiv.style.display = 'block';
+  statusDiv.innerHTML = message;
+  
+  // Set background color based on type
+  if (type === 'success') {
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.style.border = '1px solid #c3e6cb';
+  } else if (type === 'error') {
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.style.border = '1px solid #f5c6cb';
+  } else {
+    statusDiv.style.background = '#d1ecf1';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.style.border = '1px solid #bee5eb';
+  }
+}
+
+
+
+function showRegisterButton() {
+    console.log('✅ Showing register button');
+    const registrationControls = document.getElementById('model-registration-controls');
+    const registrationStatus = document.getElementById('model-registration-status');
+    const currentRegistrationInfo = document.getElementById('current-registration-info');
+    const replaceModelBtn = document.getElementById('replace-model-btn');
+    
+    if (registrationControls) {
+        registrationControls.style.display = 'block';
+        console.log('✅ Registration controls shown');
+    }
+    if (registrationStatus) {
+        registrationStatus.style.display = 'none';
+    }
+    if (currentRegistrationInfo) {
+        currentRegistrationInfo.style.display = 'none';
+    }
+    
+    // ALWAYS show the replace button after any training
+    if (replaceModelBtn) {
+        replaceModelBtn.style.display = 'inline-block';
+        console.log('✅ Replace button shown');
+    } else {
+        console.log('❌ Replace button not found');
+    }
+    
+    // Force visibility with a slight delay to ensure DOM is ready
+    setTimeout(() => {
+        const replaceBtn = document.getElementById('replace-model-btn');
+        if (replaceBtn) {
+            replaceBtn.style.display = 'inline-block';
+            replaceBtn.style.visibility = 'visible';
+            console.log('✅ Replace button forced visible');
+        }
+    }, 100);
+}
+function showRegisterButtonAfterRetrain() {
+    console.log('✅ Showing register options after retrain');
+    showRegisterButton();
+}
+
+
+
+
+function showProcessingStatus(message, type) {
+  const statusDiv = document.getElementById('processingStatus');
+  statusDiv.style.display = 'block';
+  statusDiv.textContent = message;
+  
+  // Set background color based on type
+  if (type === 'success') {
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.style.border = '1px solid #c3e6cb';
+  } else if (type === 'error') {
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.style.border = '1px solid #f5c6cb';
+  } else {
+    statusDiv.style.background = '#d1ecf1';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.style.border = '1px solid #bee5eb';
+  }
+}
+
+
+// Model Training Tab Management
+function openModelTab(evt, tabName) {
+  var i, tabcontent, tablinks;
+  
+  // Hide all model training tab content
+  tabcontent = document.getElementsByClassName("model-training-tab-content");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+    tabcontent[i].classList.remove("active");
+  }
+  
+  // Remove active class from all model training tab buttons
+  tablinks = document.getElementsByClassName("model-training-tab-button");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].classList.remove("active");
+  }
+  
+  // Show the selected tab and mark button as active
+  document.getElementById(tabName).style.display = "block";
+  document.getElementById(tabName).classList.add("active");
+  evt.currentTarget.classList.add("active");
+}
+
+// Model Training Functions
+function trainModel(method) {
+  let hyperparameters = {};
+  let statusDiv;
+  
+  // Collect hyperparameters based on method
+  if (method === 'logistic_regression') {
+    const C = parseFloat(document.getElementById('lr_C').value);
+    const penalty = document.getElementById('lr_penalty').value;
+    const solver = document.getElementById('lr_solver').value;
+    const max_iter = parseInt(document.getElementById('lr_max_iter').value);
+    
+    hyperparameters.C = C;
+    if (penalty) hyperparameters.penalty = penalty;
+    hyperparameters.solver = solver;
+    hyperparameters.max_iter = max_iter;
+    statusDiv = document.getElementById('logisticRegressionStatus');
+    
+  } else if (method === 'random_forest') {
+    hyperparameters.n_estimators = parseInt(document.getElementById('rf_n_estimators').value);
+    hyperparameters.max_depth = parseInt(document.getElementById('rf_max_depth').value);
+    hyperparameters.min_samples_split = parseInt(document.getElementById('rf_min_samples_split').value);
+    hyperparameters.min_samples_leaf = parseInt(document.getElementById('rf_min_samples_leaf').value);
+    hyperparameters.random_state = 42;
+    statusDiv = document.getElementById('randomForestStatus');
+    
+  } else if (method === 'gradient_boosting') {
+    hyperparameters.n_estimators = parseInt(document.getElementById('gbm_n_estimators').value);
+    hyperparameters.learning_rate = parseFloat(document.getElementById('gbm_learning_rate').value);
+    hyperparameters.max_depth = parseInt(document.getElementById('gbm_max_depth').value);
+    hyperparameters.subsample = parseFloat(document.getElementById('gbm_subsample').value);
+    hyperparameters.random_state = 42;
+    statusDiv = document.getElementById('gradientBoostingStatus');
+    
+  } else if (method === 'lightgbm') {
+    hyperparameters.n_estimators = parseInt(document.getElementById('lgb_n_estimators').value);
+    hyperparameters.learning_rate = parseFloat(document.getElementById('lgb_learning_rate').value);
+    hyperparameters.num_leaves = parseInt(document.getElementById('lgb_num_leaves').value);
+    hyperparameters.max_depth = parseInt(document.getElementById('lgb_max_depth').value);
+    hyperparameters.reg_alpha = parseFloat(document.getElementById('lgb_reg_alpha').value);
+    hyperparameters.reg_lambda = parseFloat(document.getElementById('lgb_reg_lambda').value);
+    hyperparameters.random_state = 42;
+    statusDiv = document.getElementById('lightgbmStatus');
+  }
+  
+  // Show loading status
+  const methodName = method.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  showModelTrainingTabStatus(statusDiv, `🔄 Training ${methodName} model...`, 'info');
+  
+  // Make API call
+  fetch('/prepayment-v2/prepayment-model-validator/model_training', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      method: method,
+      hyperparameters: hyperparameters
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      let message = `✅ ${data.message}`;
+      
+      if (data.model_training_result && data.model_training_result.metrics) {
+        message += '<br><br><strong>📊 Model Performance:</strong><br>';
+        const metrics = data.model_training_result.metrics;
+        
+        // Format metrics nicely
+        for (const [metric, value] of Object.entries(metrics)) {
+          if (value !== null) {
+            const formattedValue = typeof value === 'number' ? value.toFixed(4) : value;
+            message += `<span style="color: #0d6efd; font-weight: bold;">${metric}:</span> ${formattedValue}<br>`;
+          }
+        }
+        
+        // Add hyperparameters used
+        message += '<br><strong>🔧 Hyperparameters Used:</strong><br>';
+        for (const [param, value] of Object.entries(data.model_training_result.hyperparameters)) {
+          message += `<span style="color: #6c757d;">${param}:</span> ${value}<br>`;
+        }
+      }
+      
+      showModelTrainingTabStatus(statusDiv, message, 'success');
+      showRegisterControls(); // Only this line needed for the new simple system
+    } else {
+      showModelTrainingTabStatus(statusDiv, `❌ Error: ${data.error}`, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showModelTrainingTabStatus(statusDiv, '❌ Network error: Unable to train model. Please try again.', 'error');
+  });
+}
+
+function showModelTrainingTabStatus(statusDiv, message, type) {
+  statusDiv.style.display = 'block';
+  statusDiv.innerHTML = message;
+  statusDiv.style.padding = '10px';
+  statusDiv.style.borderRadius = '4px';
+  statusDiv.style.marginTop = '15px';
+  
+  // Set background color based on type
+  if (type === 'success') {
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.style.border = '1px solid #c3e6cb';
+  } else if (type === 'error') {
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.style.border = '1px solid #f5c6cb';
+  } else {
+    statusDiv.style.background = '#d1ecf1';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.style.border = '1px solid #bee5eb';
+  }
+}
+// Column Selection Functions
+function loadAvailableColumns() {
+  fetch('/prepayment-v2/prepayment-model-validator/get_columns', {
+    method: 'GET'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const availableSelect = document.getElementById('availableColumns');
+      const selectedSelect = document.getElementById('selectedColumns');
+      
+      // Clear existing options
+      availableSelect.innerHTML = '';
+      selectedSelect.innerHTML = '';
+      
+      // Populate available columns (exclude target variable)
+      data.columns.forEach(col => {
+        if (col !== data.target_variable) {
+          const option = document.createElement('option');
+          option.value = col;
+          option.textContent = col;
+          availableSelect.appendChild(option);
+        }
+      });
+    }
+  })
+  .catch(error => {
+    console.error('Error loading columns:', error);
+  });
+}
+
+function moveColumns(direction) {
+  const availableSelect = document.getElementById('availableColumns');
+  const selectedSelect = document.getElementById('selectedColumns');
+  
+  if (direction === 'include') {
+    // Move from available to selected
+    const selectedOptions = Array.from(availableSelect.selectedOptions);
+    selectedOptions.forEach(option => {
+      selectedSelect.appendChild(option.cloneNode(true));
+      availableSelect.removeChild(option);
+    });
+  } else if (direction === 'exclude') {
+    // Move from selected to available
+    const selectedOptions = Array.from(selectedSelect.selectedOptions);
+    selectedOptions.forEach(option => {
+      availableSelect.appendChild(option.cloneNode(true));
+      selectedSelect.removeChild(option);
+    });
+  }
+}
+
+function resetColumnSelection() {
+  loadAvailableColumns();
+  showColumnSelectionStatus('Column selection reset.', 'info');
+}
+
+function applyColumnSelection() {
+  const selectedSelect = document.getElementById('selectedColumns');
+  const selectedColumns = Array.from(selectedSelect.options).map(opt => opt.value);
+  
+  if (selectedColumns.length === 0) {
+    showColumnSelectionStatus('Please select at least one column for modeling.', 'error');
+    return;
+  }
+  
+  console.log('Applying column selection:', selectedColumns); // Debug log
+  
+  showColumnSelectionStatus('Applying column selection...', 'info');
+  
+  fetch('/prepayment-v2/prepayment-model-validator/apply_column_selection', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      selected_columns: selectedColumns
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Column selection response:', data); // Debug log
+    if (data.success) {
+      updateSelectionSummary(data);
+      showColumnSelectionStatus(data.message, 'success');
+    } else {
+      showColumnSelectionStatus('Error: ' + data.error, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showColumnSelectionStatus('Network error: Unable to apply column selection. Please try again.', 'error');
+  });
+}
+
+function showColumnSelectionStatus(message, type) {
+  const statusDiv = document.getElementById('columnSelectionStatus');
+  statusDiv.style.display = 'block';
+  statusDiv.innerHTML = message;
+  
+  if (type === 'success') {
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.style.border = '1px solid #c3e6cb';
+  } else if (type === 'error') {
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.style.border = '1px solid #f5c6cb';
+  } else {
+    statusDiv.style.background = '#d1ecf1';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.style.border = '1px solid #bee5eb';
+  }
+}
+
+// Load columns when page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Add a small delay to ensure other elements are loaded
+  setTimeout(loadAvailableColumns, 500);
+});
+
+function updateSelectionSummary(data) {
+  const summaryDiv = document.getElementById('columnSelectionSummary');
+  const contentDiv = document.getElementById('selectionSummaryContent');
+  
+  if (data.success && data.selected_columns) {
+    summaryDiv.style.display = 'block';
+    contentDiv.innerHTML = `
+      <p><strong>${data.selected_columns.length}</strong> columns selected for modeling</p>
+      <p>Training shape: <strong>${data.new_shape.X_train[0]} rows × ${data.new_shape.X_train[1]} columns</strong></p>
+      <p>Selected: <em>${data.selected_columns.join(', ')}</em></p>
+    `;
+  }
+}
+function loadCurrentFeatures() {
+  // This function loads the current features available after feature selection/threshold validation
+  fetch('/prepayment-v2/prepayment-model-validator/get_current_features', {
+    method: 'GET'
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success && data.features) {
+      const currentFeatures = data.features;
+      
+      // Update available features display
+      const display = document.getElementById('availableFeaturesDisplay');
+      display.innerHTML = `
+        <strong>Features Available After Feature Selection:</strong> ${data.feature_count}<br>
+        <strong>Current Dataset Shape:</strong> Training: ${data.dataset_shape.X_train[0]} rows × ${data.dataset_shape.X_train[1]} features, Test: ${data.dataset_shape.X_test[0]} rows × ${data.dataset_shape.X_test[1]} features<br>
+        <strong>Available Features:</strong> ${currentFeatures.join(', ')}
+      `;
+      
+      // Populate the available columns select
+      const availableSelect = document.getElementById('finalAvailableColumns');
+      availableSelect.innerHTML = '';
+      
+      currentFeatures.forEach(column => {
+        const option = document.createElement('option');
+        option.value = column;
+        option.textContent = column;
+        availableSelect.appendChild(option);
+      });
+      
+      showFinalColumnSelectionStatus(`✅ Loaded ${data.feature_count} features that passed feature selection and threshold validation.`, 'success');
+    } else {
+      showFinalColumnSelectionStatus('Error loading features: ' + (data.error || 'Unknown error'), 'error');
+      
+      // Show helpful message if no features available
+      const display = document.getElementById('availableFeaturesDisplay');
+      display.innerHTML = `
+        <em style="color: #dc3545;">No features available. Please run feature selection and threshold validation first.</em>
+      `;
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showFinalColumnSelectionStatus('Network error: Unable to load features.', 'error');
+  });
+}
+
+function addToFinalSelection() {
+  const availableSelect = document.getElementById('finalAvailableColumns');
+  const selectedSelect = document.getElementById('finalSelectedColumns');
+  
+  const selectedOptions = Array.from(availableSelect.selectedOptions);
+  
+  if (selectedOptions.length === 0) {
+    showFinalColumnSelectionStatus('Please select features to add.', 'warning');
+    return;
+  }
+  
+  selectedOptions.forEach(option => {
+    // Check if already in final selection
+    const exists = Array.from(selectedSelect.options).some(opt => opt.value === option.value);
+    if (!exists) {
+      const newOption = document.createElement('option');
+      newOption.value = option.value;
+      newOption.textContent = option.textContent;
+      selectedSelect.appendChild(newOption);
+    }
+  });
+  
+  updateFinalSelectionSummary();
+}
+
+function removeFromFinalSelection() {
+  const selectedSelect = document.getElementById('finalSelectedColumns');
+  const selectedOptions = Array.from(selectedSelect.selectedOptions);
+  
+  if (selectedOptions.length === 0) {
+    showFinalColumnSelectionStatus('Please select features to remove.', 'warning');
+    return;
+  }
+  
+  selectedOptions.forEach(option => {
+    selectedSelect.removeChild(option);
+  });
+  
+  updateFinalSelectionSummary();
+}
+
+
+function clearFinalSelection() {
+  document.getElementById('finalSelectedColumns').innerHTML = '';
+  updateFinalSelectionSummary();
+  showFinalColumnSelectionStatus('Final selection cleared.', 'info');
+}
+
+function resetFinalSelection() {
+  clearFinalSelection();
+  loadCurrentFeatures();
+}
+
+function updateFinalSelectionSummary() {
+  const selectedSelect = document.getElementById('finalSelectedColumns');
+  const selectedColumns = Array.from(selectedSelect.options).map(opt => opt.value);
+  
+  const summaryDiv = document.getElementById('finalSelectionSummary');
+  const summaryContent = document.getElementById('finalSelectionSummaryContent');
+  
+  if (selectedColumns.length > 0) {
+    summaryContent.innerHTML = `
+      <strong>Selected Features Count:</strong> ${selectedColumns.length}<br>
+      <strong>Features:</strong> ${selectedColumns.join(', ')}
+    `;
+    summaryDiv.style.display = 'block';
+  } else {
+    summaryDiv.style.display = 'none';
+  }
+}
+
+function applyFinalColumnSelection() {
+  const selectedSelect = document.getElementById('finalSelectedColumns');
+  const selectedColumns = Array.from(selectedSelect.options).map(opt => opt.value);
+  
+  if (selectedColumns.length === 0) {
+    showFinalColumnSelectionStatus('Please select at least one feature for modeling.', 'error');
+    return;
+  }
+  
+  // Confirmation dialog
+  if (!confirm(`🎯 Apply final column selection?\n\nThis will use ${selectedColumns.length} features for model training:\n${selectedColumns.join(', ')}\n\nContinue?`)) {
+    return;
+  }
+  
+  console.log('Applying final column selection:', selectedColumns);
+  
+  showFinalColumnSelectionStatus('Applying final column selection...', 'info');
+  
+  fetch('/prepayment-v2/prepayment-model-validator/final_column_selection', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      selected_columns: selectedColumns
+    })
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log('Final column selection response:', data);
+    if (data.success) {
+      showFinalColumnSelectionStatus(data.message, 'success');
+      
+      // Update summary with new dataset information
+      if (data.new_shape) {
+        const summaryContent = document.getElementById('finalSelectionSummaryContent');
+        summaryContent.innerHTML += `<br><br>
+          <strong>✅ Final Selection Applied!</strong><br>
+          <strong>Training Set:</strong> ${data.new_shape.X_train[0]} rows × ${data.new_shape.X_train[1]} features<br>
+          <strong>Test Set:</strong> ${data.new_shape.X_test[0]} rows × ${data.new_shape.X_test[1]} features
+        `;
+      }
+    } else {
+      showFinalColumnSelectionStatus('Error: ' + data.error, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showFinalColumnSelectionStatus('Network error: Unable to apply final column selection. Please try again.', 'error');
+  });
+}
+
+function showFinalColumnSelectionStatus(message, type) {
+  const statusDiv = document.getElementById('finalColumnSelectionStatus');
+  let bgColor, textColor, icon;
+  
+  switch(type) {
+    case 'success':
+      bgColor = '#d4edda';
+      textColor = '#155724';
+      icon = '✅';
+      break;
+    case 'error':
+      bgColor = '#f8d7da';
+      textColor = '#721c24';
+      icon = '❌';
+      break;
+    case 'warning':
+      bgColor = '#fff3cd';
+      textColor = '#856404';
+      icon = '⚠️';
+      break;
+    case 'info':
+    default:
+      bgColor = '#d1ecf1';
+      textColor = '#0c5460';
+      icon = 'ℹ️';
+      break;
+  }
+  
+  statusDiv.style.display = 'block';
+  statusDiv.style.backgroundColor = bgColor;
+  statusDiv.style.color = textColor;
+  statusDiv.style.border = `1px solid ${bgColor}`;
+  statusDiv.innerHTML = `${icon} ${message}`;
+  
+  // Auto-hide after 5 seconds for non-error messages
+  if (type !== 'error') {
+    setTimeout(() => {
+      statusDiv.style.display = 'none';
+    }, 5000);
+  }
+}
+
+// Auto-load features when page loads (if feature selection has been run)
+document.addEventListener('DOMContentLoaded', function() {
+  // Add a small delay to ensure other components are loaded
+  setTimeout(() => {
+    // Only try to load if we're likely to have data
+    if (window.location.pathname.includes('prepayment-model-validator')) {
+      loadCurrentFeatures();
+    }
+  }, 1000);
+});
+
+
+
+// Simplified Model Registry Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    checkModelRegistrationStatus();
+});
+
+function checkModelRegistrationStatus() {
+    fetch('/prepayment-v2/prepayment-model-validator/get_registered_model')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Model is registered
+                showRegisteredState(data);
+            } else {
+                // No model registered
+                showNoModelState();
+            }
+        })
+        .catch(error => {
+            console.log('No registered model found');
+            showNoModelState();
+        });
+}
+
+function showNoModelState() {
+    document.getElementById('no-model-state').style.display = 'block';
+    document.getElementById('model-registered-state').style.display = 'none';
+}
+
+function showRegisteredState(data) {
+    document.getElementById('no-model-state').style.display = 'none';
+    document.getElementById('model-registered-state').style.display = 'block';
+    
+    const infoDiv = document.getElementById('registered-model-info');
+    infoDiv.innerHTML = `
+        <strong>Model:</strong> ${data.summary}<br>
+        <strong>Registered:</strong> ${data.registration_date}
+    `;
+}
+
+function showRegisterControls() {
+    // Called after successful model training
+    document.getElementById('register-controls').style.display = 'block';
+}
+
+function registerModel() {
+    if (!confirm('Register this trained model for production use?')) {
+        return;
+    }
+    
+    showModelRegistryStatus('Registering model...', 'info');
+    
+    fetch('/prepayment-v2/prepayment-model-validator/register_model', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showModelRegistryStatus('✅ Model registered successfully!', 'success');
+            setTimeout(() => {
+                checkModelRegistrationStatus(); // Refresh the display
+            }, 1500);
+        } else {
+            showModelRegistryStatus('❌ Registration failed: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showModelRegistryStatus('❌ Network error during registration.', 'error');
+    });
+}
+
+function deleteModel() {
+    if (!confirm('⚠️ Delete the registered model?\n\nThis will remove the model from the registry. You can train and register a new model afterwards.\n\nContinue?')) {
+        return;
+    }
+    
+    showModelRegistryStatus('Deleting model...', 'info');
+    
+    fetch('/prepayment-v2/prepayment-model-validator/deregister_model', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showModelRegistryStatus('✅ Model deleted successfully!', 'success');
+            setTimeout(() => {
+                checkModelRegistrationStatus(); // Refresh the display
+            }, 1500);
+        } else {
+            showModelRegistryStatus('❌ Deletion failed: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showModelRegistryStatus('❌ Network error during deletion.', 'error');
+    });
+}
+
+function showModelRegistryStatus(message, type) {
+    const statusDiv = document.getElementById('model-registry-status');
+    let bgColor, textColor;
+    
+    switch(type) {
+        case 'success':
+            bgColor = '#d4edda';
+            textColor = '#155724';
+            break;
+        case 'error':
+            bgColor = '#f8d7da';
+            textColor = '#721c24';
+            break;
+        case 'info':
+        default:
+            bgColor = '#d1ecf1';
+            textColor = '#0c5460';
+            break;
+    }
+    
+    statusDiv.style.display = 'block';
+    statusDiv.style.backgroundColor = bgColor;
+    statusDiv.style.color = textColor;
+    statusDiv.style.border = `1px solid ${bgColor}`;
+    statusDiv.innerHTML = message;
+    
+    // Auto-hide success/info messages
+    if (type !== 'error') {
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 3000);
+    }
+}
+
+
+
+
+// Utility Functions
+function showRetrainButton() {
+    console.log('✅ Retrain functionality ready');
+}
+
+function showAlert(type, message) {
+    if (type === 'success') {
+        alert('✅ ' + message);
+    } else if (type === 'info') {
+        alert('ℹ️ ' + message);
+    } else {
+        alert('❌ ' + message);
+    }
+}
+// Add this function near your other JavaScript functions (around line 1200+)
+
+function startOver() {
+  // Show confirmation dialog
+  if (!confirm('⚠️ This will permanently delete:\n\n• Uploaded CSV file\n• All metadata and processing history\n• Data preparation settings\n• Column selections\n• Feature selection results\n• All generated plots\n\nThis action cannot be undone. Continue?')) {
+    return;
+  }
+  
+  // Show loading status
+  showStartOverStatus('🔄 Starting over - clearing all data...', 'info');
+  
+  fetch('/prepayment-v2/prepayment-model-validator/start_over', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showStartOverStatus('✅ ' + data.message, 'success');
+      
+      // Show cleanup details
+      if (data.cleanup_details && data.cleanup_details.length > 0) {
+        const detailsHtml = '<br><strong>Cleanup Summary:</strong><br>' + 
+                           data.cleanup_details.map(detail => `• ${detail}`).join('<br>');
+        document.getElementById('startOverStatus').innerHTML += detailsHtml;
+      }
+      
+      // Redirect to fresh page after 2 seconds
+      setTimeout(() => {
+        window.location.href = '/prepayment-v2/prepayment-model-validator';
+      }, 2000);
+    } else {
+      showStartOverStatus('❌ Error: ' + data.error, 'error');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    showStartOverStatus('❌ Network error: Unable to start over. Please try again.', 'error');
+  });
+}
+
+function showStartOverStatus(message, type) {
+  // Create status div if it doesn't exist
+  let statusDiv = document.getElementById('startOverStatus');
+  if (!statusDiv) {
+    statusDiv = document.createElement('div');
+    statusDiv.id = 'startOverStatus';
+    statusDiv.style.marginTop = '10px';
+    statusDiv.style.padding = '10px';
+    statusDiv.style.borderRadius = '4px';
+    statusDiv.style.display = 'none';
+    
+    // Insert after the upload success div
+    const uploadSuccessDiv = document.querySelector('[style*="background-color: #d4edda"]');
+    if (uploadSuccessDiv) {
+      uploadSuccessDiv.parentNode.insertBefore(statusDiv, uploadSuccessDiv.nextSibling);
+    }
+  }
+  
+  statusDiv.style.display = 'block';
+  statusDiv.innerHTML = message;
+  
+  // Set background color based on type
+  if (type === 'success') {
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.style.border = '1px solid #c3e6cb';
+  } else if (type === 'error') {
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.style.border = '1px solid #f5c6cb';
+  } else {
+    statusDiv.style.background = '#d1ecf1';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.style.border = '1px solid #bee5eb';
+  }
+}
+
+function showStatus(message, type) {
+  const statusDiv = document.getElementById('conversionStatus');
+  statusDiv.style.display = 'block';
+  statusDiv.textContent = message;
+  
+  // Set background color based on type
+  if (type === 'success') {
+    statusDiv.style.background = '#d4edda';
+    statusDiv.style.color = '#155724';
+    statusDiv.style.border = '1px solid #c3e6cb';
+  } else if (type === 'error') {
+    statusDiv.style.background = '#f8d7da';
+    statusDiv.style.color = '#721c24';
+    statusDiv.style.border = '1px solid #f5c6cb';
+  } else {
+    statusDiv.style.background = '#d1ecf1';
+    statusDiv.style.color = '#0c5460';
+    statusDiv.style.border = '1px solid #bee5eb';
+  }
+}
+
+</script>
+{% endif %}
+
+
+<style>
+  /* Feature Selection Tab Styles */
+  .feature-tabs {
+    display: flex;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 0;
+    gap: 5px;
+  }
+  
+  .feature-tab-button {
+    background: #e9ecef;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    font-weight: 500;
+    color: #495057;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+  }
+  
+  .feature-tab-button:hover {
+    background: #dee2e6;
+    color: #212529;
+  }
+  
+  .feature-tab-button.active {
+    background: white;
+    color: #212529;
+    border-bottom: 3px solid #007bff;
+    font-weight: 600;
+  }
+  
+  .feature-tab-content {
+    display: none;
+  }
+  
+  .feature-tab-content.active {
+    display: block;
+  }
+  
+  .feature-status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+  }
+  
+  .plot-container {
+    margin-top: 15px;
+    text-align: center;
+  }
+  
+  .plot-container img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+</style>
+
+<style>
+  /* Feature Selection Tab Styles */
+  .tabs {
+    display: flex;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 0;
+    gap: 5px;
+  }
+  
+  .tab-button {
+    background: #e9ecef;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    font-weight: 500;
+    color: #495057;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+  }
+  
+  .tab-button:hover {
+    background: #dee2e6;
+    color: #212529;
+  }
+  
+  .tab-button.active {
+    background: white;
+    color: #212529;
+    border-bottom: 3px solid #007bff;
+    font-weight: 600;
+  }
+  
+  .tab-content {
+    display: none;
+  }
+  
+  .tab-content.active {
+    display: block;
+  }
+  
+  .status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    display: none;
+  }
+  
+  .plot-container {
+    margin-top: 15px;
+    text-align: center;
+  }
+  
+  .plot-container img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+</style>
+<style>
+/* Model Training Tab Styles */
+.model-training-tabs {
+  display: flex;
+  border-bottom: 2px solid #dee2e6;
+  margin-bottom: 0;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.model-training-tab-button {
+  background: #e9ecef;
+  border: none;
+  padding: 12px 20px;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  font-weight: 500;
+  color: #495057;
+  transition: all 0.3s ease;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+}
+
+.model-training-tab-button:hover {
+  background: #dee2e6;
+  color: #212529;
+}
+
+.model-training-tab-button.active {
+  background: white;
+  color: #212529;
+  border-bottom: 3px solid #007bff;
+  font-weight: 600;
+}
+
+.model-training-tab-content {
+  display: none;
+}
+
+.model-training-tab-content.active {
+  display: block;
+}
+
+.model-training-status {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 4px;
+  display: none;
+}
+</style>
+
+{% endblock %}
