@@ -717,7 +717,8 @@ class Validation:
             # Adjust layout to prevent label cutoff
             plt.tight_layout()
             
-            return self._save_plot_to_static(fig, 'spearman_correlation')
+            # return self._save_plot_to_static(fig, 'spearman_correlation')
+            return self._fig_to_base64(fig)  # ← Change this back to _fig_to_base64
             
         except Exception as e:
             print(f"Error creating Spearman correlation plot: {e}")
@@ -778,8 +779,8 @@ class Validation:
             plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
             fig.tight_layout()
             
-            return self._save_plot_to_static(fig, 'feature_importance')
-            
+            # return self._save_plot_to_static(fig, 'feature_importance')
+            return self._fig_to_base64(fig)  # ← Change this back to _fig_to_base64
         except Exception as e:
             print(f"Error in create_importance_plot: {e}")
             # Return a simple error plot
@@ -787,7 +788,8 @@ class Validation:
             ax.text(0.5, 0.5, f'Error creating importance plot: {str(e)}', 
                     ha='center', va='center', transform=ax.transAxes, fontsize=14)
             ax.set_title(f'Feature Importance Analysis Error', fontsize=14)
-            return self._save_plot_to_static(fig, 'importance_error')
+            # return self._save_plot_to_static(fig, 'importance_error')
+            return self._fig_to_base64(fig)
     
     def _fig_to_base64(self, fig):
         buf = io.BytesIO()
