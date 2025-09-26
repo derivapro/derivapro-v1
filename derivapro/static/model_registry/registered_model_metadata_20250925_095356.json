@@ -1,0 +1,45 @@
+{
+  "registration_timestamp": "20250925_095356",
+  "model_type": "random_forest",
+  "model_name": "Random Forest",
+  "hyperparameters": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "min_samples_split": 2,
+    "min_samples_leaf": 1,
+    "random_state": 42
+  },
+  "performance_metrics": {
+    "MSE": 0.008798517998795405,
+    "RMSE": 0.09380041577090906,
+    "MAE": 0.06682796818215862,
+    "R-Squared": 0.9651693535433743
+  },
+  "target_variable": "Interest Rate",
+  "task_type": "regression",
+  "feature_columns": [
+    "FICO Score",
+    "LTV",
+    "DSCR",
+    "Credit Utilization",
+    "Credit Score",
+    "Original Balance",
+    "Current Balance"
+  ],
+  "data_preprocessing": {
+    "conversions": {},
+    "imputations": {},
+    "normalizations": {},
+    "selected_columns": [
+      "FICO Score",
+      "LTV",
+      "Interest Rate",
+      "DSCR",
+      "Credit Utilization",
+      "Credit Score",
+      "Original Balance",
+      "Current Balance"
+    ]
+  },
+  "model_file": "registered_model_20250925_095356.pkl"
+}

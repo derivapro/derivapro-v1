@@ -1,0 +1,44 @@
+{
+  "registration_timestamp": "20250925_095828",
+  "model_type": "logistic_regression",
+  "model_name": "Logistic Regression",
+  "hyperparameters": {
+    "C": 1.201,
+    "penalty": "l2",
+    "solver": "lbfgs",
+    "max_iter": 1000
+  },
+  "performance_metrics": {
+    "MSE": 130.22687714631073,
+    "RMSE": 11.411699134936512,
+    "MAE": 9.108756061053006,
+    "R-Squared": 0.9124238218969677
+  },
+  "target_variable": "FICO Score",
+  "task_type": "regression",
+  "feature_columns": [
+    "LTV",
+    "Interest Rate",
+    "DSCR",
+    "Credit Utilization",
+    "Credit Score",
+    "Original Balance",
+    "Current Balance"
+  ],
+  "data_preprocessing": {
+    "conversions": {},
+    "imputations": {},
+    "normalizations": {},
+    "selected_columns": [
+      "FICO Score",
+      "LTV",
+      "Interest Rate",
+      "DSCR",
+      "Credit Utilization",
+      "Credit Score",
+      "Original Balance",
+      "Current Balance"
+    ]
+  },
+  "model_file": "registered_model_20250925_095828.pkl"
+}
