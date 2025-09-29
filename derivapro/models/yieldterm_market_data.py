@@ -125,48 +125,48 @@ class SOFRRateProvider(MarketRateProvider):
                 tenor = ql.Period(1, ql.Days)  # SOFR usually daily rates
                 rate = entry["percentRate"] / 100.0
                 rates.append((tenor, rate))
-            return rates
+            return rates[-1:] #Pull only the last overnight rate that represents today's value
         else:
             return []
 
         
-class ShockedSOFRRateProvider(MarketRateProvider):
+# class ShockedSOFRRateProvider(MarketRateProvider):
 
-    def sofr_operations(self, rateType: str = 'sofr', startDate: str = None, format: str = 'json', data_type: str = 'rate'):
-        # Convert QuantLib Date to string 'YYYY-MM-DD' if startDate is QuantLib Date
-        if startDate is not None:
-            if isinstance(startDate, ql.Date):
-                startDate = startDate.to_date().isoformat()  # 'YYYY-MM-DD'
-            elif isinstance(startDate, str):
-                # assume already in correct format
-                pass
-            else:
-                raise ValueError("startDate must be QuantLib Date or string in 'YYYY-MM-DD' format")
-        else:
-            # default if no date passed
-            startDate = "2025-06-24"
+#     def sofr_operations(self, rateType: str = 'sofr', startDate: str = None, format: str = 'json', data_type: str = 'rate'):
+#         # Convert QuantLib Date to string 'YYYY-MM-DD' if startDate is QuantLib Date
+#         if startDate is not None:
+#             if isinstance(startDate, ql.Date):
+#                 startDate = startDate.to_date().isoformat()  # 'YYYY-MM-DD'
+#             elif isinstance(startDate, str):
+#                 # assume already in correct format
+#                 pass
+#             else:
+#                 raise ValueError("startDate must be QuantLib Date or string in 'YYYY-MM-DD' format")
+#         else:
+#             # default if no date passed
+#             startDate = "2025-06-24"
 
-        url = f"https://markets.newyorkfed.org/api/rates/secured/{rateType}/search.{format}?startDate={startDate}&type={data_type}"
-        return url
+#         url = f"https://markets.newyorkfed.org/api/rates/secured/{rateType}/search.{format}?startDate={startDate}&type={data_type}"
+#         return url
 
-    def get_sofr_data(self, startDate=None):
-        url = self.sofr_operations(startDate=startDate)
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            return data
-        else:
-            print(f"Request failed with status code: {response.status_code}")
-            return None
+#     def get_sofr_data(self, startDate=None):
+#         url = self.sofr_operations(startDate=startDate)
+#         response = requests.get(url)
+#         if response.status_code == 200:
+#             data = response.json()
+#             return data
+#         else:
+#             print(f"Request failed with status code: {response.status_code}")
+#             return None
 
-    def get_market_rates(self, startDate=None):
-        data = self.get_sofr_data(startDate=startDate)
-        if data and "refRates" in data:
-            rates = []
-            for entry in data["refRates"]:
-                tenor = ql.Period(1, ql.Days)
-                rate = entry["percentRate"] / 100.0
-                rates.append((tenor, rate))
-            return rates
-        else:
-            return []
+#     def get_market_rates(self, startDate=None):
+#         data = self.get_sofr_data(startDate=startDate)
+#         if data and "refRates" in data:
+#             rates = []
+#             for entry in data["refRates"]:
+#                 tenor = ql.Period(1, ql.Days)
+#                 rate = entry["percentRate"] / 100.0
+#                 rates.append((tenor, rate))
+#             return rates
+#         else:
+#             return []
