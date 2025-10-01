@@ -1217,8 +1217,60 @@ def american_options():
                     convergence_results = True
                     plt.close()
 
+                # ... inside the 'convergence' block, after defining mode/model/params, before the final else ...
+
+                if model == "Binomial Tree" and mode == "steps":
+                    # New Binomial Tree convergence analysis by steps
+                    max_steps = safe_int(request.form.get('max_steps'), 100)
+                    obs = safe_int(request.form.get('obs'), 10)
+                    ticker = form_data['ticker']
+                    strike_price = form_data['strike_price']
+                    start_date = form_data['start_date']
+                    end_date = form_data['end_date']
+                    r = form_data['r']
+                    sigma = form_data['sigma']
+                    option_type = form_data['option_type']
+                    # Parse dividends field if present (reuse logic from above)
+                    raw_dividends = request.form.get('dividends', '').strip()
+                    parsed_dividends = []
+                    if raw_dividends:
+                        for entry in raw_dividends.split(','):
+                            parts = entry.strip().split(':')
+                            if len(parts) == 2:
+                                parsed_dividends.append((parts[0], float(parts[1])))
+                            elif len(parts) == 3:
+                                parsed_dividends.append((parts[0], float(parts[1]), float(parts[2])))
+
+                    steps_range = np.linspace(2, max_steps, obs).astype(int)
+                    results = []
+                    for nsteps in steps_range:
+                        engine = new_module.BinomialTreeEngineCRR(
+                            ticker=ticker,
+                            strike_price=strike_price,
+                            start_date=start_date,
+                            end_date=end_date,
+                            risk_free_rate=r,
+                            volatility=sigma,
+                            num_steps=int(nsteps),
+                            option_type=option_type,
+                            dividends=parsed_dividends
+                        )
+                        price = engine.price_american_option()
+                        results.append((int(nsteps), float(price)))
+
+                    plot_convergence(results, mode)
+                    plt.savefig('derivapro/static/binomial_tree_convergence_plot.png')
+                    session['convergence_results'] = {
+                        'results': results,
+                        'mode': mode,
+                        'plot_filename': 'binomial_tree_convergence_plot.png'
+                    }
+                    convergence_results = True
+                    plt.close()
+                    # Don't fall through to the else branch
+
                 else:
-                    # --- Lattice convergence analysis (existing code) ---
+                    # --- Lattice convergence analysis ---
                     form_data['max_steps'] = safe_int(request.form.get('max_steps'), 100)
                     max_steps = form_data['max_steps']
                     max_sims = 0

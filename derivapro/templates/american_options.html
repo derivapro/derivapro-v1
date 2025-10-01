@@ -505,11 +505,13 @@
             <div class="form-group">
                 <label for="model">Model:</label>
                 <select id="model" name="model" required>
+                <option value="Binomial Tree">New Binomial Tree</option>
                 <option value="Cox Ross Rubinstein Tree">Cox Ross Rubinstein Tree</option>
                 <option value="Jarrow Rudd Tree">Jarrow Rudd Tree</option>
                 <option value="Trinomial Asset Pricing">Trinomial Asset Pricing</option>
                 <option value="Monte Carlo">Monte Carlo</option>
                 </select>
+
             </div>
 
             <!-- No duplicate MC block here, only the ONE above remains  -->
@@ -840,10 +842,12 @@ function validateForm() {
 }
 
 const latticeModels = [
+  { value: "Binomial Tree", text: "New Binomial Tree" },
   { value: "Cox Ross Rubinstein Tree", text: "Cox Ross Rubinstein Tree" },
   { value: "Jarrow Rudd Tree", text: "Jarrow Rudd Tree" },
   { value: "Trinomial Asset Pricing", text: "Trinomial Asset Pricing" }
 ];
+
 const mcModels = [
   { value: "Monte Carlo", text: "Monte Carlo" }
 ];
