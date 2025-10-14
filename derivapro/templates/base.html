@@ -84,6 +84,16 @@
                         <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}" class="nav-link">Variance Swaps</a></li>
                     </ul>
                 </li>  
+                
+               <li>
+                <a href="{{ url_for('rates.swap_page') }}" class="nav-link">
+                 Swap/Swaption (New)
+                </a>
+                <ul>
+                 <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Swap (New)</a></li>
+                 <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">Swaption (New)</a></li>
+               </ul>
+              </li>
                 <li><a href="{{ url_for('volatility_surface.volatility_surface') }}" class="nav-link">Volatility Surface</a></li>
                 <li><a href="{{ url_for('equity_derivatives.equity_derivatives') }}" class="nav-link">Equity Derivatives</a></li>
                 <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a></li>

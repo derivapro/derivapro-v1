@@ -14,6 +14,8 @@ def register_routes(app):
     from .prepayment import prepayment_bp
     from .term_structure import term_structure_bp
     from .prepayment_v2 import prepayment_v2_bp
+    from .rates import rates_bp
+    from .rates_api import rates_api_bp
 
     app.register_blueprint(index_bp, url_prefix='/')
     app.register_blueprint(vanilla_options_bp, url_prefix='/vanilla-options')
@@ -30,5 +32,7 @@ def register_routes(app):
     app.register_blueprint(prepayment_bp, url_prefix="/prepayment")
     app.register_blueprint(term_structure_bp, url_prefix="/term-structure")
     app.register_blueprint(prepayment_v2_bp, url_prefix="/prepayment-v2")
+    app.register_blueprint(rates_bp)        # /rates/swap, /rates/swaption
+    app.register_blueprint(rates_api_bp)    # /api/rates/...
 
 
