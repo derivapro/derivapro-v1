@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ title or "European Swaption (New)" }}</h2>
+
+<div class="form-wrap">
+  <div class="form-card">
+    <form id="swpt-form" enctype="multipart/form-data" class="form-grid">
+
+      <!-- Dates -->
+      <label>Valuation date
+        <input type="date" id="valuation_date">
+      </label>
+      <label>Option expiry
+        <input type="date" id="option_expiry">
+      </label>
+      <label>Swap start
+        <input type="date" id="swap_start">
+      </label>
+
+      <label>Tenor (years)
+        <input type="number" id="tenor_years" step="0.5" min="0.5" value="5">
+      </label>
+
+      <!-- Method & economics -->
+      <label>Method
+        <select id="method">
+          <option value="black" selected>Black (lognormal)</option>
+          <option value="bachelier">Bachelier (normal)</option>
+          <option value="hw_mc">Hull-White 1F (MC)</option>
+        </select>
+      </label>
+      <label>Type
+        <select id="is_payer">
+          <option value="true" selected>Payer</option>
+          <option value="false">Receiver</option>
+        </select>
+      </label>
+      <label>Strike
+        <input type="number" id="strike" step="0.00001" value="0.04">
+      </label>
+
+      <!-- Conventions -->
+      <label>Payments / year
+        <select id="pay_freq_per_year">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="4">4</option>
+        </select>
+      </label>
+      <label>Daycount (fixed)
+        <select id="dc_fixed">
+          <option>30/360</option>
+          <option>ACT/360</option>
+          <option>ACT/365</option>
+        </select>
+      </label>
+      <label>Notional
+        <input type="number" id="notional" step="1000" value="1000000">
+      </label>
+
+      <!-- Curves & Vol Surface -->
+      <label>Discount curve CSV (upload)
+        <input type="file" id="disc_file" accept=".csv">
+      </label>
+      <label>Discount curve path
+        <input type="text" id="disc_path" value="C:\\Users\\minwuu01\\DerivaPro\\data\\sofr_curve_zero.csv">
+      </label>
+      <div></div>
+
+      <label>Vol surface CSV (upload)
+        <input type="file" id="vol_file" accept=".csv">
+      </label>
+      <label>Vol surface path
+        <input type="text" id="vol_path" value="C:\\Users\\minwuu01\\DerivaPro\\data\\swaption_vol_surface.csv">
+      </label>
+      <div></div>
+
+      <!-- MC params (HW only) -->
+      <label class="mc-only">a (mean reversion)
+        <input type="number" id="a" step="0.0001" value="0.03">
+      </label>
+      <label class="mc-only">sigma
+        <input type="number" id="sigma" step="0.0001" value="0.01">
+      </label>
+      <label class="mc-only"># paths
+        <input type="number" id="paths" step="1000" value="10000">
+      </label>
+      <label class="mc-only">steps / year
+        <input type="number" id="steps_per_year" step="1" value="24">
+      </label>
+      <div></div><div></div>
+
+      <div class="actions">
+        <button id="btn-price" type="submit" class="primary">Price Swaption</button>
+        <button type="button" id="btn-clear" class="btn-ghost">Clear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="swpt-status"></div>
+
+<div id="swpt-result" style="display:none;">
+  <div class="form-wrap">
+    <div class="form-card">
+      <h3 style="margin-top:0;">Results</h3>
+      <p><strong>Model:</strong> <span id="r_model"></span></p>
+      <p><strong>PV:</strong> <span id="r_pv"></span></p>
+      <p class="analytic-only"><strong>Vega:</strong> <span id="r_vega"></span></p>
+      <p><strong>Δ<sub>F</sub>:</strong> <span id="r_deltaF"></span> &nbsp; <strong>Γ<sub>F</sub>:</strong> <span id="r_gammaF"></span></p>
+      <p><strong>A<sub>0</sub>:</strong> <span id="r_A0"></span> &nbsp; <strong>F<sub>0</sub>:</strong> <span id="r_F0"></span></p>
+      <p class="analytic-only"><strong>Strike:</strong> <span id="r_strike"></span> &nbsp; <strong>Expiry (yrs):</strong> <span id="r_expiry"></span> &nbsp; <strong>Vol used:</strong> <span id="r_vol"></span></p>
+      <p class="mc-only"><strong>MC stderr:</strong> <span id="r_stderr"></span></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const setStatus = (msg, ok=true) => {
+    document.getElementById('swpt-status').innerHTML =
+      '<div class="form-wrap"><div class="toast '+(ok?'ok':'err')+'">'+msg+'</div></div>';
+  };
+  const smallMoney = (x) => {
+    if (x == null || isNaN(x)) return "";
+    const ax = Math.abs(x);
+    if (ax < 1)   return x.toFixed(6);
+    if (ax < 100) return x.toFixed(4);
+    return new Intl.NumberFormat(undefined,{maximumFractionDigits:2}).format(x);
+  };
+  const fmt = (x,d=6)=> (x==null||isNaN(x))?"":Number(x).toFixed(d);
+
+  // defaults
+  const today = new Date();
+  const iso = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const valDate   = document.getElementById('valuation_date');
+  const swapStart = document.getElementById('swap_start');
+  const optExp    = document.getElementById('option_expiry');
+  if (!valDate.value)   valDate.value   = iso(today);
+  if (!swapStart.value) swapStart.value = iso(today);
+  if (!optExp.value) { const y1 = new Date(today); y1.setFullYear(y1.getFullYear()+1); optExp.value = iso(y1); }
+
+  // toggle analytic vs MC fields
+  const methodSel = document.getElementById('method');
+  const toggleVis = () => {
+    const m = methodSel.value;
+    document.querySelectorAll('.analytic-only').forEach(el => el.style.display = (m === 'black' || m === 'bachelier') ? '' : 'none');
+    document.querySelectorAll('.mc-only').forEach(el => el.style.display = (m === 'hw_mc') ? '' : 'none');
+  };
+  methodSel.addEventListener('change', toggleVis);
+  toggleVis();
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    document.getElementById('disc_file').value = "";
+    document.getElementById('vol_file').value = "";
+    setStatus('');
+    document.getElementById('swpt-result').style.display = 'none';
+  });
+
+  document.getElementById('swpt-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setStatus('Pricing...', true);
+    const btn = document.getElementById('btn-price'); btn.disabled = true;
+
+    const fd = new FormData();
+    const num = (v,d)=> (v==null || v==="" || isNaN(+v)) ? d : (+v);
+    const intval = (v,d)=> (v==null || v==="" || isNaN(parseInt(v))) ? d : parseInt(v);
+
+    const method = methodSel.value;
+    fd.append("method", method);
+    fd.append("is_payer", document.getElementById('is_payer').value);
+    fd.append("strike", String(num(document.getElementById('strike').value, 0.04)));
+    fd.append("pay_freq_per_year", String(intval(document.getElementById('pay_freq_per_year').value, 2)));
+    fd.append("dc_fixed", document.getElementById('dc_fixed').value || "30/360");
+    fd.append("notional", String(num(document.getElementById('notional').value, 1000000)));
+    fd.append("valuation_date", document.getElementById('valuation_date').value || "");
+    fd.append("option_expiry", document.getElementById('option_expiry').value || "");
+    fd.append("swap_start", document.getElementById('swap_start').value || "");
+    fd.append("tenor_years", String(num(document.getElementById('tenor_years').value, 5)));
+
+    // column names
+    fd.append("col_t", "tenor_years"); fd.append("col_r", "zero_rate");
+    fd.append("vol_e", "expiry"); fd.append("vol_t", "tenor"); fd.append("vol_v", "vol");
+
+    // curves: upload preferred; path fallback
+    const discFile = document.getElementById('disc_file').files[0];
+    if (discFile) fd.append("disc_file", discFile);
+    else          fd.append("disc_path", document.getElementById('disc_path').value || "");
+
+    // vol surface: required (path OR upload)
+    const volFile = document.getElementById('vol_file').files[0];
+    if (volFile) fd.append("vol_file", volFile);
+    else         fd.append("vol_path", document.getElementById('vol_path').value || "");
+
+    // MC params
+    if (method === "hw_mc") {
+      fd.append("a", String(num(document.getElementById('a').value, 0.03)));
+      fd.append("sigma", String(num(document.getElementById('sigma').value, 0.01)));
+      fd.append("paths", String(intval(document.getElementById('paths').value, 10000)));
+      fd.append("steps_per_year", String(intval(document.getElementById('steps_per_year').value, 24)));
+    }
+
+    try {
+      const resp = await fetch("/api/rates/price_swaption", { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || "Pricing failed");
+
+      const r = data.result;
+      document.getElementById('r_model').textContent  = r.model || '';
+      document.getElementById('r_pv').textContent     = smallMoney(r.pv);
+      document.getElementById('r_vega').textContent   = (r.vega !== undefined) ? smallMoney(r.vega) : '';
+      document.getElementById('r_deltaF').textContent = fmt(r.delta_F ?? 0, 6);
+      document.getElementById('r_gammaF').textContent = fmt(r.gamma_F ?? 0, 6);
+      document.getElementById('r_A0').textContent     = smallMoney(r.A0 ?? 0);
+      document.getElementById('r_F0').textContent     = fmt(r.F0 ?? 0, 6);
+      document.getElementById('r_strike').textContent = fmt(r.strike ?? 0, 6);
+      document.getElementById('r_expiry').textContent = fmt(r.expiry_years ?? 0, 6);
+      document.getElementById('r_vol').textContent    = fmt(r.vol_used ?? 0, 6);
+      document.getElementById('r_stderr').textContent = (r.stderr !== undefined) ? fmt(r.stderr, 6) : '';
+
+      setStatus('Swaption priced.', true);
+      document.getElementById('swpt-result').style.display = '';
+    } catch (err) {
+      setStatus('[ERROR] ' + err.message, false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
