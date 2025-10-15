@@ -493,3 +493,190 @@ main {
     line-height: 1.4;
 }
 
+
+/* --- Cards / layout --- */
+.form-card {
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: end;
+  max-width: 1100px;
+}
+
+/* --- Inputs --- */
+.form-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+.form-card input[type="text"],
+.form-card input[type="number"],
+.form-card input[type="date"],
+.form-card select,
+.form-card input[type="file"] {
+  padding: 8px 10px;
+  border: 1px solid #d7d7d7;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+/* --- Buttons --- */
+.primary, .btn {
+  border: 1px solid #0a66c2;
+  background: #0a66c2;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-ghost {
+  border: 1px solid #d7d7d7;
+  background: #fff;
+  color: #333;
+}
+.primary:disabled, .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --- Status toasts --- */
+.toast {
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+  border: 1px solid transparent;
+}
+.toast.ok {
+  color: #155724; background: #d4edda; border-color: #c3e6cb;
+}
+.toast.err {
+  color: #721c24; background: #f8d7da; border-color: #f5c6cb;
+}
+
+/* --- Results table --- */
+table.pretty thead th { border-bottom: 1px solid #ddd; text-align: left; padding: 6px; }
+table.pretty tbody td { border-bottom: 1px solid #f0f0f0; padding: 6px; }
+details summary { cursor: pointer; }
+
+/* layout */
+.form-wrap { max-width: 980px; margin: 0 auto; }
+.form-card { background:#fff; border:1px solid #e6e6e6; border-radius:12px; padding:16px; box-shadow:0 1px 0 rgba(0,0,0,.02); }
+.form-grid { display:grid; grid-template-columns:repeat(3,minmax(240px,1fr)); gap:12px; align-items:start; }
+@media (max-width: 1100px){ .form-grid{ grid-template-columns:repeat(2,minmax(240px,1fr)); } }
+@media (max-width: 700px){ .form-grid{ grid-template-columns:1fr; } }
+
+.form-card label { display:grid; gap:6px; font-size:14px; }
+.form-card input[type="text"],
+.form-card input[type="number"],
+.form-card input[type="date"],
+.form-card select,
+.form-card input[type="file"] { padding:8px 10px; border:1px solid #d7d7d7; border-radius:8px; font-size:14px; width:100%; }
+
+.actions { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.primary { border:1px solid #0a66c2; background:#0a66c2; color:#fff; padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer; }
+.btn-ghost { border:1px solid #d7d7d7; background:#fff; color:#333; padding:10px 14px; border-radius:10px; }
+.toast { padding:10px; border-radius:8px; margin-top:10px; }
+.toast.ok{color:#155724;background:#d4edda;border:1px solid #c3e6cb;}
+.toast.err{color:#721c24;background:#f8d7da;border:1px solid #f5c6cb;}
+table.pretty thead th{border-bottom:1px solid #ddd;text-align:left;padding:6px;}
+table.pretty tbody td{border-bottom:1px solid #f0f0f0;padding:6px;}
+
+/* === Rates UI polish (scoped) ========================================== */
+/* Applies only to forms inside .form-card to avoid touching other pages. */
+
+.form-card {
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 6px 18px rgba(16,24,40,.06);
+}
+
+/* Use a simple, reliable 2-column grid on desktop */
+.form-card .form-grid{
+  display: grid;
+  grid-template-columns: 1fr 1fr;     /* two equal columns */
+  column-gap: 16px;
+  row-gap: 12px;
+  max-width: 960px;                   /* keeps lines short */
+  margin: 0 auto;
+  align-items: start;                 /* align to top so nothing overlaps */
+}
+
+/* Labels stack text above inputs, consistent spacing */
+.form-card .form-grid label{
+  display: grid;
+  gap: 6px;
+  font-size: 13.5px;
+}
+
+/* Inputs: compact, consistent height */
+.form-card input[type="text"],
+.form-card input[type="number"],
+.form-card input[type="date"],
+.form-card select,
+.form-card input[type="file"]{
+  width: 100%;
+  height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #D0D5DD;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+/* File inputs are taller by default—balance their height */
+.form-card input[type="file"]{
+  height: auto;
+  padding: 6px 8px;
+}
+
+/* Long fields (uploads + path textboxes) take the full row */
+.form-card .form-grid label:has(input[type="file"]),
+.form-card .form-grid label:has(input[id$="_path"]){
+  grid-column: 1 / -1;
+}
+
+/* Path textboxes truncate nicely */
+.form-card input[type="text"][id$="_path"]{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Focus state — accessible and subtle */
+.form-card input:focus,
+.form-card select:focus{
+  outline: 0;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px #DBEAFE;
+}
+
+/* Button row always on its own line, aligned left */
+.form-card .form-grid .actions{
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* Buttons: compact heights to match inputs */
+.primary, .btn, .btn-ghost{
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* Responsive: 1 column on small screens */
+@media (max-width: 820px){
+  .form-card .form-grid{ grid-template-columns: 1fr; }
+}

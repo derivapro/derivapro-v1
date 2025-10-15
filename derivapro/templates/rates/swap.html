@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ title or "Interest Rate Swap (New)" }}</h2>
+
+<div class="form-wrap">
+  <div class="form-card">
+    <form id="swap-form" enctype="multipart/form-data" class="form-grid">
+      <!-- Dates -->
+      <label>Start date
+        <input type="date" id="start_date">
+      </label>
+      <label>Tenor (years)
+        <input type="number" id="tenor_years" step="0.5" min="0.5" value="5">
+      </label>
+
+      <!-- Economics -->
+      <label>Notional
+        <input type="number" id="notional" step="1000" value="1000000">
+      </label>
+      <label>Fixed rate
+        <!-- allow fine decimals -->
+        <input type="number" id="fixed_rate" step="0.000001" value="0.04">
+      </label>
+
+      <label>Side
+        <select id="side">
+          <option value="pay_fixed" selected>pay_fixed</option>
+          <option value="receive_fixed">receive_fixed</option>
+        </select>
+      </label>
+      <label>Payments / year
+        <select id="pay_freq_per_year">
+          <option value="1">1</option>
+          <option value="2" selected>2</option>
+          <option value="4">4</option>
+        </select>
+      </label>
+
+      <!-- Conventions -->
+      <label>Daycount (float)
+        <select id="dc_float">
+          <option>ACT/360</option>
+          <option>30/360</option>
+          <option>ACT/365</option>
+        </select>
+      </label>
+      <label>Daycount (fixed)
+        <select id="dc_fixed">
+          <option selected>30/360</option>
+          <option>ACT/360</option>
+          <option>ACT/365</option>
+        </select>
+      </label>
+
+      <!-- Curves (uploads span full row via CSS) -->
+      <label>Discount curve CSV (upload)
+        <input type="file" id="disc_file" accept=".csv">
+      </label>
+      <label>Forward curve CSV (upload)
+        <input type="file" id="fwd_file" accept=".csv">
+      </label>
+
+      <!-- Paths (also span full row) -->
+      <label>Discount curve path
+        <input type="text" id="disc_path" value="C:\\Users\\minwuu01\\DerivaPro\\data\\sofr_curve_zero.csv">
+      </label>
+      <label>Forward curve path
+        <input type="text" id="fwd_path" value="C:\\Users\\minwuu01\\DerivaPro\\data\\advance_curve_zero.csv">
+      </label>
+
+      <!-- Actions -->
+      <div class="actions">
+        <button id="btn-price" type="submit" class="primary">Price Swap</button>
+        <button type="button" id="btn-clear" class="btn-ghost">Clear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="swap-status"></div>
+
+<div id="swap-result" style="display:none;">
+  <div class="form-wrap">
+    <div class="form-card">
+      <h3 style="margin-top:0;">Results</h3>
+      <p><strong>Par rate:</strong> <span id="par_rate"></span></p>
+      <p><strong>NPV:</strong> <span id="npv"></span></p>
+      <p><strong>Annuity:</strong> <span id="annuity"></span></p>
+      <details style="margin-top:8px;">
+        <summary>Cashflow legs (first 200 rows)</summary>
+        <div style="overflow:auto;border:1px solid #ddd;border-radius:6px;margin-top:8px;">
+          <table id="legs-table" class="pretty" style="width:100%;border-collapse:collapse;"></table>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const btn = document.getElementById('btn-price');
+  const btnClear = document.getElementById('btn-clear');
+  const setStatus = (msg, ok=true) => {
+    document.getElementById('swap-status').innerHTML =
+      '<div class="form-wrap"><div class="toast '+(ok?'ok':'err')+'">'+msg+'</div></div>';
+  };
+  const fmt = (x,d=6)=> (x==null||isNaN(x))?"":Number(x).toFixed(d);
+  const money = x => (x==null||isNaN(x))?"":new Intl.NumberFormat(undefined,{maximumFractionDigits:2}).format(x);
+
+  const sd = document.getElementById('start_date');
+  if (!sd.value) { const t = new Date(); sd.value = new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+
+  btnClear.addEventListener('click', () => {
+    document.getElementById('disc_file').value = "";
+    document.getElementById('fwd_file').value = "";
+    setStatus('');
+    document.getElementById('swap-result').style.display = 'none';
+  });
+
+  document.getElementById('swap-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setStatus('Pricing...', true);
+    btn.disabled = true;
+
+    const fd = new FormData();
+    fd.append("start_date", document.getElementById('start_date').value || "");
+    fd.append("tenor_years", document.getElementById('tenor_years').value || "5");
+    fd.append("notional", document.getElementById('notional').value || "1000000");
+    fd.append("fixed_rate", document.getElementById('fixed_rate').value || "0.04");
+    fd.append("side", document.getElementById('side').value || "pay_fixed");
+    fd.append("pay_freq_per_year", document.getElementById('pay_freq_per_year').value || "2");
+    fd.append("dc_fixed", document.getElementById('dc_fixed').value || "30/360");
+    fd.append("dc_float", document.getElementById('dc_float').value || "ACT/360");
+    fd.append("col_t", "tenor_years");
+    fd.append("col_r", "zero_rate");
+
+    const discFile = document.getElementById('disc_file').files[0];
+    const fwdFile  = document.getElementById('fwd_file').files[0];
+    if (discFile) fd.append("disc_file", discFile); else fd.append("disc_path", document.getElementById('disc_path').value || "");
+    if (fwdFile)  fd.append("fwd_file",  fwdFile);  else fd.append("fwd_path",  document.getElementById('fwd_path').value  || "");
+
+    try {
+      const resp = await fetch("/api/rates/price_swap", { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || "Pricing failed");
+
+      const r = data.result;
+      document.getElementById('par_rate').textContent = fmt(r.par_rate, 6);
+      document.getElementById('npv').textContent = money(r.npv);
+      document.getElementById('annuity').textContent = money(r.annuity);
+
+      const legs = Array.isArray(r.legs) ? r.legs.slice(0, 200) : [];
+      const tbl = document.getElementById('legs-table');
+      tbl.innerHTML = "";
+      if (legs.length) {
+        const cols = Object.keys(legs[0]);
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        cols.forEach(c => { const th=document.createElement('th'); th.textContent=c; trh.appendChild(th); });
+        thead.appendChild(trh); tbl.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        legs.forEach(row => {
+          const tr = document.createElement('tr');
+          cols.forEach(c => {
+            const td = document.createElement('td');
+            const v = row[c];
+            td.textContent = (typeof v === "number") ? fmt(v, 6) : v;
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        tbl.appendChild(tbody);
+      }
+
+      setStatus('Swap priced.', true);
+      document.getElementById('swap-result').style.display = '';
+    } catch (err) {
+      setStatus('[ERROR] ' + err.message + ' — If you didn’t upload files, please verify the path fields or upload CSVs.', false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
