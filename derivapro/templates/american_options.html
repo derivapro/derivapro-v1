@@ -68,7 +68,12 @@
         <option value="Cox Ross Rubinstein Tree" {% if form_data.pricing_model == 'Cox Ross Rubinstein Tree' %}selected{% endif %}>Cox Ross Rubinstein Tree</option>
         <option value="Jarrow Rudd Tree" {% if form_data.pricing_model == 'Jarrow Rudd Tree' %}selected{% endif %}>Jarrow Rudd Tree</option>
         <option value="Trinomial Asset Pricing" {% if form_data.pricing_model == 'Trinomial Asset Pricing' %}selected{% endif %}>Trinomial Asset Pricing</option>
-        <option value="Monte Carlo" {% if form_data.pricing_model == 'Monte Carlo' %}selected{% endif %}>Monte Carlo</option>
+        
+        <option value="Monte Carlo" {% if form_data.pricing_model == 'Monte Carlo' %}selected{% endif %}>
+            Monte Carlo (LSMC)
+        </option>
+
+        <!-- <option value="Monte Carlo" {% if form_data.pricing_model == 'Monte Carlo' %}selected{% endif %}>Monte Carlo</option> -->
         <option value="Binomial Tree" {% if form_data.pricing_model == 'Binomial Tree' %}selected{% endif %}>New Binomial Tree</option>
     </select>
     </div>
@@ -219,9 +224,22 @@
 <div class="result">
     {% if form_data.model == 'Monte Carlo' and (action is none or action == 'price' or action == '') %}
     <div class="info-box">
-        <p><strong>Monte Carlo Simulation:</strong> This result is based on {{ form_data.num_paths|default(10000) }} simulation paths with {{ form_data.mc_steps|default(252) }} time steps. Results may vary slightly due to the stochastic nature of the simulation.</p>
+        <p>
+            <strong>Monte Carlo Simulation (LSMC):</strong>
+            This result uses Least-Squares Monte Carlo (Longstaff-Schwartz method) for American exercise rights.
+            <br>
+            Simulations: <strong>{{ form_data.num_paths|default(10000) }}</strong> &nbsp;
+            Time Steps: <strong>{{ form_data.mc_steps|default(252) }}</strong>.<br>
+            Results may vary slightly due to the stochastic nature of the simulation.
+        </p>
     </div>
     {% endif %}
+    
+    <!-- {% if form_data.model == 'Monte Carlo' and (action is none or action == 'price' or action == '') %}
+    <div class="info-box">
+        <p><strong>Monte Carlo Simulation:</strong> This result is based on {{ form_data.num_paths|default(10000) }} simulation paths with {{ form_data.mc_steps|default(252) }} time steps. Results may vary slightly due to the stochastic nature of the simulation.</p>
+    </div>
+    {% endif %} -->
     <h4>Option Price: {{ option_price }}</h4>
 
     <!-- Gen AI Assessment Section -->

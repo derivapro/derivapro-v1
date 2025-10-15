@@ -20,7 +20,6 @@ from reportlab.pdfgen import canvas
 #from io import BytesIO
 from ..models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
 from openai import AzureOpenAI
-import os
 from dotenv import load_dotenv, find_dotenv
 import logging
 import numpy as np
@@ -858,7 +857,7 @@ def american_options():
             session['form_data'] = form_data
         
         elif pricing_model == 'Binomial Tree':
-            # --- PARSE DIVIDENDS FIELD (user entered string) ---
+            # --- PARSE DIVIDENDS FIELD ---
             raw_dividends = request.form.get('dividends', '').strip()
             parsed_dividends = []
             if raw_dividends:
@@ -1182,41 +1181,91 @@ def american_options():
                         return default
 
 
+                # if model == "Monte Carlo" and mode == "simulations":
+                #     # --- Monte Carlo convergence analysis over number of paths ---                    
+                #     num_paths = safe_int(request.form.get('num_paths'), 10000)
+                #     mc_steps = safe_int(request.form.get('mc_steps'), 252)
+
+                #     ticker = form_data['ticker']
+                #     start_date = form_data['start_date']
+                #     end_date = form_data['end_date']
+                #     S0 = float(StockData(ticker, start_date, end_date).get_closing_price())
+                #     T = StockData(ticker, start_date, end_date).get_years_difference()
+                #     r = form_data['r']
+                #     sigma = form_data['sigma']
+                #     strike_price = form_data['strike_price']
+                #     # Sweep num_paths values
+                #     mc_results = []
+                #     paths_range = np.linspace(800, num_paths, obs).round().astype(int)
+                #     for n_paths in paths_range:
+                #         mc_engine = monte_carlo_module.create_monte_carlo_engine(
+                #             S0=S0, r=r, sigma=sigma, T=T, num_paths=int(n_paths), num_steps=mc_steps, random_type="sobol"
+                #         )
+                #         if option_type == "call":
+                #             price = mc_engine.price_american_option(strike_price, "call")
+                #         else:
+                #             price = mc_engine.price_american_option(strike_price, "put")
+                #         mc_results.append((int(n_paths), float(price)))
+                #     plot_convergence(mc_results, mode="simulations")
+                #     plt.savefig('derivapro/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
+                #     session['convergence_results'] = {
+                #         'results': mc_results,
+                #         'mode': "simulations",
+                #         'plot_filename': 'monte_carlo_convergence_plot.png'  # <-- CHANGE HERE
+                #     }
+                #     convergence_results = True
+                #     plt.close()
+
                 if model == "Monte Carlo" and mode == "simulations":
-                    # --- Monte Carlo convergence analysis over number of paths ---                    
-                    num_paths = safe_int(request.form.get('num_paths'), 10000)
-                    mc_steps = safe_int(request.form.get('mc_steps'), 252)
+                    try:
+                        print("[DEBUG] Starting MC convergence analysis block (simulations mode).")
+                        num_paths = safe_int(request.form.get('num_paths'), 10000)
+                        mc_steps = safe_int(request.form.get('mc_steps'), 252)
+                        ticker = form_data['ticker']
+                        start_date = form_data['start_date']
+                        end_date = form_data['end_date']
+                        S0 = float(StockData(ticker, start_date, end_date).get_closing_price())
+                        T = StockData(ticker, start_date, end_date).get_years_difference()
+                        r = form_data['r']
+                        sigma = form_data['sigma']
+                        strike_price = form_data['strike_price']
 
-                    ticker = form_data['ticker']
-                    start_date = form_data['start_date']
-                    end_date = form_data['end_date']
-                    S0 = float(StockData(ticker, start_date, end_date).get_closing_price())
-                    T = StockData(ticker, start_date, end_date).get_years_difference()
-                    r = form_data['r']
-                    sigma = form_data['sigma']
-                    strike_price = form_data['strike_price']
-                    # Sweep num_paths values
-                    mc_results = []
-                    paths_range = np.linspace(800, num_paths, obs).round().astype(int)
-                    for n_paths in paths_range:
-                        mc_engine = monte_carlo_module.create_monte_carlo_engine(
-                            S0=S0, r=r, sigma=sigma, T=T, num_paths=int(n_paths), num_steps=mc_steps, random_type="sobol"
-                        )
-                        if option_type == "call":
-                            price = mc_engine.price_american_option(strike_price, "call")
-                        else:
-                            price = mc_engine.price_american_option(strike_price, "put")
-                        mc_results.append((int(n_paths), float(price)))
-                    plot_convergence(mc_results, mode="simulations")
-                    plt.savefig('derivapro/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
-                    session['convergence_results'] = {
-                        'results': mc_results,
-                        'mode': "simulations",
-                        'plot_filename': 'monte_carlo_convergence_plot.png'  # <-- CHANGE HERE
-                    }
-                    convergence_results = True
-                    plt.close()
+                        mc_results = []
+                        paths_range = np.linspace(800, num_paths, obs).round().astype(int)
+                        print(f"[DEBUG] Monte Carlo paths_range: {paths_range}")
+                        for n_paths in paths_range:
+                            print(f"[DEBUG] Running MC pricing with n_paths={n_paths}")
+                            mc_engine = monte_carlo_module.create_monte_carlo_engine(
+                                S0=S0, r=r, sigma=sigma, T=T, num_paths=int(n_paths), num_steps=mc_steps, random_type="sobol"
+                            )
+                            if option_type == "call":
+                                price = mc_engine.price_american_option(strike_price, "call")
+                            else:
+                                price = mc_engine.price_american_option(strike_price, "put")
+                            print(f"[DEBUG] MC price for {n_paths} paths: {price}")
+                            mc_results.append((int(n_paths), float(price)))
+                        
+                        plot_convergence(mc_results, mode="simulations")
+                        plot_path = 'derivapro/static/monte_carlo_convergence_plot.png'
+                        plt.savefig(plot_path)
+                        plt.close()
+                        file_exists = os.path.exists(plot_path)
+                        print(f"[DEBUG] Plot file ({plot_path}) exists after save? {file_exists}")
 
+                        session['convergence_results'] = {
+                            'results': mc_results,
+                            'mode': "simulations",
+                            'plot_filename': 'monte_carlo_convergence_plot.png'
+                        }
+                        print(f"[DEBUG] Saved session['convergence_results']: {session['convergence_results']}")
+                        convergence_results = True
+
+                    except Exception as ex:
+                        import traceback
+                        print(f"[ERROR] Exception in MC convergence block: {ex}")
+                        print(traceback.format_exc())
+                        convergence_results = None
+                        
                 # ... inside the 'convergence' block, after defining mode/model/params, before the final else ...
 
                 if model == "Binomial Tree" and mode == "steps":
@@ -1267,7 +1316,6 @@ def american_options():
                     }
                     convergence_results = True
                     plt.close()
-                    # Don't fall through to the else branch
 
                 else:
                     # --- Lattice convergence analysis ---

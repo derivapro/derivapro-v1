@@ -575,9 +575,9 @@ class MonteCarloSimulationEngine:
         return option_price
 
     def price_american_option(self, strike_price, option_type="call"):
+
         """
-        Price American options using Monte Carlo simulation with production safety
-        
+        Price American options using Least-Squares Monte Carlo (Longstaff-Schwartz Method).        
         Parameters:
         - strike_price: Option strike price
         - option_type: "call" or "put"
@@ -585,6 +585,8 @@ class MonteCarloSimulationEngine:
         Returns:
         - Option price (guaranteed non-negative)
         """
+        print("[LSMC] Using regression-based Longstaff-Schwartz for American option pricing.")
+
         # Validate parameters
         self.validate_parameters()
         
@@ -598,47 +600,93 @@ class MonteCarloSimulationEngine:
         paths = self.safe_euler_paths(normal_randoms)  # Use safe path generation
         
         # Get all stock price paths
-        stock_paths = paths[:, :, 0]  # Shape: (num_paths, num_steps+1)
+        stock_paths = paths[:, :, 0]  # shape (num_paths, num_steps+1)
         
-        # Backward induction for American options
-        dt = self.T / self.num_steps
-        discount_factor = np.exp(-self.r * dt)
+        # # Backward induction for American options
+        # dt = self.T / self.num_steps
+        # discount_factor = np.exp(-self.r * dt)
         
-        # Initialize option values at maturity
-        option_values = np.zeros_like(stock_paths)
+        # # Initialize option values at maturity
+        # option_values = np.zeros_like(stock_paths)
         
-        # Terminal payoff (guaranteed non-negative)
-        if option_type.lower() == "call":
-            option_values[:, -1] = np.maximum(stock_paths[:, -1] - strike_price, 0)
-        else:  # put
-            option_values[:, -1] = np.maximum(strike_price - stock_paths[:, -1], 0)
+        # # Terminal payoff (guaranteed non-negative)
+        # if option_type.lower() == "call":
+        #     option_values[:, -1] = np.maximum(stock_paths[:, -1] - strike_price, 0)
+        # else:  # put
+        #     option_values[:, -1] = np.maximum(strike_price - stock_paths[:, -1], 0)
         
-        # Backward induction
-        for t in range(self.num_steps - 1, -1, -1):
-            # Current stock prices
-            current_prices = stock_paths[:, t]
+        # # Backward induction
+        # for t in range(self.num_steps - 1, -1, -1):
+        #     # Current stock prices
+        #     current_prices = stock_paths[:, t]
             
-            # Immediate exercise value (guaranteed non-negative)
-            if option_type.lower() == "call":
-                exercise_value = np.maximum(current_prices - strike_price, 0)
-            else:  # put
-                exercise_value = np.maximum(strike_price - current_prices, 0)
+        #     # Immediate exercise value (guaranteed non-negative)
+        #     if option_type.lower() == "call":
+        #         exercise_value = np.maximum(current_prices - strike_price, 0)
+        #     else:  # put
+        #         exercise_value = np.maximum(strike_price - current_prices, 0)
             
-            # Continuation value (discounted expected value from next period)
-            continuation_value = discount_factor * option_values[:, t + 1]
+        #     # Continuation value (discounted expected value from next period)
+        #     continuation_value = discount_factor * option_values[:, t + 1]
             
-            # Choose maximum of exercise and continuation value (guaranteed non-negative)
-            option_values[:, t] = np.maximum(exercise_value, continuation_value)
+        #     # Choose maximum of exercise and continuation value (guaranteed non-negative)
+        #     option_values[:, t] = np.maximum(exercise_value, continuation_value)
         
         # Option price is the value at time 0 (guaranteed non-negative)
-        option_price = np.maximum(np.mean(option_values[:, 0]), 0)
-        
-        # Log pricing results
-        print(f"American {option_type} option priced: ${option_price:.4f}")
-        print(f"Stock price range: [{stock_paths.min():.2f}, {stock_paths.max():.2f}]")
-        print(f"Option value range: [{option_values.min():.4f}, {option_values.max():.4f}]")
-        
+        # option_price = np.maximum(np.mean(option_values[:, 0]), 0)
+
+
+        dt = self.T / self.num_steps
+        discount_factor = np.exp(-self.r * dt)
+
+        # Payoff calculation
+        if option_type.lower() == "call":
+            payoff_func = lambda S: np.maximum(S - strike_price, 0)
+        else:
+            payoff_func = lambda S: np.maximum(strike_price - S, 0)
+
+        num_paths, num_steps_plus1 = stock_paths.shape
+        if num_steps_plus1 < 3:
+            print("Warning: Too few time steps for LSMC. Consider increasing num_steps.")
+
+        cashflows = payoff_func(stock_paths[:, -1])
+
+        # Work backwards in time
+        for t in range(num_steps_plus1 - 2, 0, -1):
+            # Find paths that are in the money at time t
+            itm_mask = payoff_func(stock_paths[:, t]) > 0
+            if not np.any(itm_mask):
+                # No in-the-money paths at this step, just discount cashflows 
+                cashflows = discount_factor * cashflows
+                continue
+
+            # Regression to estimate continuation value
+            X = stock_paths[itm_mask, t]
+            Y = cashflows[itm_mask] * discount_factor
+            regression_inputs = np.vstack([np.ones_like(X), X, X ** 2]).T
+            coeffs, _, _, _ = np.linalg.lstsq(regression_inputs, Y, rcond=None)
+            continuation_value = coeffs[0] + coeffs[1] * X + coeffs[2] * X ** 2
+
+            exercise_value = payoff_func(X)
+            exercise = exercise_value > continuation_value
+
+            # For exercised paths, set cashflow to immediate exercise value
+            idx_itm = np.where(itm_mask)[0]
+            cashflows[idx_itm[exercise]] = exercise_value[exercise]
+
+            cashflows = discount_factor * cashflows
+
+        option_price = np.exp(-self.r * dt) * np.mean(cashflows)
+
+        print(f"American {option_type} option priced (LSMC): ${option_price:.4f}")
         return option_price
+
+        # # Log pricing results
+        # print(f"American {option_type} option priced: ${option_price:.4f}")
+        # print(f"Stock price range: [{stock_paths.min():.2f}, {stock_paths.max():.2f}]")
+        # print(f"Option value range: [{option_values.min():.4f}, {option_values.max():.4f}]")
+        
+        # return option_price
 
     def price_barrier_option(self, strike_price, barrier_level, option_type="call", barrier_type="up_and_out", dividend_yield=0.0):
         """
