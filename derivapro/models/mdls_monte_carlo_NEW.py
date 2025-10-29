@@ -574,119 +574,120 @@ class MonteCarloSimulationEngine:
         
         return option_price
 
-    def price_american_option(self, strike_price, option_type="call"):
+    # def price_american_option(self, strike_price, option_type="call"):
 
-        """
-        Price American options using Least-Squares Monte Carlo (Longstaff-Schwartz Method).        
-        Parameters:
-        - strike_price: Option strike price
-        - option_type: "call" or "put"
-        
-        Returns:
-        - Option price (guaranteed non-negative)
-        """
-        print("[LSMC] Using regression-based Longstaff-Schwartz for American option pricing.")
+    #     """
+    #     Price American options using Least-Squares Monte Carlo (Longstaff-Schwartz Method).        
+    #     Parameters:
+    #     - strike_price: Option strike price
+    #     - option_type: "call" or "put"
 
-        # Validate parameters
-        self.validate_parameters()
+    #     Returns:
+    #     - Option price (guaranteed non-negative)
+    #     """
+    #     print("[LSMC] Using regression-based Longstaff-Schwartz for American option pricing.")
+
+    #     # Validate parameters
+    #     self.validate_parameters()
+
+    #     # Validate strike price
+    #     if strike_price <= 0:
+    #         raise ValueError("Strike price must be positive")
         
-        # Validate strike price
-        if strike_price <= 0:
-            raise ValueError("Strike price must be positive")
+    #     # Run simulation to get paths
+    #     uniform_randoms = self.generate_uniform_randoms()
+    #     normal_randoms = self.generate_normal_randoms(uniform_randoms)
+    #     paths = self.safe_euler_paths(normal_randoms)  # Use safe path generation
         
-        # Run simulation to get paths
-        uniform_randoms = self.generate_uniform_randoms()
-        normal_randoms = self.generate_normal_randoms(uniform_randoms)
-        paths = self.safe_euler_paths(normal_randoms)  # Use safe path generation
+    #     # Get all stock price paths
+    #     stock_paths = paths[:, :, 0]  # shape (num_paths, num_steps+1)
         
-        # Get all stock price paths
-        stock_paths = paths[:, :, 0]  # shape (num_paths, num_steps+1)
+    #     # # Backward induction for American options
+    #     # dt = self.T / self.num_steps
+    #     # discount_factor = np.exp(-self.r * dt)
         
-        # # Backward induction for American options
-        # dt = self.T / self.num_steps
-        # discount_factor = np.exp(-self.r * dt)
+    #     # # Initialize option values at maturity
+    #     # option_values = np.zeros_like(stock_paths)
         
-        # # Initialize option values at maturity
-        # option_values = np.zeros_like(stock_paths)
+    #     # # Terminal payoff (guaranteed non-negative)
+    #     # if option_type.lower() == "call":
+    #     #     option_values[:, -1] = np.maximum(stock_paths[:, -1] - strike_price, 0)
+    #     # else:  # put
+    #     #     option_values[:, -1] = np.maximum(strike_price - stock_paths[:, -1], 0)
         
-        # # Terminal payoff (guaranteed non-negative)
-        # if option_type.lower() == "call":
-        #     option_values[:, -1] = np.maximum(stock_paths[:, -1] - strike_price, 0)
-        # else:  # put
-        #     option_values[:, -1] = np.maximum(strike_price - stock_paths[:, -1], 0)
-        
-        # # Backward induction
-        # for t in range(self.num_steps - 1, -1, -1):
-        #     # Current stock prices
-        #     current_prices = stock_paths[:, t]
+    #     # # Backward induction
+    #     # for t in range(self.num_steps - 1, -1, -1):
+    #     #     # Current stock prices
+    #     #     current_prices = stock_paths[:, t]
             
-        #     # Immediate exercise value (guaranteed non-negative)
-        #     if option_type.lower() == "call":
-        #         exercise_value = np.maximum(current_prices - strike_price, 0)
-        #     else:  # put
-        #         exercise_value = np.maximum(strike_price - current_prices, 0)
+    #     #     # Immediate exercise value (guaranteed non-negative)
+    #     #     if option_type.lower() == "call":
+    #     #         exercise_value = np.maximum(current_prices - strike_price, 0)
+    #     #     else:  # put
+    #     #         exercise_value = np.maximum(strike_price - current_prices, 0)
             
-        #     # Continuation value (discounted expected value from next period)
-        #     continuation_value = discount_factor * option_values[:, t + 1]
+    #     #     # Continuation value (discounted expected value from next period)
+    #     #     continuation_value = discount_factor * option_values[:, t + 1]
             
-        #     # Choose maximum of exercise and continuation value (guaranteed non-negative)
-        #     option_values[:, t] = np.maximum(exercise_value, continuation_value)
+    #     #     # Choose maximum of exercise and continuation value (guaranteed non-negative)
+    #     #     option_values[:, t] = np.maximum(exercise_value, continuation_value)
         
-        # Option price is the value at time 0 (guaranteed non-negative)
-        # option_price = np.maximum(np.mean(option_values[:, 0]), 0)
+    #     # Option price is the value at time 0 (guaranteed non-negative)
+    #     # option_price = np.maximum(np.mean(option_values[:, 0]), 0)
 
 
-        dt = self.T / self.num_steps
-        discount_factor = np.exp(-self.r * dt)
+    #     dt = self.T / self.num_steps
+    #     discount_factor = np.exp(-self.r * dt)
 
-        # Payoff calculation
-        if option_type.lower() == "call":
-            payoff_func = lambda S: np.maximum(S - strike_price, 0)
-        else:
-            payoff_func = lambda S: np.maximum(strike_price - S, 0)
+    #     # Payoff calculation
+    #     if option_type.lower() == "call":
+    #         payoff_func = lambda S: np.maximum(S - strike_price, 0)
+    #     else:
+    #         payoff_func = lambda S: np.maximum(strike_price - S, 0)
 
-        num_paths, num_steps_plus1 = stock_paths.shape
-        if num_steps_plus1 < 3:
-            print("Warning: Too few time steps for LSMC. Consider increasing num_steps.")
+    #     num_paths, num_steps_plus1 = stock_paths.shape
+    #     if num_steps_plus1 < 3:
+    #         print("Warning: Too few time steps for LSMC. Consider increasing num_steps.")
 
-        cashflows = payoff_func(stock_paths[:, -1])
+    #     cashflows = payoff_func(stock_paths[:, -1])
 
-        # Work backwards in time
-        for t in range(num_steps_plus1 - 2, 0, -1):
-            # Find paths that are in the money at time t
-            itm_mask = payoff_func(stock_paths[:, t]) > 0
-            if not np.any(itm_mask):
-                # No in-the-money paths at this step, just discount cashflows 
-                cashflows = discount_factor * cashflows
-                continue
+    #     # Work backwards in time
+    #     for t in range(num_steps_plus1 - 2, 0, -1):
+    #         # Find paths that are in the money at time t
+    #         itm_mask = payoff_func(stock_paths[:, t]) > 0
+    #         if not np.any(itm_mask):
+    #             # No in-the-money paths at this step, just discount cashflows 
+    #             cashflows = discount_factor * cashflows
+    #             continue
 
-            # Regression to estimate continuation value
-            X = stock_paths[itm_mask, t]
-            Y = cashflows[itm_mask] * discount_factor
-            regression_inputs = np.vstack([np.ones_like(X), X, X ** 2]).T
-            coeffs, _, _, _ = np.linalg.lstsq(regression_inputs, Y, rcond=None)
-            continuation_value = coeffs[0] + coeffs[1] * X + coeffs[2] * X ** 2
+    #         # Regression to estimate continuation value
+    #         X = stock_paths[itm_mask, t]
+    #         Y = cashflows[itm_mask] * discount_factor
+    #         regression_inputs = np.vstack([np.ones_like(X), X, X ** 2]).T
+    #         coeffs, _, _, _ = np.linalg.lstsq(regression_inputs, Y, rcond=None)
+    #         continuation_value = coeffs[0] + coeffs[1] * X + coeffs[2] * X ** 2
 
-            exercise_value = payoff_func(X)
-            exercise = exercise_value > continuation_value
+    #         exercise_value = payoff_func(X)
+    #         exercise = exercise_value > continuation_value
 
-            # For exercised paths, set cashflow to immediate exercise value
-            idx_itm = np.where(itm_mask)[0]
-            cashflows[idx_itm[exercise]] = exercise_value[exercise]
+    #         # For exercised paths, set cashflow to immediate exercise value
+    #         idx_itm = np.where(itm_mask)[0]
+    #         cashflows[idx_itm[exercise]] = exercise_value[exercise]
 
-            cashflows = discount_factor * cashflows
+    #         cashflows = discount_factor * cashflows
 
-        option_price = np.exp(-self.r * dt) * np.mean(cashflows)
+    #     option_price = np.exp(-self.r * dt) * np.mean(cashflows)
 
-        print(f"American {option_type} option priced (LSMC): ${option_price:.4f}")
-        return option_price
+    #     print(f"American {option_type} option priced (LSMC): ${option_price:.4f}")
+    #     return option_price
 
-        # # Log pricing results
-        # print(f"American {option_type} option priced: ${option_price:.4f}")
-        # print(f"Stock price range: [{stock_paths.min():.2f}, {stock_paths.max():.2f}]")
-        # print(f"Option value range: [{option_values.min():.4f}, {option_values.max():.4f}]")
+    #     # # Log pricing results
+    #     # print(f"American {option_type} option priced: ${option_price:.4f}")
+    #     # print(f"Stock price range: [{stock_paths.min():.2f}, {stock_paths.max():.2f}]")
+    #     # print(f"Option value range: [{option_values.min():.4f}, {option_values.max():.4f}]")
         
-        # return option_price
+    #     # return option_price
+
 
     def price_barrier_option(self, strike_price, barrier_level, option_type="call", barrier_type="up_and_out", dividend_yield=0.0):
         """
@@ -1030,7 +1031,10 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             base_price = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            base_price = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self)
+            base_price = lsmc_engine.price_option(payoff_func, option_type)
+
         elif option_style.lower() == "barrier" and barrier_level is not None:
             base_price = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1069,7 +1073,9 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_up = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_up = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self)
+            price_up = lsmc_engine.price_option(payoff_func, option_type)
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_up = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1081,7 +1087,9 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_down = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_down = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self); 
+            price_down = lsmc_engine.price_option(payoff_func, option_type)
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_down = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1101,7 +1109,9 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_up = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_up = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self)
+            price_up = lsmc_engine.price_option(payoff_func, option_type)
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_up = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1113,7 +1123,10 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_down = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_down = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self); 
+            price_down = lsmc_engine.price_option(payoff_func, option_type)
+
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_down = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1132,7 +1145,10 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_up = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_up = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self)
+            price_up = lsmc_engine.price_option(payoff_func, option_type)
+
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_up = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1144,7 +1160,10 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_down = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_down = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+
+            lsmc_engine = LSMCEngine(self); 
+            price_down = lsmc_engine.price_option(payoff_func, option_type)
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_down = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1163,7 +1182,10 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_future = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_future = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self); 
+            price_future = lsmc_engine.price_option(payoff_func, option_type)
+
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_future = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1183,7 +1205,10 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_up = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_up = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self)
+            price_up = lsmc_engine.price_option(payoff_func, option_type)
+
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_up = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1195,7 +1220,11 @@ class MonteCarloSimulationEngine:
         if option_style.lower() == "european":
             price_down = self.price_european_option(strike_price, option_type)
         elif option_style.lower() == "american":
-            price_down = self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+
+            lsmc_engine = LSMCEngine(self); 
+            price_down = lsmc_engine.price_option(payoff_func, option_type)
+
         elif option_style.lower() == "barrier" and barrier_level is not None:
             price_down = self.price_barrier_option(strike_price, barrier_level, option_type, barrier_type, dividend_yield)
         elif option_style.lower() == "asian" and averaging_dates is not None:
@@ -1281,9 +1310,12 @@ class MonteCarloSimulationEngine:
         if derivative_type.startswith("european"):
             option_type = "call" if derivative_type.endswith("call") else "put"
             return self.price_european_option(strike_price, option_type)
+
         else:  # american
             option_type = "call" if derivative_type.endswith("call") else "put"
-            return self.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(self)
+            return lsmc_engine.price_option(payoff_func, option_type)
 
     def safe_euler_paths(self, normal_randoms):
         """
@@ -1312,6 +1344,54 @@ class MonteCarloSimulationEngine:
             print(f"Corrected {num_negative} paths to minimum threshold of {min_threshold}")
         
         return paths
+
+class LSMCEngine:
+    """
+    Generic Least-Squares Monte Carlo (LSMC) engine for pricing options with optimal stopping/early exercise.
+    Can be used for American options or any new product needing regression-based MC.
+    """
+
+    def __init__(self, mc_engine: MonteCarloSimulationEngine):
+        self.mc_engine = mc_engine
+
+    def price_option(self, payoff_func, option_type="call"):
+        """
+        Generic LSMC pricing.
+        payoff_func: function S -> immediate exercise payoff
+        """
+        # 1. Generate paths
+        self.mc_engine.validate_parameters()
+        uniform_randoms = self.mc_engine.generate_uniform_randoms()
+        normal_randoms = self.mc_engine.generate_normal_randoms(uniform_randoms)
+        paths = self.mc_engine.safe_euler_paths(normal_randoms)
+        stock_paths = paths[:, :, 0]
+        dt = self.mc_engine.T / self.mc_engine.num_steps
+        discount_factor = np.exp(-self.mc_engine.r * dt)
+
+        num_paths, num_steps_plus1 = stock_paths.shape
+        cashflows = payoff_func(stock_paths[:, -1])
+
+        # Backward through time: regression for continuation value
+        for t in range(num_steps_plus1 - 2, 0, -1):
+            itm_mask = payoff_func(stock_paths[:, t]) > 0
+            if not np.any(itm_mask):
+                cashflows = discount_factor * cashflows
+                continue
+
+            X = stock_paths[itm_mask, t]
+            Y = cashflows[itm_mask] * discount_factor
+            regression_inputs = np.vstack([np.ones_like(X), X, X ** 2]).T
+            coeffs, _, _, _ = np.linalg.lstsq(regression_inputs, Y, rcond=None)
+            continuation_value = coeffs[0] + coeffs[1] * X + coeffs[2] * X ** 2
+
+            exercise_value = payoff_func(X)
+            exercise = exercise_value > continuation_value
+            idx_itm = np.where(itm_mask)[0]
+            cashflows[idx_itm[exercise]] = exercise_value[exercise]
+            cashflows = discount_factor * cashflows
+        option_price = np.exp(-self.mc_engine.r * dt) * np.mean(cashflows)
+        print(f"[LSMC] Option priced via generic LSMC: ${option_price:.4f}")
+        return option_price
 
 # Factory Function 
 def create_monte_carlo_engine(S0: Union[float, List[float]] = 100, r: float = 0.05, 
@@ -1411,26 +1491,32 @@ def price_european_option_mc(S0, strike_price, T, r, sigma, option_type="call", 
     mc_engine = create_monte_carlo_engine(S0, r, sigma, T, num_paths, num_steps, random_type)
     return mc_engine.price_european_option(strike_price, option_type)
 
+# def price_american_option_mc(S0, strike_price, T, r, sigma, option_type="call", num_paths=10000, num_steps=252, random_type="sobol"):
+#     """
+#     Helper function to price American options using Monte Carlo
+    
+#     Parameters:
+#     - S0: Initial stock price
+#     - strike_price: Option strike price
+#     - T: Time to maturity
+#     - r: Risk-free rate
+#     - sigma: Volatility
+#     - option_type: "call" or "put"
+#     - num_paths: Number of simulation paths
+#     - num_steps: Number of time steps
+#     - random_type: "sobol" or "pseudo"
+    
+#     Returns:
+#     - Option price
+#     """
+#     mc_engine = create_monte_carlo_engine(S0, r, sigma, T, num_paths, num_steps, random_type)
+#     return mc_engine.price_american_option(strike_price, option_type)
+
 def price_american_option_mc(S0, strike_price, T, r, sigma, option_type="call", num_paths=10000, num_steps=252, random_type="sobol"):
-    """
-    Helper function to price American options using Monte Carlo
-    
-    Parameters:
-    - S0: Initial stock price
-    - strike_price: Option strike price
-    - T: Time to maturity
-    - r: Risk-free rate
-    - sigma: Volatility
-    - option_type: "call" or "put"
-    - num_paths: Number of simulation paths
-    - num_steps: Number of time steps
-    - random_type: "sobol" or "pseudo"
-    
-    Returns:
-    - Option price
-    """
     mc_engine = create_monte_carlo_engine(S0, r, sigma, T, num_paths, num_steps, random_type)
-    return mc_engine.price_american_option(strike_price, option_type)
+    payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+    lsmc_engine = LSMCEngine(mc_engine)
+    return lsmc_engine.price_option(payoff_func, option_type)
 
 def price_barrier_option_mc(S0, strike_price, barrier_level, T, r, sigma, option_type="call", 
                            barrier_type="up_and_out", dividend_yield=0.0, num_paths=10000, 
@@ -1533,7 +1619,9 @@ def production_safe_option_pricing(S0, strike_price, T, r, sigma, option_type="c
         if option_style.lower() == "european":
             option_price = mc_engine.price_european_option(strike_price, option_type)
         else:  # american
-            option_price = mc_engine.price_american_option(strike_price, option_type)
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = LSMCEngine(mc_engine)
+            option_price = lsmc_engine.price_option(payoff_func, option_type)
         
         return {
             'option_price': option_price,

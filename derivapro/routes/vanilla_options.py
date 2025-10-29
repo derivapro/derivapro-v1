@@ -829,7 +829,7 @@ def american_options():
             num_paths = form_data.get('num_paths', 10000)
             mc_steps = form_data.get('mc_steps', 252)
             
-            # Create Monte Carlo engine
+            # Create Monte Carlo engine 
             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                 S0=float(StockData(ticker, start_date, end_date).get_closing_price()),
                 r=risk_free_rate,
@@ -839,13 +839,14 @@ def american_options():
                 num_steps=mc_steps,
                 random_type="sobol"
             )
-            
-            # Price the option
-            if option_type == 'call':
-                option_price = mc_engine.price_american_option(strike_price, 'call')
-            else:
-                option_price = mc_engine.price_american_option(strike_price, 'put')
-            
+
+
+
+            # Build payoff_func and LSMCEngine
+            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+            lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
+            option_price = lsmc_engine.price_option(payoff_func, option_type)
+
             # Calculate Greeks
             greeks = mc_engine.calculate_greeks_finite_difference(strike_price, option_type, 'american')
             delta = "{:.4f}".format(greeks['Delta'])
@@ -979,10 +980,11 @@ def american_options():
                                 num_steps=mc_steps,
                                 random_type="sobol"
                             )
-                            if option_type == 'call':
-                                price = mc_engine.price_american_option(val, 'call')
-                            else:
-                                price = mc_engine.price_american_option(val, 'put')
+
+                            payoff_func = (lambda S: np.maximum(S - val, 0)) if option_type == "call" else (lambda S: np.maximum(val - S, 0))
+                            lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
+                            price = lsmc_engine.price_option(payoff_func, option_type)
+
                         elif variable == 'risk_free_rate':
                             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                                 S0=float(StockData(ticker, start_date, end_date).get_closing_price()),
@@ -993,10 +995,9 @@ def american_options():
                                 num_steps=mc_steps,
                                 random_type="sobol"
                             )
-                            if option_type == 'call':
-                                price = mc_engine.price_american_option(strike_price, 'call')
-                            else:
-                                price = mc_engine.price_american_option(strike_price, 'put')
+                            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+                            lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
+                            price = lsmc_engine.price_option(payoff_func, option_type)
                         elif variable == 'volatility':
                             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                                 S0=float(StockData(ticker, start_date, end_date).get_closing_price()),
@@ -1007,10 +1008,9 @@ def american_options():
                                 num_steps=mc_steps,
                                 random_type="sobol"
                             )
-                            if option_type == 'call':
-                                price = mc_engine.price_american_option(strike_price, 'call')
-                            else:
-                                price = mc_engine.price_american_option(strike_price, 'put')
+                            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+                            lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
+                            price = lsmc_engine.price_option(payoff_func, option_type)
                         
                         greek_values.append(price)
                     
@@ -1238,10 +1238,9 @@ def american_options():
                             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                                 S0=S0, r=r, sigma=sigma, T=T, num_paths=int(n_paths), num_steps=mc_steps, random_type="sobol"
                             )
-                            if option_type == "call":
-                                price = mc_engine.price_american_option(strike_price, "call")
-                            else:
-                                price = mc_engine.price_american_option(strike_price, "put")
+                            payoff_func = (lambda S: np.maximum(S - strike_price, 0)) if option_type == "call" else (lambda S: np.maximum(strike_price - S, 0))
+                            lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
+                            price = lsmc_engine.price_option(payoff_func, option_type)
                             print(f"[DEBUG] MC price for {n_paths} paths: {price}")
                             mc_results.append((int(n_paths), float(price)))
                         
@@ -1265,10 +1264,10 @@ def american_options():
                         print(f"[ERROR] Exception in MC convergence block: {ex}")
                         print(traceback.format_exc())
                         convergence_results = None
-                        
+
                 # ... inside the 'convergence' block, after defining mode/model/params, before the final else ...
 
-                if model == "Binomial Tree" and mode == "steps":
+                elif model == "Binomial Tree" and mode == "steps":
                     # New Binomial Tree convergence analysis by steps
                     max_steps = safe_int(request.form.get('max_steps'), 100)
                     obs = safe_int(request.form.get('obs'), 10)
