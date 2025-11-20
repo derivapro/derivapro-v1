@@ -102,9 +102,16 @@ def forwards():
                     forwards_analysis.plot_sensitivity_analysis(variable, step_range, num_steps)
                 else:
                     pass
+
+                # Construct a package-relative static folder path
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
                 
                 plot_filename = f'forwards_{variable}_{step_range}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                # plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join(STATIC_DIR, plot_filename)
+
                 plt.savefig(plot_path)   
                 session['forward_sensitivity_analysis_results'] = {'plot_filename': plot_filename,
                                                                    'step_range': step_range,
@@ -369,4 +376,5 @@ def futures():
     return render_template('futures.html', form_data=form_data, futures_price_results=futures_price_results, mark_to_market_results=mark_to_market_results,
                            futures_pL=futures_pL, margin_requirement=margin_dict,future_sensitivity_analysis_results=future_sensitivity_analysis_results,
                            future_scenario_results=future_scenario_results, future_risk_pl=future_risk_pl,md_content=md_content)
+
 
