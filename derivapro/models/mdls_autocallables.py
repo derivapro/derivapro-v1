@@ -3,6 +3,12 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from ..models.market_data import StockData
+import os
+
+# Construct a package-relative static folder path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 class AutoMonteCarlo:
     """
@@ -81,7 +87,14 @@ class AutoMonteCarlo:
         ax.set_xlabel("Time steps")
         ax.set_ylabel("Asset Price")
         ax.set_title(title)
-        plt.show()
+        
+        # Save the plot
+        plot_filename = f'autocallable_paths.png'
+        plot_path = os.path.join(STATIC_DIR, plot_filename)
+        plt.savefig(plot_path)
+        plt.close()
+        
+        return plot_path
 
     def price_autocallable_option(
         self, discretization="euler", barrier_levels=None, coupon_rates=None
@@ -291,7 +304,14 @@ class AutocallableSmoothnessTest:
         plt.ylabel(target_variable.capitalize())
         plt.tight_layout()
         
+        # Save the plot
+        plot_filename = f'autocallable_{variable_name}_{target_variable}_sensitivity_plot.png'
+        plot_path = os.path.join(STATIC_DIR, plot_filename)
+        plt.savefig(plot_path)
+        plt.close()
         
+        return plot_path
+
 def auto_convergence_test(num_steps, max_sims, obs, pricer_class, mode, discretization, barrier_levels, coupon_rates, pricer_params, within_barrier=True, non_barrier_price=None):
     if mode == "steps":
         steps = list(np.linspace(0, num_steps, obs).round().astype(int))
@@ -345,6 +365,14 @@ def plot_convergence(results, mode):
     plt.ylabel("Option Price")
     plt.tight_layout()
     #plt.show()
+
+    # Save the plot
+    plot_filename = f'autocallable_convergence_{mode}_plot.png'
+    plot_path = os.path.join(STATIC_DIR, plot_filename)
+    plt.savefig(plot_path)
+    # plt.close()
+    
+    return plot_path
 
 
 '''
