@@ -288,8 +288,12 @@ def barrier_options():
 
                 # Save plot to static directory
                 print('start plotting')
+                # Construct a package-relative static folder path
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
                 plot_filename = f'barrier_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join(STATIC_DIR, plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
@@ -339,7 +343,14 @@ def barrier_options():
             plot_convergence(barrier_step_results, mode)
 
             # Save plot to static directory
-            plt.savefig('derivapro/static/barrier_convergence_plot.png')
+            # Construct a package-relative static folder path
+            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+            STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+            os.makedirs(STATIC_DIR, exist_ok=True)
+            plot_filename = 'barrier_convergence_plot.png'
+            plot_path = os.path.join(STATIC_DIR, plot_filename)
+            plt.savefig(plot_path)
+            # plt.savefig('derivapro/static/barrier_convergence_plot.png')
             convergence_results = True
         elif action == 'scenario':
             try:
@@ -453,17 +464,16 @@ def barrier_options():
 
             if baseline_table and stressed_table:
                 # Format the scenario results for the assessment
-                table_text = f"""
-Baseline Scenario:
-Option Price={baseline_table['baseline_price']}, Delta={baseline_table['baseline_delta']}, 
-Gamma={baseline_table['baseline_gamma']}, Vega={baseline_table['baseline_vega']}, 
-Theta={baseline_table['baseline_theta']}, Rho={baseline_table['baseline_rho']}
+                table_text = f""" Baseline Scenario:
+                    Option Price={baseline_table['baseline_price']}, Delta={baseline_table['baseline_delta']}, 
+                    Gamma={baseline_table['baseline_gamma']}, Vega={baseline_table['baseline_vega']}, 
+                    Theta={baseline_table['baseline_theta']}, Rho={baseline_table['baseline_rho']}
 
-Stressed Scenario:
-Option Price={stressed_table['stressed_price']}, Delta={stressed_table['stressed_delta']}, 
-Gamma={stressed_table['stressed_gamma']}, Vega={stressed_table['stressed_vega']}, 
-Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
-"""
+                    Stressed Scenario:
+                    Option Price={stressed_table['stressed_price']}, Delta={stressed_table['stressed_delta']}, 
+                    Gamma={stressed_table['stressed_gamma']}, Vega={stressed_table['stressed_vega']}, 
+                    Theta={stressed_table['stressed_theta']}, Rho={stressed_table['stressed_rho']}
+                    """
                 assessment_input = f"Please assess the scenario analysis of the option price and Greeks based on the following results: {table_text}. Please limit the assessment to be less than 100 words."
                 gpt_scenario_assessment = ask_gpt(assessment_input)
 

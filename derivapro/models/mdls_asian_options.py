@@ -3,9 +3,14 @@ import QuantLib as ql
 import pandas as pd
 import numpy as np
 import seaborn as sns
-
+import os
 import matplotlib.pyplot as plt
 from ..models.market_data import StockData
+
+# Construct a package-relative static folder path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 class AsianOption:
     def __init__(self, ticker, K, sigma, r, q, T, averaging_dates, option_type="call", num_paths=100000, seed=42):
@@ -241,6 +246,14 @@ class AsianOptionSmoothnessTest:
         plt.ylabel(target_variable.capitalize())
         plt.tight_layout()
 
+         # Save the plot
+        plot_filename = f'asian_{variable_name}_{target_variable}_sensitivity_plot.png'
+        plot_path = os.path.join(STATIC_DIR, plot_filename)
+        plt.savefig(plot_path)
+        plt.close()
+        
+        return plot_path
+
 def lattice_convergence_test(max_steps, max_sims, obs, pricer_class, pricer_params, mode='steps'):
     if mode == "steps":
         steps = list(np.linspace(0, max_steps, obs).round().astype(int))
@@ -289,7 +302,13 @@ def plot_convergence(results, mode):
 
     plt.ylabel("Option Price")
     plt.tight_layout()
-    #plt.show()
+    # Save the plot
+    plot_filename = f'asian_convergence_{mode}_plot.png'
+    plot_path = os.path.join(STATIC_DIR, plot_filename)
+    plt.savefig(plot_path)
+    plt.close()
+    
+    return plot_path
 
 
 
