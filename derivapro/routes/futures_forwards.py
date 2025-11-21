@@ -293,8 +293,13 @@ def futures():
                 else:
                     pass
                 
+                # Construct a package-relative static folder path
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
+                    
                 plot_filename = f'futures-{variable}-{step_range}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join(STATIC_DIR, plot_filename)
                 plt.savefig(plot_path)   
                 
                 session['future_sensitivity_analysis_results'] = {'plot_filename': plot_filename,
