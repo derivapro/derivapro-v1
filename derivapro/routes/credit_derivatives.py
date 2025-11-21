@@ -125,8 +125,12 @@ def creditDefaultSwaps():
                 else:
                     pass
                 
+                # Construct a package-relative static folder path
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
                 plot_filename = f'Credit Default Swap_{variable}_{range_span}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join(STATIC_DIR, plot_filename)
                 plt.savefig(plot_path)   
                 session['cds_sensitivity_analysis_results'] = {'plot_filename': plot_filename,
                                                                    'range_span': range_span,
@@ -289,9 +293,12 @@ def syntheticCDO():
                     synthetic_cdo.plot_sensitivity_analysis(variable, range_span, num_steps)
                 else:
                     pass
-                
+                # Construct a package-relative static folder path
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
                 plot_filename = f'Synthetic CDO_{variable}_{range_span}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join(STATIC_DIR, plot_filename)
                 plt.savefig(plot_path)   
                 session['cdo_analysis_results'] = {'plot_filename': plot_filename,
                                                                     'range_span': range_span,
@@ -577,9 +584,12 @@ def creditLinkedNotes():
                             # results = sensitivity_analysis.analyze_variable_sensitivity(variable, range_span, num_steps)
                             sensitivity_analysis.plot_sensitivity_analysis(variable, range_span, num_steps)
 
-                    
+                    # Construct a package-relative static folder path
+                    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                    STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                    os.makedirs(STATIC_DIR, exist_ok=True)
                     plot_filename = f'Credit Linked Notes_{variable}_{range_span}_sensitivity_plot.png'
-                    plot_path = os.path.join('derivapro', 'static', plot_filename)
+                    plot_path = os.path.join(STATIC_DIR, plot_filename)
                     plt.savefig(plot_path)   
                     session['cln_sensitivity_analysis_results_fixed'] = {'plot_filename': plot_filename,
                                                                         'range_span': range_span,
@@ -836,7 +846,7 @@ def creditLinkedNotes():
                     cds_class = CreditDefaultSwap(notional_cds, spread, recovery_rate, risk_free,
                                  payment_frequency_ql, calendar, side, selected_period, period_fraction, issue_date, maturity_date,
                                  variable, range_span, num_steps)
-# shocks, issueDate, maturityDate, tenor, spread, notional, dayCount
+                    # shocks, issueDate, maturityDate, tenor, spread, notional, dayCount
                     if amort_selection_float == 'No':
                         if variable == 'risk_free':
                             fl_bond_results = floating_bond.price_floating(shocks, issue_date, maturity_date,
@@ -869,10 +879,13 @@ def creditLinkedNotes():
                                                                tenor, spread, notional, notional_dates, day_count)
                             sensitivity_analysis = CLNSensitivityAnalysis(bond_params=bond_params_float, cds_instance=cds_class, bond_results=flam_bond_results)
                             sensitivity_analysis.plot_sensitivity_analysis(variable, range_span, num_steps)
-
+                    # Construct a package-relative static folder path
+                    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                    STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                    os.makedirs(STATIC_DIR, exist_ok=True)
                     
                     plot_filename = f'Credit Linked Notes Floating_{variable}_{range_span}_sensitivity_plot.png'
-                    plot_path = os.path.join('derivapro', 'static', plot_filename)
+                    plot_path = os.path.join(STATIC_DIR, plot_filename)
                     plt.savefig(plot_path)   
                     session['cln_sensitivity_analysis_results_float'] = {'plot_filename': plot_filename,
                                                                         'range_span': range_span,
