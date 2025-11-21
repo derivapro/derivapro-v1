@@ -464,7 +464,8 @@ def barrier_options():
 
             if baseline_table and stressed_table:
                 # Format the scenario results for the assessment
-                table_text = f""" Baseline Scenario:
+                table_text = f"""
+                    Baseline Scenario:
                     Option Price={baseline_table['baseline_price']}, Delta={baseline_table['baseline_delta']}, 
                     Gamma={baseline_table['baseline_gamma']}, Vega={baseline_table['baseline_vega']}, 
                     Theta={baseline_table['baseline_theta']}, Rho={baseline_table['baseline_rho']}
