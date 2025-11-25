@@ -222,8 +222,12 @@ def european_options():
                 #plt.show()
 
                 # Save the plot to the static directory
+                # Construct a package-relative static folder path 11/25/2025 Change
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
                 plot_filename = f'{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join(STATIC_DIR, plot_filename)
                 
                 plt.savefig(plot_path)
                 plt.close()
@@ -393,9 +397,13 @@ def model_performance():
                 tester.plot_single_greek(values, greek_values, target_variable, variable)
 
                 # Save plot to static directory
+                # Construct a package-relative static folder path 11/25/2025 Change
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
                 print('start plotting')
                 plot_filename = f'european_{target_variable}-{variable}_sensitivity_plot.png'
-                plot_path = os.path.join('derivapro', 'static', plot_filename)
+                plot_path = os.path.join(STATIC_DIR, plot_filename)
 
                 # Print the plot path to ensure it's correct
                 print(f"Saving plot to: {plot_path}")
