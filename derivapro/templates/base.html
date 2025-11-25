@@ -76,8 +76,20 @@
                         <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}" class="nav-link">Credit Linked Notes</a></li>
                     </ul>
                 </li>
-                <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swaps</a></li>
-                <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaptions</a></li>
+
+                <li>
+                    <a href="{{ url_for('swap_swaptions.swap_swaptions') }}" class="nav-link">Swaps/Swaptions</a>
+                    <ul>
+
+                        <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Swaps Analytical</a></li>
+                        <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swaps M2M</a></li>
+                        <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">Swaptions Analytical</a></li>
+                        <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaptions M2M</a></li>
+                    </ul>
+                </li>
+
+                <!-- <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swaps M2M</a></li>
+                <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaptions M2M</a></li> -->
                                 <li>
                     <a href="{{ url_for('volatility_derivatives.volatility_derivatives') }}" class="nav-link">Volatility Derivatives</a>
                     <ul>
@@ -85,15 +97,15 @@
                     </ul>
                 </li>  
                 
-               <li>
+               <!-- <li>
                 <a href="{{ url_for('rates.swap_page') }}" class="nav-link">
-                 Swap/Swaption (New)
+                 Swaps/Swaptions
                 </a>
                 <ul>
-                 <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Swap (New)</a></li>
-                 <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">Swaption (New)</a></li>
+                 <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Swaps Analytical</a></li>
+                 <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">Swaption Analytical</a></li>
                </ul>
-              </li>
+              </li> -->
                 <li><a href="{{ url_for('volatility_surface.volatility_surface') }}" class="nav-link">Volatility Surface</a></li>
                 <li><a href="{{ url_for('equity_derivatives.equity_derivatives') }}" class="nav-link">Equity Derivatives</a></li>
                 <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a></li>
