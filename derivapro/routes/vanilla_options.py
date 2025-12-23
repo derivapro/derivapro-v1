@@ -601,6 +601,7 @@ def model_performance():
                 volatility = float(form_data.get("volatility"))
                 option_type = form_data.get("option_type")
                 model = form_data.get("model")
+                num_steps = int(form_data.get("num_steps", 252))  # Provide a sensible default
 
                 # Baseline calculation
                 if model == "Monte_Carlo":
@@ -981,7 +982,7 @@ def american_options():
                 request.form.get("num_steps", request.form.get("mc_steps", 252)), 252
             ),
             "pricing_model": request.form.get(
-                "pricing_model", "Cox Ross Rubinstein Tree"
+                "pricing_model"
             ),  # NEW NAME for pricing
             "model": request.form.get("model"),  # for convergence analysis
             "num_paths": safe_int(request.form.get("num_paths"), 10000),
@@ -1149,7 +1150,9 @@ def american_options():
                     smoothness_model = "JRT"
                 elif form_data["model"] == "Trinomial Asset Pricing":
                     smoothness_model = "TAP"
-                elif form_data["model"] == "Monte Carlo":
+                elif "monte" in str(form_data["model"]).lower():
+
+                # elif form_data["model"] == "Monte Carlo":
                     # Handle Monte Carlo sensitivity analysis
                     num_paths = form_data.get("num_paths", 10000)
                     mc_steps = form_data.get("mc_steps", 252)
@@ -1272,6 +1275,7 @@ def american_options():
                         "variable_range": variable_range.tolist(),
                         "greek_values": greek_values,
                     }
+
                 else:
                     # Use existing lattice models for sensitivity analysis
                     tester = AmericanOptionSmoothnessTest(
@@ -1307,8 +1311,10 @@ def american_options():
                         "values": values.tolist(),
                         "greek_values": greek_values,
                     }
+                    session["sensitivity_results"] = sensitivity_results
 
             except Exception as e:
+                session.pop("sensitivity_results", None)  # gracefully remove old results if error
                 print(f"An error occurred during sensitivity analysis: {e}")
                 sensitivity_results = None
 

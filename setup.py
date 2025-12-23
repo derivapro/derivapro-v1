@@ -13,11 +13,8 @@ setup(
     package_data={
         "derivapro": [
             "*.md",
-            "templates/*.html",   # HTML templates
-            "static/**/*",        # all files in static and subfolders
+            "templates/*.html",  # HTML templates
+            "static/**/*",  # all files in static and subfolders
         ],
     },
 )
-
-
-

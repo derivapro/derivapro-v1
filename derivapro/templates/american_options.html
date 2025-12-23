@@ -291,7 +291,8 @@
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
             <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-            <input type="hidden" name="model" value="{{ form_data.model }}">
+            <!-- <input type="hidden" name="model" value="{{ form_data.model }}"> -->
+            <input type="hidden" name="model" value="{{ form_data.pricing_model }}">
             <input type="hidden" name="num_paths" value="{{ form_data.num_paths|default(10000) }}">
             <input type="hidden" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}">
             <div class="form-group">
@@ -326,26 +327,32 @@
             </div>
         </form>
         <div id="sensitivity-results" class="sens-results">
-            {% if sensitivity_results %}
-            <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}" alt="Sensitivity Analysis Plot">
-            <div class="assessment-section">
-                <h4>AI Assessment</h4>
-                <form id="ai-sensitivity-assessment-form" onsubmit="return false;" class="form-grid">
-                    <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
-                    <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-                    <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
-                    <input type="hidden" name="r" value="{{ form_data.r }}">
-                    <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-                    <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
-                    <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
-                    <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
-                    <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-                    <input type="hidden" name="model" value="{{ form_data.model }}">
-                    <div class="form-group full-width">
-                        <button type="button" onclick="submitForm('ai-sensitivity-assessment-form', '/vanilla-options/american', 'sensitivity-assessment-section');" class="assessment-button">Get AI Assessment</button>
-                    </div>
-                </form>
-            </div>
+
+            {% if session.get('sensitivity_results') and session['sensitivity_results'].get('plot_filename') %}
+                <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}" alt="Sensitivity Analysis Plot">
+
+                <div class="assessment-section">
+                    <h4>AI Assessment</h4>
+                    <form id="ai-sensitivity-assessment-form" onsubmit="return false;" class="form-grid">
+                        <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
+                        <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+                        <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+                        <input type="hidden" name="r" value="{{ form_data.r }}">
+                        <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
+                        <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+                        <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+                        <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+                        <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
+                        <input type="hidden" name="model" value="{{ form_data.model }}">
+                        <div class="form-group full-width">
+                            <button type="button" onclick="submitForm('ai-sensitivity-assessment-form', '/vanilla-options/american', 'sensitivity-assessment-section');" class="assessment-button">Get AI Assessment</button>
+                        </div>
+                    </form>
+                </div>
+
+            {% else %}
+                <p>No sensitivity analysis results available.</p>            
+
             {% endif %}
         </div>
         <div id="sensitivity-assessment-section" class="assessment-section">
