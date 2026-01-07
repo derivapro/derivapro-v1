@@ -15,7 +15,7 @@
 <form method="POST" action="{{ url_for('extract_market_data.extract_treasury_data') }}">
 
     <div class="form-group">
-        <label for="start_date">Start Date:</label>
+        <label for="start_date">As of Date:</label>
         <input type="date" id="start_date" name="start_date" 
                value="{{ form_data.start_date if form_data.start_date else '' }}" required>
     </div>
