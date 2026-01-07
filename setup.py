@@ -6,7 +6,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="derivapro",
-    version="0.1.2",
+    version="0.1.3",
     packages=find_packages(),
     install_requires=requirements,
     include_package_data=True,
@@ -18,3 +18,4 @@ setup(
         ],
     },
 )
+
