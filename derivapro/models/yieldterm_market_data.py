@@ -65,7 +65,7 @@ class TreasuryRateProvider(MarketRateProvider):
         self.fred = Fred(api_key=api_key)
         self.series_ids = {
             '1M': 'GS1M', '3M': 'GS3M', '6M': 'GS6M',
-            '1Y': 'GS1', '2Y': 'GS2', '5Y': 'GS5',
+            '1Y': 'GS1', '2Y': 'GS2', '5Y': 'GS5', '7Y': 'GS7',
             '10Y': 'GS10', '30Y': 'GS30'
         }
 

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Market Data</h2>
+
+<div id="markdown-content">
+    {{ md_content|safe }}
+</div>
+
+<h3>Stock Information</h3> 
+
+<h4>Placeholder to extract stock data</h4>
+
+<h3>Treasury Rates</h3>
+
+<form method="POST" action="{{ url_for('extract_market_data.extract_treasury_data') }}">
+
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" 
+               value="{{ form_data.start_date if form_data.start_date else '' }}" required>
+    </div>
+    
+    <div class="form-group">
+        <label>Select Tenors:</label>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+            {% for tenor in available_tenors %}
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" class="tenor-checkbox" name="selected_tenors" value="{{ tenor }}" 
+                       {% if form_data.selected_tenors and tenor in form_data.selected_tenors %}checked{% endif %}>
+                <span style="margin-left: 5px;">{{ tenor }}</span>
+            </label>
+            {% endfor %}
+        </div>
+
+        <!-- Select/Deselect buttons -->
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+            <button type="button" class="btn" onclick="selectAllTenors()">Select All</button>
+            <button type="button" class="btn" onclick="deselectAllTenors()">Deselect All</button>
+        </div>
+    </div>
+    
+    <button type="submit" class="btn" style="margin-top: 15px;">Extract Data</button>
+</form>
+
+{% if treasury_rates %}
+<div style="margin-top: 20px;">
+    <h3>Market Rates:</h3>
+    <table border="1" style="border-collapse: collapse; margin-top: 10px;">
+        <thead>
+            <tr>
+                <th style="padding: 8px;">Tenor</th>
+                <th style="padding: 8px;">Rate (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for period, rate in treasury_rates %}
+            <tr>
+                <td style="padding: 8px;">{{ period }}</td>
+                <td style="padding: 8px;">{{ "%.4f"|format(rate * 100) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<script>
+    function selectAllTenors() {
+        document.querySelectorAll('.tenor-checkbox').forEach(cb => cb.checked = true);
+    }
+
+    function deselectAllTenors() {
+        document.querySelectorAll('.tenor-checkbox').forEach(cb => cb.checked = false);
+    }
+</script>
+
+<style>
+    .btn {
+        background-color: #0056b3;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 14px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    .btn:hover {
+        background-color: #0056b3;
+    }
+
+    /* Optional: make all buttons the same width */
+    .btn {
+        min-width: 140px;
+        text-align: center;
+    }
+</style>
+
+{% endblock %}
