@@ -18,7 +18,7 @@ def register_routes(app):
     from .rates_api import rates_api_bp
     from .swap_swaptions import swap_swaptions_bp
     from .extract_market_data import extract_market_data_bp
-
+    from .reports import reports_generated_bp
     app.register_blueprint(index_bp, url_prefix='/')
     app.register_blueprint(vanilla_options_bp, url_prefix='/vanilla-options')
     app.register_blueprint(exotic_options_bp, url_prefix='/exotic-options')
@@ -38,4 +38,5 @@ def register_routes(app):
     app.register_blueprint(rates_api_bp)    # /api/rates/...
     app.register_blueprint(swap_swaptions_bp, url_prefix="/swap_swaptions")
     app.register_blueprint(extract_market_data_bp, url_prefix="/extract-market-data")
+    app.register_blueprint(reports_generated_bp, url_prefix = "/reports-generated")
 
