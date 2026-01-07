@@ -3,6 +3,7 @@ import requests
 from fredapi import Fred
 from datetime import datetime
 import pandas as pd
+import math
 
 # --- Base Provider Interface ---
 class MarketRateProvider:
@@ -128,6 +129,84 @@ class SOFRRateProvider(MarketRateProvider):
             return rates[-1:] #Pull only the last overnight rate that represents today's value
         else:
             return []
+
+# class SOFRCompoundedRateCalculator:
+#     def __init__(self, rates, day_count=None, calendar=None):
+#         """
+#         rates: list of (date, overnight_rate), rate as decimal (e.g. 0.053)
+#         day_count: optional QuantLib day count convention (default Actual/360)
+#         calendar: optional QuantLib calendar (default US GovBond)
+#         """
+
+#         self.rates = sorted(rates, key=lambda x: x[0])
+#         self.day_count = day_count if day_count is not None else ql.Actual360()
+#         self.calendar = calendar if calendar is not None else ql.UnitedStates(ql.UnitedStates.GovernmentBond)
+
+
+#     def _filter_rates_for_tenor(self, end_date: ql.Date, tenor: ql.Period):
+#         start_date = self.calendar.advance(end_date, -tenor)
+#         return [
+#             (d, r) for d, r in self.rates
+#             if start_date < d <= end_date
+#         ]
+
+#     def compound(self, end_date, tenor, method="compounded"):
+#         rates = self._filter_rates_for_tenor(end_date, tenor)
+#         if len(rates) < 2:
+#             raise ValueError("Not enough rate observations for selected tenor")
+
+#         accruals = []
+#         for i in range(len(rates) - 1):
+#             d0, r = rates[i]
+#             d1, _ = rates[i + 1]
+#             dt = self.day_count.yearFraction(d0, d1)
+#             accruals.append((r, dt))
+
+#         if method == "simple":
+#             num = sum(r * dt for r, dt in accruals)
+#             den = sum(dt for _, dt in accruals)
+#             return num / den
+
+#         elif method == "compounded":
+#             compound_factor = 1.0
+#             for r, dt in accruals:
+#                 compound_factor *= (1 + r * dt)
+#             return compound_factor - 1.0
+
+#         elif method == "continuous":
+#             return math.exp(sum(r * dt for r, dt in accruals)) - 1.0
+
+#         else:
+#             raise ValueError(f"Unsupported compounding method: {method}")
+
+class SOFRCompoundedRateCalculator:
+    def __init__(self, rates, day_count=ql.Actual360(), compounding=ql.Compounded, compounding_frequency=ql.Daily):
+        """
+        rates: list of tuples (ql.Date, rate as decimal)
+        """
+        self.rates = sorted(rates, key=lambda x: x[0])
+        self.day_count = day_count
+        self.compounding = compounding
+        self.compounding_frequency = compounding_frequency
+
+    def compound(self, end_date, tenor):
+        start_date = end_date - ql.Period(tenor.length(), tenor.units())
+        filtered_rates = [(d, r) for d, r in self.rates if start_date <= d <= end_date]
+        if len(filtered_rates) < 1:
+            raise ValueError("Not enough rate data to compute compounded rate")
+
+        total_factor = 1.0
+        for d, r in filtered_rates:
+            dt = self.day_count.yearFraction(d, d+1)
+            ir = ql.InterestRate(r, self.day_count, self.compounding, self.compounding_frequency)
+            total_factor *= ir.compoundFactor(dt)
+
+        # Convert total factor back to rate
+        compounded_rate = total_factor - 1.0
+        return compounded_rate
+
+
+
 
         
 # class ShockedSOFRRateProvider(MarketRateProvider):
