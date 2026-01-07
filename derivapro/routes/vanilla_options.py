@@ -591,21 +591,18 @@ def model_performance():
 
                 ticker = form_data.get("ticker")
                 strike_price = float(form_data.get("strike_price"))
-                start_date = datetime.strptime(
-                    form_data.get("start_date"), "%Y-%m-%d"
-                ).date()
-                end_date = datetime.strptime(
-                    form_data.get("end_date"), "%Y-%m-%d"
-                ).date()
+                start_date = datetime.strptime(form_data.get("start_date"), "%Y-%m-%d").date()
+                end_date = datetime.strptime(form_data.get("end_date"), "%Y-%m-%d").date()
                 risk_free_rate = float(form_data.get("risk_free_rate"))
                 volatility = float(form_data.get("volatility"))
+
                 option_type = form_data.get("option_type")
-                model = form_data.get("model")
-                num_steps = int(form_data.get("num_steps", 252))  # Provide a sensible default
+                model = form_data.get("model") or form_data.get("model_type")
+                num_steps = int(form_data.get("num_steps", 252))
 
                 # Baseline calculation
                 if model == "Monte_Carlo":
-                    # from ..models.mdls_vanilla_options import AmericanMonteCarloOption
+                    from ..models.mdls_vanilla_options import AmericanMonteCarloOption
                     num_paths = form_data.get("num_paths", 10000)
                     mc_steps = form_data.get("mc_steps", 252)
                     # option = AmericanMonteCarloOption(ticker, strike_price, start_date, end_date, risk_free_rate, volatility, option_type, num_paths, mc_steps)
@@ -637,12 +634,11 @@ def model_performance():
                         )
                         baseline_greeks = option.TAPGreeks(option_type, num_steps)
 
-                baseline_price = "{:.4f}".format(baseline_price)
-                baseline_delta = "{:.4f}".format(baseline_greeks["delta"])
-                baseline_gamma = "{:.4f}".format(baseline_greeks["gamma"])
-                baseline_vega = "{:.4f}".format(baseline_greeks["vega"])
-                baseline_theta = "{:.4f}".format(baseline_greeks["theta"])
-                baseline_rho = "{:.4f}".format(baseline_greeks["rho"])
+                baseline_delta = "{:.4f}".format(baseline_greeks["Delta"])
+                baseline_gamma = "{:.4f}".format(baseline_greeks["Gamma"])
+                baseline_vega = "{:.4f}".format(baseline_greeks["Vega"])
+                baseline_theta = "{:.4f}".format(baseline_greeks["Theta"])
+                baseline_rho = "{:.4f}".format(baseline_greeks["Rho"])
 
                 # Stressed scenario calculation
                 stressed_spot = strike_price * (1 + spot_change)
@@ -687,11 +683,11 @@ def model_performance():
                         )
 
                 stressed_price = "{:.4f}".format(stressed_price)
-                stressed_delta = "{:.4f}".format(stressed_greeks["delta"])
-                stressed_gamma = "{:.4f}".format(stressed_greeks["gamma"])
-                stressed_vega = "{:.4f}".format(stressed_greeks["vega"])
-                stressed_theta = "{:.4f}".format(stressed_greeks["theta"])
-                stressed_rho = "{:.4f}".format(stressed_greeks["rho"])
+                stressed_delta = "{:.4f}".format(stressed_greeks["Delta"])
+                stressed_gamma = "{:.4f}".format(stressed_greeks["Gamma"])
+                stressed_vega = "{:.4f}".format(stressed_greeks["Vega"])
+                stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
+                stressed_rho = "{:.4f}".format(stressed_greeks["Rho"])
 
                 """
                 scenario_table = [
@@ -1380,7 +1376,7 @@ def american_options():
                 session["risk_pl_results"] = {"results": risk_pl_results}
 
                 print(risk_pl_results)
-
+ 
             except Exception as e:
                 print(f"An error occurred during Risk-Based P&L analysis: {e}")
                 risk_pl_results = None
@@ -1737,11 +1733,12 @@ def american_options():
                         baseline_greeks = option.TAPGreeks(option_type, num_steps)
 
                 baseline_price = "{:.4f}".format(baseline_price)
-                baseline_delta = "{:.4f}".format(baseline_greeks["delta"])
-                baseline_gamma = "{:.4f}".format(baseline_greeks["gamma"])
-                baseline_vega = "{:.4f}".format(baseline_greeks["vega"])
-                baseline_theta = "{:.4f}".format(baseline_greeks["theta"])
-                baseline_rho = "{:.4f}".format(baseline_greeks["rho"])
+
+                baseline_delta = "{:.4f}".format(baseline_greeks["Delta"])
+                baseline_gamma = "{:.4f}".format(baseline_greeks["Gamma"])
+                baseline_vega = "{:.4f}".format(baseline_greeks["Vega"])
+                baseline_theta = "{:.4f}".format(baseline_greeks["Theta"])
+                baseline_rho = "{:.4f}".format(baseline_greeks["Rho"])
 
                 # Stressed scenario calculation
                 stressed_spot = strike_price * (1 + spot_change)
@@ -1786,11 +1783,13 @@ def american_options():
                         )
 
                 stressed_price = "{:.4f}".format(stressed_price)
-                stressed_delta = "{:.4f}".format(stressed_greeks["delta"])
-                stressed_gamma = "{:.4f}".format(stressed_greeks["gamma"])
-                stressed_vega = "{:.4f}".format(stressed_greeks["vega"])
-                stressed_theta = "{:.4f}".format(stressed_greeks["theta"])
-                stressed_rho = "{:.4f}".format(stressed_greeks["rho"])
+
+                stressed_delta = "{:.4f}".format(stressed_greeks["Delta"])
+                stressed_gamma = "{:.4f}".format(stressed_greeks["Gamma"])
+                stressed_vega = "{:.4f}".format(stressed_greeks["Vega"])
+                stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
+                stressed_rho = "{:.4f}".format(stressed_greeks["Rho"])
+
 
                 """
                 scenario_table = [
