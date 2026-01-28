@@ -11,7 +11,8 @@ from ..models.mdls_autocallables import AutoMonteCarlo, AutocallableSmoothnessTe
 import importlib.util
 import sys
 import os
-
+import numpy as np
+ 
 # Import the New Monte Carlo module
 monte_carlo_newMC_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'mdls_monte_carlo_NEW.py')
 spec = importlib.util.spec_from_file_location("monte_carlo_New_module", monte_carlo_newMC_path)
@@ -123,6 +124,208 @@ def autocallable_options():
         simulation_engine = form_data.get('simulation_engine', 'original')
         option_type = form_data.get('option_type', 'call')
 
+        if action == 'sensitivity':
+            try:
+                num_steps = int(request.form.get('num_steps', 50))
+                step_range = float(request.form.get('step_range', 0.1))
+                variable = request.form.get('variable', 'strike_price')         # strike_price / risk_free_rate / volatility
+                target_variable = request.form.get('target_variable', 'option_price')
+
+                tester = AutocallableSmoothnessTest(
+                    ticker, K, r, sigma, T, q, N, M,
+                    discretization=discretization,
+                    barrier_levels=np.full(N, barrier_levels),
+                    coupon_rates=np.full(N, coupon_rates),
+                )
+
+                values, outputs = tester.calculate_greeks_over_range(
+                    variable, num_steps, step_range, target_variable
+                )
+                plot_path = tester.plot_single_greek(values, outputs, target_variable, variable)
+                plot_filename = os.path.basename(plot_path)
+
+                session['sensitivity_results'] = {
+                    'variable': variable,
+                    'values': values.tolist() if hasattr(values, "tolist") else list(values),
+                    'greek_values': outputs,
+                    'target_variable': target_variable,
+                    'plot_filename': plot_filename,
+                }
+                sensitivity_results = True
+
+            except Exception as e:
+                print(f"An error occurred during sensitivity analysis: {e}")
+                sensitivity_results = None
+
+        elif action == 'scenario':
+            try:
+                spot_change = float(request.form.get('spot_scenario', 0))
+                vol_change = float(request.form.get('vol_scenario', 0))
+                rate_change = float(request.form.get('rate_scenario', 0))
+
+                # base arrays expected by AutoMonteCarlo
+                base_barriers = np.full(N, barrier_levels)
+                base_coupons = np.full(N, coupon_rates)
+
+                option = AutoMonteCarlo(ticker, K, r, sigma, T, q, N, M)
+                base_greeks = option.calculate_greeks(discretization, base_barriers, base_coupons)
+
+                baseline_price = "{:.4f}".format(base_greeks['option_price'])
+                baseline_delta = "{:.4f}".format(base_greeks['delta'])
+                baseline_gamma = "{:.4f}".format(base_greeks['gamma'])
+                baseline_vega  = "{:.4f}".format(base_greeks['vega'])
+                baseline_theta = "{:.4f}".format(base_greeks['theta'])
+                baseline_rho   = "{:.4f}".format(base_greeks['rho'])
+
+                stressed_K = K * (1 + spot_change)
+                stressed_sigma = sigma + vol_change
+                stressed_r = r + rate_change
+
+                stressed_option = AutoMonteCarlo(ticker, stressed_K, stressed_r, stressed_sigma, T, q, N, M)
+                stressed_greeks = stressed_option.calculate_greeks(discretization, base_barriers, base_coupons)
+
+                stressed_price = "{:.4f}".format(stressed_greeks['option_price'])
+                stressed_delta = "{:.4f}".format(stressed_greeks['delta'])
+                stressed_gamma = "{:.4f}".format(stressed_greeks['gamma'])
+                stressed_vega  = "{:.4f}".format(stressed_greeks['vega'])
+                stressed_theta = "{:.4f}".format(stressed_greeks['theta'])
+                stressed_rho   = "{:.4f}".format(stressed_greeks['rho'])
+
+                session['scenario_results'] = {
+                    'baseline_scenario_table': {
+                        'baseline_price': baseline_price,
+                        'baseline_delta': baseline_delta,
+                        'baseline_gamma': baseline_gamma,
+                        'baseline_vega': baseline_vega,
+                        'baseline_theta': baseline_theta,
+                        'baseline_rho': baseline_rho,
+                    },
+                    'stressed_scenario_table': {
+                        'stressed_price': stressed_price,
+                        'stressed_delta': stressed_delta,
+                        'stressed_gamma': stressed_gamma,
+                        'stressed_vega': stressed_vega,
+                        'stressed_theta': stressed_theta,
+                        'stressed_rho': stressed_rho,
+                    },
+                    'gpt_scenario_assessment': "No assessment yet."
+                }
+                scenario_results = True
+                return render_template(
+                    'autocallables.html',
+                    option_price=None,
+                    form_data=form_data,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    md_content=md_content
+                )
+            except Exception as e:
+                print(f"An error occurred during scenario analysis: {e}")
+                scenario_results = None
+
+        elif action == 'convergence':
+            try:
+                mode = request.form.get('mode', 'steps')
+                num_steps_max = int(request.form.get('num_steps', N))
+                max_sims = int(request.form.get('max_sims', M))
+                obs = int(request.form.get('obs', 10))
+
+                pricer_params = {
+                    'ticker': ticker,
+                    'K': K,
+                    'r': r,
+                    'sigma': sigma,
+                    'T': T,
+                    'q': q,
+                    'N': N,
+                    'M': M,
+                }
+
+                results = auto_convergence_test(
+                    num_steps=num_steps_max,
+                    max_sims=max_sims,
+                    obs=obs,
+                    pricer_class=AutoMonteCarlo,
+                    mode=mode,
+                    discretization=discretization,
+                    barrier_levels=barrier_levels,
+                    coupon_rates=coupon_rates,
+                    pricer_params=pricer_params
+                )
+
+                # Plot + save with the exact filename your template expects
+                plot_convergence(results, mode)
+                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+                os.makedirs(STATIC_DIR, exist_ok=True)
+                plt.savefig(os.path.join(STATIC_DIR, 'autocallable_convergence_plot.png'))
+                plt.close()
+
+                convergence_results = True
+
+                return render_template(
+                    'autocallables.html',
+                    option_price=None,
+                    form_data=form_data,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    md_content=md_content
+                )
+
+            except Exception as e:
+                print(f"An error occurred during convergence analysis: {e}")
+                convergence_results = None
+
+        elif action == 'risk_pl':
+            try:
+                price_change = float(request.form.get('price_change', 0.0))
+                vol_change = float(request.form.get('vol_change', 0.0))
+
+                base_barriers = np.full(N, barrier_levels)
+                base_coupons = np.full(N, coupon_rates)
+
+                option = AutoMonteCarlo(ticker, K, r, sigma, T, q, N, M)
+                risk_pl_results = option.risk_pl_analysis(
+                    discretization=discretization,
+                    barrier_levels=base_barriers,
+                    coupon_rates=base_coupons,
+                    price_change=price_change,
+                    vol_change=vol_change
+                )
+
+                # optional: store in session
+                session['risk_pl_results'] = risk_pl_results
+
+                return render_template(
+                    'autocallables.html',
+                    option_price=None,
+                    form_data=form_data,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    md_content=md_content
+                )
+
+            except Exception as e:
+                print(f"An error occurred during RBPL analysis: {e}")
+                risk_pl_results = None
+
+                return render_template(
+                    'autocallables.html',
+                    option_price=None,
+                    form_data=form_data,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    md_content=md_content
+                )
+
         if simulation_engine == 'new_MC':
             try:
                 from ..models.market_data import StockData
@@ -157,9 +360,17 @@ def autocallable_options():
             option_price = option.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
             option_price = "${:,.4f}".format(option_price)
 
-    return render_template('autocallables.html', option_price=option_price, form_data=form_data,
-                           sensitivity_results=sensitivity_results, convergence_results=convergence_results,
-                           scenario_results=scenario_results, risk_pl_results=risk_pl_results, md_content=md_content)
+
+    return render_template(
+        'autocallables.html',
+        option_price=option_price,
+        form_data=form_data,
+        sensitivity_results=sensitivity_results,
+        convergence_results=convergence_results,
+        scenario_results=scenario_results,
+        risk_pl_results=risk_pl_results,
+        md_content=md_content
+    )
 
 @exotic_options_bp.route('/asian', methods=['GET', 'POST'])
 def asian_options():
@@ -198,6 +409,50 @@ def asian_options():
         num_paths = int(form_data['num_paths']) if form_data['num_paths'] not in [None, ''] else 0
         option_type = form_data['option_type']
         simulation_engine = form_data.get('simulation_engine', 'original')
+
+        if action == 'sensitivity':
+            try:
+
+                num_steps = int(request.form.get('num_sensitivity_steps', 50))
+                step_range = float(request.form.get('step_range', 0.1))
+
+                variable = request.form.get('variable', 'strike_price')
+                target_variable = request.form.get('target_variable', 'option_price')
+
+                tester = AsianOptionSmoothnessTest(
+                    ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths
+                )
+
+                values, outputs = tester.calculate_greeks_over_range(
+                    variable, num_steps, step_range, target_variable
+                )
+
+                plot_path = tester.plot_single_greek(values, outputs, target_variable, variable)
+                plot_filename = os.path.basename(plot_path)
+
+                session['sensitivity_results'] = {
+                    'variable': variable,
+                    'values': values.tolist() if hasattr(values, "tolist") else list(values),
+                    'greek_values': outputs,
+                    'target_variable': target_variable,
+                    'plot_filename': plot_filename,
+                }
+                sensitivity_results = True
+
+                return render_template(
+                    'asian_options.html',
+                    option_price=None,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    form_data=form_data,
+                    md_content=md_content
+                )
+
+            except Exception as e:
+                print(f"An error occurred during sensitivity analysis: {e}")
+                sensitivity_results = None
 
         if simulation_engine == 'new_MC':
             try:

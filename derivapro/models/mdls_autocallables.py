@@ -89,7 +89,7 @@ class AutoMonteCarlo:
         ax.set_title(title)
         
         # Save the plot
-        plot_filename = f'autocallable_paths.png'
+        plot_filename = "autocallable_paths.png"
         plot_path = os.path.join(STATIC_DIR, plot_filename)
         plt.savefig(plot_path)
         plt.close()
@@ -280,13 +280,15 @@ class AutocallableSmoothnessTest:
 
         for value in variable_values:
             if variable == 'strike_price':
-                option = AutoMonteCarlo(self.ticker, self.S, value, self.r, self.sigma, self.q, self.N, self.M)
+                option = AutoMonteCarlo(self.ticker, value, self.r, self.sigma, self.T, self.q, self.N, self.M)
             elif variable == 'risk_free_rate':
-                option = AutoMonteCarlo(self.ticker, self.S, self.K, value, self.sigma, self.q, self.N, self.M)
+                option = AutoMonteCarlo(self.ticker, self.K, value, self.sigma, self.T, self.q, self.N, self.M)
             elif variable == 'volatility':
-                option = AutoMonteCarlo(self.ticker, self.S, self.K, self.r, value, self.q, self.N, self.M)
+                option = AutoMonteCarlo(self.ticker, self.K, self.r, value, self.T, self.q, self.N, self.M)
             else:
                 raise ValueError("Unsupported variable type. Choose between 'strike_price', 'risk_free_rate', or 'volatility'.")
+
+
 
             greek_value = option.calculate_greeks(self.discretization, self.barrier_levels, self.coupon_rates)[target_variable]
             greek_values.append(greek_value)
