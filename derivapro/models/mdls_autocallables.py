@@ -25,9 +25,9 @@ class AutoMonteCarlo:
     - M: Number of simulation paths
     """
 
-    def __init__(self, ticker, K, r, sigma, T, q, N, M):
+    def __init__(self, ticker, K, r, sigma, T, q, N, M, S0=None):
         self.ticker = ticker
-        self.S0 = StockData(ticker).get_current_price()
+        self.S0 = float(S0) if S0 is not None else StockData(ticker).get_current_price()
         self.K = K
         self.r = r
         self.sigma = sigma

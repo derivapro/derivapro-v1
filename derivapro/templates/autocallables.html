@@ -317,7 +317,7 @@
         </form>
         <div id="convergence-results" class="sens-results">
             {% if convergence_results %}
-            <img src="{{ url_for('static', filename='autocallable_convergence_plot.png') }}" alt="Convergence Analysis Plot">
+            <img src="{{ url_for('static', filename=session.get('autocallable_convergence_plot', 'autocallable_convergence_plot.png')) }}" alt="Convergence Analysis Plot">
             {% endif %}
         </div>
     </div>

@@ -290,14 +290,16 @@
             </div>
 
             <div class="form-group full-width">
-                <button type="submit" name="run_convergence_analysis" onclick="this.form.dataset.action='run_convergence_analysis';">Run Convergence Analysis</button>
+                <button type="button" onclick="submitForm('convergence-form', '/exotic-options/asian', 'convergence-results');">
+                Run Convergence Analysis
+                </button>
             </div>
 
         </form>
 
         <div id="convergence-results" class="sens-results">
             {% if convergence_results %}
-            <img src="{{ url_for('static', filename='asian_convergence_plot.png') }}" alt="Convergence Analysis Plot">
+            <img src="{{ url_for('static', filename=session['asian_convergence_plot']) }}" alt="Convergence Analysis Plot">
             {% endif %}
         </div>
     </div>
@@ -324,44 +326,48 @@
                 <input type="number" step="0.01" id="vol_change" name="vol_change" value="{{ form_data.vol_change }}" required>
             </div>
             <div class="form-group full-width">
-                <button type="submit" name="run_risk_pl_analysis" onclick="this.form.dataset.action='run_risk_pl_analysis';">Run RBPL Analysis</button>
+                <button type="button" onclick="submitForm('rbpl-form', '/exotic-options/asian', 'rbpl-results');">
+                Run RBPL Analysis
+                </button>
+
             </div>
         </form>
+        <div id="rbpl-results" class="sens-results">
         {% if risk_pl_results %}
-        <div id="rbpl-results">
             <div class="result">
             <h4>Results:</h4>
-                <div class="horizontal-table">
-                    <div class="table-row">
-                        <div class="table-cell">Actual P&L</div>
-                        <div class="table-cell">Greek P&L Sum</div>
-                        <div class="table-cell">Difference</div>
-                    </div>
-                    <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Actual P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Greek P&L Sum'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Difference'] }}</div>
-                    </div>
-                    <br>
-            <h4>Intermediate Calcuations:</h4>
-                    <div class="table-row">
-                        <div class="table-cell">Initial Price</div>
-                        <div class="table-cell">Bumped Price</div>
-                        <div class="table-cell">Delta P&L</div>
-                        <div class="table-cell">Gamma P&L</div>
-                        <div class="table-cell">Vega P&L</div>
-                    </div>
-                    <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Initial Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Bumped Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Delta P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Gamma P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Vega P&L'] }}</div>
-                    </div>
+            <div class="horizontal-table">
+                <div class="table-row">
+                <div class="table-cell">Actual P&L</div>
+                <div class="table-cell">Greek P&L Sum</div>
+                <div class="table-cell">Difference</div>
+                </div>
+                <div class="table-row">
+                <div class="table-cell">{{ risk_pl_results['Actual P&L'] }}</div>
+                <div class="table-cell">{{ risk_pl_results['Greek P&L Sum'] }}</div>
+                <div class="table-cell">{{ risk_pl_results['Difference'] }}</div>
+                </div>
+
+                <br>
+                <h4>Intermediate Calcuations:</h4>
+                <div class="table-row">
+                <div class="table-cell">Initial Price</div>
+                <div class="table-cell">Bumped Price</div>
+                <div class="table-cell">Delta P&L</div>
+                <div class="table-cell">Gamma P&L</div>
+                <div class="table-cell">Vega P&L</div>
+                </div>
+                <div class="table-row">
+                <div class="table-cell">{{ risk_pl_results['Initial Price'] }}</div>
+                <div class="table-cell">{{ risk_pl_results['Bumped Price'] }}</div>
+                <div class="table-cell">{{ risk_pl_results['Delta P&L'] }}</div>
+                <div class="table-cell">{{ risk_pl_results['Gamma P&L'] }}</div>
+                <div class="table-cell">{{ risk_pl_results['Vega P&L'] }}</div>
                 </div>
             </div>
-        </div>
+            </div>
         {% endif %}
+        </div>
     </div>
 </div>
 

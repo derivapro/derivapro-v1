@@ -13,9 +13,9 @@ STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
 os.makedirs(STATIC_DIR, exist_ok=True)
 
 class AsianOption:
-    def __init__(self, ticker, K, sigma, r, q, T, averaging_dates, option_type="call", num_paths=100000, seed=42):
+    def __init__(self, ticker, K, sigma, r, q, T, averaging_dates, option_type="call", num_paths=100000, seed=42, S0=None):
         self.ticker = ticker
-        self.S = StockData(ticker).get_current_price()
+        self.S = float(S0) if S0 is not None else StockData(ticker).get_current_price()
         self.K = K
         self.sigma = sigma
         self.r = r

@@ -4,9 +4,16 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, session
 from ..models.mdls_monte_carlo import MonteCarlo
 from ..models.mdls_monte_carlo import convergence_test
-from ..models.mdls_monte_carlo import plot_convergence
+
+from ..models.mdls_monte_carlo import plot_convergence as mc_plot_convergence
+from ..models.mdls_asian_options import (
+    AsianOption,
+    AsianOptionSmoothnessTest,
+    lattice_convergence_test,
+    plot_convergence as asian_plot_convergence,
+)
+
 from ..models.mdls_monte_carlo import MonteCarloSmoothnessTest
-from ..models.mdls_asian_options import AsianOption, AsianOptionSmoothnessTest, lattice_convergence_test
 from ..models.mdls_autocallables import AutoMonteCarlo, AutocallableSmoothnessTest, auto_convergence_test
 import importlib.util
 import sys
@@ -167,7 +174,9 @@ def autocallable_options():
                 base_barriers = np.full(N, barrier_levels)
                 base_coupons = np.full(N, coupon_rates)
 
+
                 option = AutoMonteCarlo(ticker, K, r, sigma, T, q, N, M)
+                base_spot = float(option.S0)
                 base_greeks = option.calculate_greeks(discretization, base_barriers, base_coupons)
 
                 baseline_price = "{:.4f}".format(base_greeks['option_price'])
@@ -177,11 +186,14 @@ def autocallable_options():
                 baseline_theta = "{:.4f}".format(base_greeks['theta'])
                 baseline_rho   = "{:.4f}".format(base_greeks['rho'])
 
-                stressed_K = K * (1 + spot_change)
+                stressed_S = base_spot * (1 + spot_change)
                 stressed_sigma = sigma + vol_change
                 stressed_r = r + rate_change
 
-                stressed_option = AutoMonteCarlo(ticker, stressed_K, stressed_r, stressed_sigma, T, q, N, M)
+                stressed_option = AutoMonteCarlo(
+                    ticker, K, stressed_r, stressed_sigma, T, q, N, M,
+                    S0=stressed_S
+                )
                 stressed_greeks = stressed_option.calculate_greeks(discretization, base_barriers, base_coupons)
 
                 stressed_price = "{:.4f}".format(stressed_greeks['option_price'])
@@ -256,12 +268,8 @@ def autocallable_options():
                 )
 
                 # Plot + save with the exact filename your template expects
-                plot_convergence(results, mode)
-                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-                STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
-                os.makedirs(STATIC_DIR, exist_ok=True)
-                plt.savefig(os.path.join(STATIC_DIR, 'autocallable_convergence_plot.png'))
-                plt.close()
+                plot_path = mc_plot_convergence(results, mode)
+                session['autocallable_convergence_plot'] = os.path.basename(plot_path) if plot_path else 'autocallable_convergence_plot.png'
 
                 convergence_results = True
 
@@ -453,6 +461,159 @@ def asian_options():
             except Exception as e:
                 print(f"An error occurred during sensitivity analysis: {e}")
                 sensitivity_results = None
+
+        elif action == 'scenario':
+            try:
+                spot_change = float(request.form.get('spot_scenario', 0))
+                vol_change = float(request.form.get('vol_scenario', 0))
+                rate_change = float(request.form.get('rate_scenario', 0))
+
+                base_option = AsianOption(ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths)
+                base_spot = float(base_option.S)
+                base_greeks = base_option.calculate_greeks()
+
+                baseline_price = "{:.4f}".format(base_greeks["option_price"])
+                baseline_delta = "{:.4f}".format(base_greeks["Delta"])
+                baseline_gamma = "{:.4f}".format(base_greeks["Gamma"])
+                baseline_vega  = "{:.4f}".format(base_greeks["Vega"])
+                baseline_theta = "{:.4f}".format(base_greeks["Theta"])
+                baseline_rho   = "{:.4f}".format(base_greeks["Rho"])
+
+                stressed_S = base_spot * (1 + spot_change)
+                stressed_sigma = sigma + vol_change
+                stressed_r = r + rate_change
+
+                stressed_option = AsianOption(
+                    ticker, K, stressed_sigma, stressed_r, q, T, averaging_dates, option_type, num_paths,
+                    S0=stressed_S
+                )
+                stressed_greeks = stressed_option.calculate_greeks()
+
+                stressed_price = "{:.4f}".format(stressed_greeks["option_price"])
+                stressed_delta = "{:.4f}".format(stressed_greeks["Delta"])
+                stressed_gamma = "{:.4f}".format(stressed_greeks["Gamma"])
+                stressed_vega  = "{:.4f}".format(stressed_greeks["Vega"])
+                stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
+                stressed_rho   = "{:.4f}".format(stressed_greeks["Rho"])
+
+                session['scenario_results'] = {
+                    'baseline_scenario_table': {
+                        'baseline_price': baseline_price,
+                        'baseline_delta': baseline_delta,
+                        'baseline_gamma': baseline_gamma,
+                        'baseline_vega': baseline_vega,
+                        'baseline_theta': baseline_theta,
+                        'baseline_rho': baseline_rho,
+                    },
+                    'stressed_scenario_table': {
+                        'stressed_price': stressed_price,
+                        'stressed_delta': stressed_delta,
+                        'stressed_gamma': stressed_gamma,
+                        'stressed_vega': stressed_vega,
+                        'stressed_theta': stressed_theta,
+                        'stressed_rho': stressed_rho,
+                    },
+                    'gpt_scenario_assessment': "No assessment yet."
+                }
+                scenario_results = True
+
+                return render_template(
+                    'asian_options.html',
+                    option_price=None,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    form_data=form_data,
+                    md_content=md_content
+                )
+
+            except Exception as e:
+                print(f"An error occurred during scenario analysis: {e}")
+                scenario_results = None
+
+        elif action == 'convergence':
+            try:
+                mode = request.form.get('mode', 'steps')
+                max_steps = int(request.form.get('max_steps', 100))
+                obs = int(request.form.get('obs', 10))
+
+                pricer_params = {
+                    'ticker': ticker,
+                    'K': K,
+                    'sigma': sigma,
+                    'r': r,
+                    'q': q,
+                    'T': T,
+                    'averaging_dates': averaging_dates,
+                    'option_type': option_type,
+                    'num_paths': num_paths,
+                }
+
+                results = lattice_convergence_test(
+                    max_steps=max_steps,
+                    max_sims=0,
+                    obs=obs,
+                    pricer_class=AsianOption,
+                    pricer_params=pricer_params,
+                    mode=mode,
+                )
+
+                plot_path = asian_plot_convergence(results, mode)
+                plot_filename = os.path.basename(plot_path)
+
+                session['asian_convergence_plot'] = plot_filename
+
+                convergence_results = True
+
+                return render_template(
+                    'asian_options.html',
+                    option_price=None,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    form_data=form_data,
+                    md_content=md_content,
+                )
+
+            except Exception as e:
+                print(f"An error occurred during convergence analysis: {e}")
+                convergence_results = None
+
+                return render_template(
+                    'asian_options.html',
+                    option_price=None,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    form_data=form_data,
+                    md_content=md_content,
+                )
+            
+        elif action == 'risk_pl':
+            try:
+                price_change = float(request.form.get('price_change', 0.0))
+                vol_change = float(request.form.get('vol_change', 0.0))
+
+                option = AsianOption(ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths)
+                risk_pl_results = option.risk_pl_analysis(price_change=price_change, vol_change=vol_change)
+
+                return render_template(
+                    'asian_options.html',
+                    option_price=None,
+                    sensitivity_results=sensitivity_results,
+                    convergence_results=convergence_results,
+                    scenario_results=scenario_results,
+                    risk_pl_results=risk_pl_results,
+                    form_data=form_data,
+                    md_content=md_content
+                )
+
+            except Exception as e:
+                print(f"An error occurred during RBPL analysis: {e}")
+                risk_pl_results = None
 
         if simulation_engine == 'new_MC':
             try:
