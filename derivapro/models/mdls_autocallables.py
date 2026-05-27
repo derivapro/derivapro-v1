@@ -4,11 +4,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from ..models.market_data import StockData
 import os
+import uuid
+
 
 # Construct a package-relative static folder path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
+
 
 class AutoMonteCarlo:
     """
@@ -87,13 +90,14 @@ class AutoMonteCarlo:
         ax.set_xlabel("Time steps")
         ax.set_ylabel("Asset Price")
         ax.set_title(title)
-        
+
         # Save the plot
-        plot_filename = "autocallable_paths.png"
+        plot_filename = f"autocallable_paths_{uuid.uuid4().hex}.png"
+
         plot_path = os.path.join(STATIC_DIR, plot_filename)
         plt.savefig(plot_path)
         plt.close()
-        
+
         return plot_path
 
     def price_autocallable_option(
@@ -118,7 +122,7 @@ class AutoMonteCarlo:
         # --- CHANGE 1: Proper autocall detection ---
         # Original: used np.argmax directly -> false positives when no autocall.
         autocall_check = paths[:, 1:] >= barrier_levels  # shape (M, N)
-        autocalled_any = autocall_check.any(axis=1)      # True if path ever breaches
+        autocalled_any = autocall_check.any(axis=1)  # True if path ever breaches
         first_idx_raw = np.argmax(autocall_check, axis=1)
         first_idx = np.where(autocalled_any, first_idx_raw, -1)  # -1 means no autocall
 
@@ -153,14 +157,17 @@ class AutoMonteCarlo:
         if np.any(autocalled_any):
             avg_first_step = np.mean((first_idx[autocalled_any] + 1))
             print(f"[DEBUG Fixed] Num autocalled: {np.sum(autocalled_any)} / {self.M}")
-            print(f"[DEBUG Fixed] Avg first autocall step: {avg_first_step:.2f} of {self.N}")
+            print(
+                f"[DEBUG Fixed] Avg first autocall step: {avg_first_step:.2f} of {self.N}"
+            )
         else:
             print("[DEBUG Fixed] No paths autocalled.")
 
         return option_price
 
-
-    def calculate_greeks(self, discretization, barrier_levels, coupon_rates, epsilon=1e-5):
+    def calculate_greeks(
+        self, discretization, barrier_levels, coupon_rates, epsilon=1e-5
+    ):
         """
         Calculate the Greek values for the autocallable option.
 
@@ -173,51 +180,84 @@ class AutoMonteCarlo:
         - greeks: Dictionary containing delta, gamma, vega, theta, and rho
         """
         # Calculate the option price for the base case
-        price_base = self.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
+        price_base = self.price_autocallable_option(
+            discretization=discretization,
+            barrier_levels=barrier_levels,
+            coupon_rates=coupon_rates,
+        )
 
         # Delta
         self.S0 += epsilon
-        price_up = self.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
+        price_up = self.price_autocallable_option(
+            discretization=discretization,
+            barrier_levels=barrier_levels,
+            coupon_rates=coupon_rates,
+        )
         self.S0 -= epsilon  # Reset S0
         delta = (price_up - price_base) / epsilon
 
         # Gamma
         self.S0 -= epsilon
-        price_down = self.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
-        self.S0 += epsilon # reset S0
-        gamma = (price_up - 2 * price_base + price_down) / (epsilon ** 2)
+        price_down = self.price_autocallable_option(
+            discretization=discretization,
+            barrier_levels=barrier_levels,
+            coupon_rates=coupon_rates,
+        )
+        self.S0 += epsilon  # reset S0
+        gamma = (price_up - 2 * price_base + price_down) / (epsilon**2)
 
         # Vega
         self.sigma += epsilon
-        price_up = self.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
+        price_up = self.price_autocallable_option(
+            discretization=discretization,
+            barrier_levels=barrier_levels,
+            coupon_rates=coupon_rates,
+        )
         self.sigma -= epsilon  # Reset sigma
         vega = (price_up - price_base) / epsilon
 
         # Theta
         self.T -= epsilon
-        price_up = self.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
+        price_up = self.price_autocallable_option(
+            discretization=discretization,
+            barrier_levels=barrier_levels,
+            coupon_rates=coupon_rates,
+        )
         self.T += epsilon  # Reset T
         theta = (price_up - price_base) / epsilon
 
         # Rho
         self.r += epsilon
-        price_up = self.price_autocallable_option(discretization=discretization, barrier_levels=barrier_levels, coupon_rates=coupon_rates)
+        price_up = self.price_autocallable_option(
+            discretization=discretization,
+            barrier_levels=barrier_levels,
+            coupon_rates=coupon_rates,
+        )
         self.r -= epsilon  # Reset r
         rho = (price_up - price_base) / epsilon
 
         greeks = {
-            'option_price': price_base,
-            'delta': delta,
-            'gamma': gamma,
-            'vega': vega,
-            'theta': theta,
-            'rho': rho
+            "option_price": price_base,
+            "delta": delta,
+            "gamma": gamma,
+            "vega": vega,
+            "theta": theta,
+            "rho": rho,
         }
 
         return greeks
 
-    def risk_pl_analysis(self, discretization, barrier_levels, coupon_rates, price_change=.01, vol_change=.01):
-        price_initial = self.price_autocallable_option(discretization, barrier_levels, coupon_rates)
+    def risk_pl_analysis(
+        self,
+        discretization,
+        barrier_levels,
+        coupon_rates,
+        price_change=0.01,
+        vol_change=0.01,
+    ):
+        price_initial = self.price_autocallable_option(
+            discretization, barrier_levels, coupon_rates
+        )
 
         original_spot_price = self.S0
         original_volatility = self.sigma
@@ -226,10 +266,20 @@ class AutoMonteCarlo:
         self.S0 = original_spot_price * (1 + price_change)
         self.sigma = original_volatility * (1 + vol_change)
 
-        price_bump = self.price_autocallable_option(discretization, barrier_levels, coupon_rates)
-        delta_pl = self.calculate_greeks(discretization, barrier_levels, coupon_rates)['delta'] * (1 + price_change)
-        gamma_pl = self.calculate_greeks(discretization, barrier_levels, coupon_rates)['gamma'] * .5 * (1 + price_change)
-        vega_pl = self.calculate_greeks(discretization, barrier_levels, coupon_rates)['vega'] * (1 + vol_change)
+        price_bump = self.price_autocallable_option(
+            discretization, barrier_levels, coupon_rates
+        )
+        delta_pl = self.calculate_greeks(discretization, barrier_levels, coupon_rates)[
+            "delta"
+        ] * (1 + price_change)
+        gamma_pl = (
+            self.calculate_greeks(discretization, barrier_levels, coupon_rates)["gamma"]
+            * 0.5
+            * (1 + price_change)
+        )
+        vega_pl = self.calculate_greeks(discretization, barrier_levels, coupon_rates)[
+            "vega"
+        ] * (1 + vol_change)
 
         # Reset spot price and volatility to original
         self.S0 = original_spot_price
@@ -237,18 +287,33 @@ class AutoMonteCarlo:
 
         # Return P&L results
         return {
-            'Initial Price': price_initial,
-            'Bumped Price': price_bump,
-            'Actual P&L': price_bump - price_initial,
-            'Delta P&L': delta_pl,
-            'Vega P&L': vega_pl,
-            'Gamma P&L': gamma_pl,
-            'Greek P&L Sum': (delta_pl + vega_pl + gamma_pl),
-            'Difference': (price_bump - price_initial) - (delta_pl + vega_pl + gamma_pl)
+            "Initial Price": price_initial,
+            "Bumped Price": price_bump,
+            "Actual P&L": price_bump - price_initial,
+            "Delta P&L": delta_pl,
+            "Vega P&L": vega_pl,
+            "Gamma P&L": gamma_pl,
+            "Greek P&L Sum": (delta_pl + vega_pl + gamma_pl),
+            "Difference": (price_bump - price_initial)
+            - (delta_pl + vega_pl + gamma_pl),
         }
 
+
 class AutocallableSmoothnessTest:
-    def __init__(self, ticker, K, r, sigma, T, q, N, M, discretization='euler', barrier_levels=None, coupon_rates=None):
+    def __init__(
+        self,
+        ticker,
+        K,
+        r,
+        sigma,
+        T,
+        q,
+        N,
+        M,
+        discretization="euler",
+        barrier_levels=None,
+        coupon_rates=None,
+    ):
         self.ticker = ticker
         self.S = StockData(ticker).get_current_price()
         self.K = K
@@ -263,58 +328,102 @@ class AutocallableSmoothnessTest:
         self.coupon_rates = coupon_rates
 
     def generate_variable_range(self, variable, range_span, num_steps):
-        if variable == 'strike_price':
+        if variable == "strike_price":
             base = self.K
-        elif variable == 'risk_free_rate':
+        elif variable == "risk_free_rate":
             base = self.r
-        elif variable == 'volatility':
+        elif variable == "volatility":
             base = self.sigma
         else:
-            raise ValueError("Unsupported variable type. Choose between 'strike_price', 'risk_free_rate', or 'volatility'.")
+            raise ValueError(
+                "Unsupported variable type. Choose between 'strike_price', 'risk_free_rate', or 'volatility'."
+            )
 
         return np.linspace(base - range_span, base + range_span, num_steps)
 
-    def calculate_greeks_over_range(self, variable, num_steps, range_span, target_variable):
+    def calculate_greeks_over_range(
+        self, variable, num_steps, range_span, target_variable
+    ):
         variable_values = self.generate_variable_range(variable, range_span, num_steps)
         greek_values = []
 
         for value in variable_values:
-            if variable == 'strike_price':
-                option = AutoMonteCarlo(self.ticker, value, self.r, self.sigma, self.T, self.q, self.N, self.M)
-            elif variable == 'risk_free_rate':
-                option = AutoMonteCarlo(self.ticker, self.K, value, self.sigma, self.T, self.q, self.N, self.M)
-            elif variable == 'volatility':
-                option = AutoMonteCarlo(self.ticker, self.K, self.r, value, self.T, self.q, self.N, self.M)
+            if variable == "strike_price":
+                option = AutoMonteCarlo(
+                    self.ticker,
+                    value,
+                    self.r,
+                    self.sigma,
+                    self.T,
+                    self.q,
+                    self.N,
+                    self.M,
+                )
+            elif variable == "risk_free_rate":
+                option = AutoMonteCarlo(
+                    self.ticker,
+                    self.K,
+                    value,
+                    self.sigma,
+                    self.T,
+                    self.q,
+                    self.N,
+                    self.M,
+                )
+            elif variable == "volatility":
+                option = AutoMonteCarlo(
+                    self.ticker, self.K, self.r, value, self.T, self.q, self.N, self.M
+                )
             else:
-                raise ValueError("Unsupported variable type. Choose between 'strike_price', 'risk_free_rate', or 'volatility'.")
+                raise ValueError(
+                    "Unsupported variable type. Choose between 'strike_price', 'risk_free_rate', or 'volatility'."
+                )
 
-
-
-            greek_value = option.calculate_greeks(self.discretization, self.barrier_levels, self.coupon_rates)[target_variable]
+            greek_value = option.calculate_greeks(
+                self.discretization, self.barrier_levels, self.coupon_rates
+            )[target_variable]
             greek_values.append(greek_value)
 
-        print(f'Variable values: {variable_values}')
-        print(f'Greek values: {greek_values}')
+        print(f"Variable values: {variable_values}")
+        print(f"Greek values: {greek_values}")
 
         return variable_values, greek_values
 
-    def plot_single_greek(self, variable_values, greek_values, target_variable, variable_name):
+    def plot_single_greek(
+        self, variable_values, greek_values, target_variable, variable_name
+    ):
         plt.figure(figsize=(10, 6))
-        plt.plot(variable_values, greek_values, label=target_variable.capitalize(), color='b')
-        plt.title(f'{target_variable.capitalize()} vs {variable_name.capitalize()}')
+        plt.plot(
+            variable_values, greek_values, label=target_variable.capitalize(), color="b"
+        )
+        plt.title(f"{target_variable.capitalize()} vs {variable_name.capitalize()}")
         plt.xlabel(variable_name.capitalize())
         plt.ylabel(target_variable.capitalize())
         plt.tight_layout()
-        
+
         # Save the plot
-        plot_filename = f'autocallable_{variable_name}_{target_variable}_sensitivity_plot.png'
+        plot_filename = f"autocallable_{variable_name}_{target_variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
+
         plot_path = os.path.join(STATIC_DIR, plot_filename)
         plt.savefig(plot_path)
         plt.close()
-        
+
         return plot_path
 
-def auto_convergence_test(num_steps, max_sims, obs, pricer_class, mode, discretization, barrier_levels, coupon_rates, pricer_params, within_barrier=True, non_barrier_price=None):
+
+def auto_convergence_test(
+    num_steps,
+    max_sims,
+    obs,
+    pricer_class,
+    mode,
+    discretization,
+    barrier_levels,
+    coupon_rates,
+    pricer_params,
+    within_barrier=True,
+    non_barrier_price=None,
+):
     if mode == "steps":
         steps = list(np.linspace(0, num_steps, obs).round().astype(int))
         steps.pop(0)
@@ -331,19 +440,22 @@ def auto_convergence_test(num_steps, max_sims, obs, pricer_class, mode, discreti
     for param in steps if mode == "steps" else sims:
         N = param if mode == "steps" else steps
         M = sims if mode == "steps" else param
-        
 
         current_params = pricer_params.copy()
         current_params["N"] = N
         current_params["M"] = M
-        
+
         # Create dynamic barrier and coupon rates based on the time step.
         dynamic_barrier_levels = np.full(N, barrier_levels)
         dynamic_coupon_rates = np.full(N, coupon_rates)
 
         mc = pricer_class(**current_params)
 
-        option_price = mc.price_autocallable_option(discretization, barrier_levels=dynamic_barrier_levels, coupon_rates=dynamic_coupon_rates)
+        option_price = mc.price_autocallable_option(
+            discretization,
+            barrier_levels=dynamic_barrier_levels,
+            coupon_rates=dynamic_coupon_rates,
+        )
 
         results.append((param, option_price))
 
@@ -366,18 +478,19 @@ def plot_convergence(results, mode):
 
     plt.ylabel("Option Price")
     plt.tight_layout()
-    #plt.show()
+    # plt.show()
 
     # Save the plot
-    plot_filename = f'autocallable_convergence_{mode}_plot.png'
+    plot_filename = f"autocallable_convergence_{mode}_plot_{uuid.uuid4().hex}.png"
+
     plot_path = os.path.join(STATIC_DIR, plot_filename)
     plt.savefig(plot_path)
     # plt.close()
-    
+
     return plot_path
 
 
-'''
+"""
 mc = MonteCarlo(S0=100, K=100, r=0.05, sigma=0.20, T=1, q=0, N=253, M=10000)
 
 price = mc.price_autocallable_option(
@@ -387,4 +500,4 @@ price = mc.price_autocallable_option(
 print(f"Autocallable option price: {price:.2f}")
 
 mc.plot_paths(mc.paths, title="Monte Carlo Paths for Autocallable Option")
-'''
+"""

@@ -34,11 +34,15 @@ from reportlab.pdfgen import canvas
 # import base64
 # from io import BytesIO
 from ..models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
+from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
 from openai import AzureOpenAI
+
 from dotenv import load_dotenv, find_dotenv
 import logging
 import numpy as np
 import importlib.util
+import uuid
+
 
 # Import the Monte Carlo module with space in filename
 monte_carlo_path = os.path.join(
@@ -54,34 +58,19 @@ else:
 
 vanilla_options_bp = Blueprint("vanilla_options", __name__)
 
-# Import New Binomial Engine
-new_mc_path = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    "models",
-    "mdls_binomial_tree_model_NEW.py",
-)
-spec = importlib.util.spec_from_file_location("new_binomial_tree", new_mc_path)
-if spec is not None:
-    new_module = importlib.util.module_from_spec(spec)
-    if spec.loader is not None:
-        spec.loader.exec_module(new_module)
-else:
-    raise ImportError(f"Could not load the new Binomial Tree model from {new_mc_path}")
-
-# Initialize OpenAI API
-# api_key = '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'
 
 # Load the environment variables from the .env file
 load_dotenv(find_dotenv())
 
 # Get the values from the environment variables
-api_key = "687ac7173dfd4a45a45573435a4daac9"
-base_url = "https://atlas.protiviti.com/experiment20240821"
-api_version = "2025-03-01-preview"
-model = "gpt-4o-mini-20240718-gs"
+api_key = os.getenv("OpenAI_API_Key")
+base_url = os.getenv("Base_URL")
+api_version = os.getenv("API_Version")
+model = os.getenv("Model")
+Auth_headers = os.getenv("Auth_headers")
 
 # Add auth header
-auth_headers = {"Experiment20240821-Subscription-Key": api_key}
+auth_headers = {Auth_headers: api_key}
 
 # Instantiate the Azure OpenAI client
 client = AzureOpenAI(
@@ -104,8 +93,6 @@ def ask_gpt(question):
         str: The generated response from GPT, or an error message in case of failure.
     """
     try:
-        print(api_key)
-
         # Send the request to Azure OpenAI API
         response = client.chat.completions.create(
             model=model,
@@ -272,7 +259,9 @@ def european_options():
                 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
                 STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
                 os.makedirs(STATIC_DIR, exist_ok=True)
-                plot_filename = f"{target_variable}-{variable}_sensitivity_plot.png"
+
+                plot_filename = f"{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
+
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
 
                 plt.savefig(plot_path)
@@ -507,9 +496,9 @@ def model_performance():
                 STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
                 os.makedirs(STATIC_DIR, exist_ok=True)
                 print("start plotting")
-                plot_filename = (
-                    f"european_{target_variable}-{variable}_sensitivity_plot.png"
-                )
+
+                plot_filename = f"european_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
+
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
 
                 # Print the plot path to ensure it's correct
@@ -591,8 +580,12 @@ def model_performance():
 
                 ticker = form_data.get("ticker")
                 strike_price = float(form_data.get("strike_price"))
-                start_date = datetime.strptime(form_data.get("start_date"), "%Y-%m-%d").date()
-                end_date = datetime.strptime(form_data.get("end_date"), "%Y-%m-%d").date()
+                start_date = datetime.strptime(
+                    form_data.get("start_date"), "%Y-%m-%d"
+                ).date()
+                end_date = datetime.strptime(
+                    form_data.get("end_date"), "%Y-%m-%d"
+                ).date()
                 risk_free_rate = float(form_data.get("risk_free_rate"))
                 volatility = float(form_data.get("volatility"))
 
@@ -603,6 +596,7 @@ def model_performance():
                 # Baseline calculation
                 if model == "Monte_Carlo":
                     from ..models.mdls_vanilla_options import AmericanMonteCarloOption
+
                     num_paths = form_data.get("num_paths", 10000)
                     mc_steps = form_data.get("mc_steps", 252)
                     # option = AmericanMonteCarloOption(ticker, strike_price, start_date, end_date, risk_free_rate, volatility, option_type, num_paths, mc_steps)
@@ -824,18 +818,21 @@ def model_performance():
 
                 # Plot and save
                 plot_convergence(mc_results, mode="simulations")
-                plt.savefig("derivapro/static/vanilla_convergence_plot.png")
+                plot_filename = f"vanilla_convergence_plot_{uuid.uuid4().hex}.png"
+                plot_path = os.path.join("derivapro", "static", plot_filename)
+                plt.savefig(plot_path)
                 plt.close()
                 print(
                     "Plot file exists after save?",
-                    os.path.exists("derivapro/static/vanilla_convergence_plot.png"),
+                    os.path.exists(plot_path),
                 )
 
                 session["convergence_results"] = {
                     "results": mc_results,
                     "mode": "simulations",
-                    "plot_filename": "vanilla_convergence_plot.png",
+                    "plot_filename": plot_filename,
                 }
+
                 convergence_results = True
 
             except Exception as e:
@@ -977,9 +974,7 @@ def american_options():
             "num_steps": safe_int(
                 request.form.get("num_steps", request.form.get("mc_steps", 252)), 252
             ),
-            "pricing_model": request.form.get(
-                "pricing_model"
-            ),  # NEW NAME for pricing
+            "pricing_model": request.form.get("pricing_model"),  # NEW NAME for pricing
             "model": request.form.get("model"),  # for convergence analysis
             "num_paths": safe_int(request.form.get("num_paths"), 10000),
             "mc_steps": safe_int(request.form.get("mc_steps"), 252),
@@ -1058,13 +1053,15 @@ def american_options():
                         parsed_dividends.append((parts[0], float(parts[1])))
                     elif len(parts) == 3:
                         # cash dividend: "YYYY-MM-DD:1.5:1.0"
-                        parsed_dividends.append(
-                            (parts[0], float(parts[1]), float(parts[2]))
-                        )
+                        parsed_dividends.append((
+                            parts[0],
+                            float(parts[1]),
+                            float(parts[2]),
+                        ))
             # Now parsed_dividends is a list: [("2025-11-15", 1.5, 1.0), ("2025-12-15", 0.02), ...]
 
             # --- INSTANTIATE New Binomial Tree ENGINE ---
-            engine = new_module.BinomialTreeEngineCRR(
+            engine = BinomialTreeEngineCRR(
                 ticker=ticker,
                 strike_price=strike_price,
                 start_date=start_date,
@@ -1147,8 +1144,7 @@ def american_options():
                 elif form_data["model"] == "Trinomial Asset Pricing":
                     smoothness_model = "TAP"
                 elif "monte" in str(form_data["model"]).lower():
-
-                # elif form_data["model"] == "Monte Carlo":
+                    # elif form_data["model"] == "Monte Carlo":
                     # Handle Monte Carlo sensitivity analysis
                     num_paths = form_data.get("num_paths", 10000)
                     mc_steps = form_data.get("mc_steps", 252)
@@ -1259,11 +1255,10 @@ def american_options():
                     plt.tight_layout()
 
                     # Save plot
-                    plot_filename = (
-                        f"american_{target_variable}-{variable}_sensitivity_plot.png"
-                    )
+                    plot_filename = f"american_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
                     plot_path = os.path.join("derivapro", "static", plot_filename)
                     plt.savefig(plot_path)
+
                     plt.close()
 
                     sensitivity_results = {
@@ -1295,9 +1290,7 @@ def american_options():
 
                     # Save plot to static directory
                     print("start plotting")
-                    plot_filename = (
-                        f"american_{target_variable}-{variable}_sensitivity_plot.png"
-                    )
+                    plot_filename = f"american_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
                     plot_path = os.path.join("derivapro", "static", plot_filename)
 
                     plt.savefig(plot_path)
@@ -1310,7 +1303,9 @@ def american_options():
                     session["sensitivity_results"] = sensitivity_results
 
             except Exception as e:
-                session.pop("sensitivity_results", None)  # gracefully remove old results if error
+                session.pop(
+                    "sensitivity_results", None
+                )  # gracefully remove old results if error
                 print(f"An error occurred during sensitivity analysis: {e}")
                 sensitivity_results = None
 
@@ -1376,7 +1371,7 @@ def american_options():
                 session["risk_pl_results"] = {"results": risk_pl_results}
 
                 print(risk_pl_results)
- 
+
             except Exception as e:
                 print(f"An error occurred during Risk-Based P&L analysis: {e}")
                 risk_pl_results = None
@@ -1532,7 +1527,10 @@ def american_options():
                             mc_results.append((int(n_paths), float(price)))
 
                         plot_convergence(mc_results, mode="simulations")
-                        plot_path = "derivapro/static/monte_carlo_convergence_plot.png"
+                        plot_filename = (
+                            f"monte_carlo_convergence_plot_{uuid.uuid4().hex}.png"
+                        )
+                        plot_path = os.path.join("derivapro", "static", plot_filename)
                         plt.savefig(plot_path)
                         plt.close()
                         file_exists = os.path.exists(plot_path)
@@ -1543,8 +1541,9 @@ def american_options():
                         session["convergence_results"] = {
                             "results": mc_results,
                             "mode": "simulations",
-                            "plot_filename": "monte_carlo_convergence_plot.png",
+                            "plot_filename": plot_filename,
                         }
+
                         print(
                             f"[DEBUG] Saved session['convergence_results']: {session['convergence_results']}"
                         )
@@ -1579,14 +1578,16 @@ def american_options():
                             if len(parts) == 2:
                                 parsed_dividends.append((parts[0], float(parts[1])))
                             elif len(parts) == 3:
-                                parsed_dividends.append(
-                                    (parts[0], float(parts[1]), float(parts[2]))
-                                )
+                                parsed_dividends.append((
+                                    parts[0],
+                                    float(parts[1]),
+                                    float(parts[2]),
+                                ))
 
                     steps_range = np.linspace(2, max_steps, obs).astype(int)
                     results = []
                     for nsteps in steps_range:
-                        engine = new_module.BinomialTreeEngineCRR(
+                        engine = BinomialTreeEngineCRR(
                             ticker=ticker,
                             strike_price=strike_price,
                             start_date=start_date,
@@ -1601,12 +1602,17 @@ def american_options():
                         results.append((int(nsteps), float(price)))
 
                     plot_convergence(results, mode)
-                    plt.savefig("derivapro/static/binomial_tree_convergence_plot.png")
+                    plot_filename = (
+                        f"binomial_tree_convergence_plot_{uuid.uuid4().hex}.png"
+                    )
+                    plot_path = os.path.join("derivapro", "static", plot_filename)
+                    plt.savefig(plot_path)
                     session["convergence_results"] = {
                         "results": results,
                         "mode": mode,
-                        "plot_filename": "binomial_tree_convergence_plot.png",
+                        "plot_filename": plot_filename,
                     }
+
                     convergence_results = True
                     plt.close()
 
@@ -1634,12 +1640,15 @@ def american_options():
                         print(f"  Steps/Param: {tup[0]}, Option Price: {tup[1]}")
 
                     plot_convergence(american_step_results, mode)
-                    plt.savefig("derivapro/static/lattice_convergence_plot.png")
+                    plot_filename = f"lattice_convergence_plot_{uuid.uuid4().hex}.png"
+                    plot_path = os.path.join("derivapro", "static", plot_filename)
+                    plt.savefig(plot_path)
                     session["convergence_results"] = {
                         "results": american_step_results,
                         "mode": mode,
-                        "plot_filename": "lattice_convergence_plot.png",
+                        "plot_filename": plot_filename,
                     }
+
                     convergence_results = True
                     plt.close()
 
@@ -1789,7 +1798,6 @@ def american_options():
                 stressed_vega = "{:.4f}".format(stressed_greeks["Vega"])
                 stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
                 stressed_rho = "{:.4f}".format(stressed_greeks["Rho"])
-
 
                 """
                 scenario_table = [

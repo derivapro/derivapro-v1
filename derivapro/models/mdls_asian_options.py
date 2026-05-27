@@ -6,14 +6,30 @@ import seaborn as sns
 import os
 import matplotlib.pyplot as plt
 from ..models.market_data import StockData
+import uuid
+
 
 # Construct a package-relative static folder path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, '..', 'static')
+STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
 
+
 class AsianOption:
-    def __init__(self, ticker, K, sigma, r, q, T, averaging_dates, option_type="call", num_paths=100000, seed=42, S0=None):
+    def __init__(
+        self,
+        ticker,
+        K,
+        sigma,
+        r,
+        q,
+        T,
+        averaging_dates,
+        option_type="call",
+        num_paths=100000,
+        seed=42,
+        S0=None,
+    ):
         self.ticker = ticker
         self.S = float(S0) if S0 is not None else StockData(ticker).get_current_price()
         self.K = K
@@ -42,14 +58,14 @@ class AsianOption:
         print("[DEBUG] Averaging Dates to QuantLib QL.Date conversion:")
         for date in self.averaging_dates:
             print(f"  {date} (datetime) -> {date.day}-{date.month}-{date.year}")
-        
+
         day_count = ql.Actual365Fixed()
         calendar = ql.UnitedStates(ql.UnitedStates.NYSE)
         calculation_date = ql.Date.todaysDate()
         ql.Settings.instance().evaluationDate = calculation_date
 
-        #rng = ql.UniformRandomGenerator(self.seed)
-        #seq = ql.UniformRandomSequenceGenerator(1, rng)
+        # rng = ql.UniformRandomGenerator(self.seed)
+        # seq = ql.UniformRandomSequenceGenerator(1, rng)
         bs_process = ql.BlackScholesMertonProcess(
             ql.QuoteHandle(ql.SimpleQuote(self.S)),
             ql.YieldTermStructureHandle(
@@ -119,7 +135,7 @@ class AsianOption:
         self.S += epsilon  # Restore original S
 
         # Gamma
-        gamma = (price_up - 2 * base_price + price_down) / (epsilon ** 2)
+        gamma = (price_up - 2 * base_price + price_down) / (epsilon**2)
 
         # Vega
         self.sigma += epsilon
@@ -131,7 +147,7 @@ class AsianOption:
 
         # Theta
         original_t = self.T
-        self.T -= pd.to_timedelta(arg=epsilon, unit='D')
+        self.T -= pd.to_timedelta(arg=epsilon, unit="D")
         price_up = self.price()
         self.T = original_t  # Restore original T
         theta = (base_price - price_up) / epsilon
@@ -150,10 +166,10 @@ class AsianOption:
             "Gamma": gamma,
             "Vega": vega,
             "Theta": theta,
-            "Rho": rho
+            "Rho": rho,
         }
 
-    def risk_pl_analysis(self, price_change=.01, vol_change=.01):
+    def risk_pl_analysis(self, price_change=0.01, vol_change=0.01):
         price_initial = self.price()
 
         original_spot_price = self.S
@@ -164,9 +180,9 @@ class AsianOption:
         self.sigma = original_volatility * (1 + vol_change)
 
         price_bump = self.price()
-        delta_pl = self.calculate_greeks()['Delta'] * (1 + price_change)
-        gamma_pl = self.calculate_greeks()['Gamma'] * .5 * (1 + price_change)
-        vega_pl = self.calculate_greeks()['Vega'] * (1 + vol_change)
+        delta_pl = self.calculate_greeks()["Delta"] * (1 + price_change)
+        gamma_pl = self.calculate_greeks()["Gamma"] * 0.5 * (1 + price_change)
+        vega_pl = self.calculate_greeks()["Vega"] * (1 + vol_change)
 
         # Reset spot price and volatility to original
         self.S = original_spot_price
@@ -174,18 +190,32 @@ class AsianOption:
 
         # Return P&L results
         return {
-            'Initial Price': price_initial,
-            'Bumped Price': price_bump,
-            'Actual P&L': price_bump - price_initial,
-            'Delta P&L': delta_pl,
-            'Vega P&L': vega_pl,
-            'Gamma P&L': gamma_pl,
-            'Greek P&L Sum': (delta_pl + vega_pl + gamma_pl),
-            'Difference': (price_bump - price_initial) - (delta_pl + vega_pl + gamma_pl)
+            "Initial Price": price_initial,
+            "Bumped Price": price_bump,
+            "Actual P&L": price_bump - price_initial,
+            "Delta P&L": delta_pl,
+            "Vega P&L": vega_pl,
+            "Gamma P&L": gamma_pl,
+            "Greek P&L Sum": (delta_pl + vega_pl + gamma_pl),
+            "Difference": (price_bump - price_initial)
+            - (delta_pl + vega_pl + gamma_pl),
         }
 
+
 class AsianOptionSmoothnessTest:
-    def __init__(self, ticker, K, sigma, r, q, T, averaging_dates, option_type="call", num_paths=100000, seed=42):
+    def __init__(
+        self,
+        ticker,
+        K,
+        sigma,
+        r,
+        q,
+        T,
+        averaging_dates,
+        option_type="call",
+        num_paths=100000,
+        seed=42,
+    ):
         self.ticker = ticker
         self.S = StockData(ticker).get_current_price()
         self.K = K
@@ -199,62 +229,108 @@ class AsianOptionSmoothnessTest:
         self.seed = seed
 
     def generate_variable_range(self, variable, range_span, num_steps):
-        if variable == 'strike_price':
+        if variable == "strike_price":
             base = self.K
-        elif variable == 'risk_free_rate':
+        elif variable == "risk_free_rate":
             base = self.r
-        elif variable == 'volatility':
+        elif variable == "volatility":
             base = self.sigma
         else:
-            raise ValueError("Unsupported variable type. Choose between 'strike_price, 'risk_free_rate', and 'volatility'.")
+            raise ValueError(
+                "Unsupported variable type. Choose between 'strike_price, 'risk_free_rate', and 'volatility'."
+            )
 
         return np.linspace(base - range_span, base + range_span, num_steps)
 
-    def calculate_greeks_over_range(self, variable, num_steps, range_span, target_variable):
+    def calculate_greeks_over_range(
+        self, variable, num_steps, range_span, target_variable
+    ):
         variable_values = self.generate_variable_range(variable, range_span, num_steps)
         greek_values = []
 
         for value in variable_values:
-            if variable == 'strike_price':
-                option = AsianOption(self.ticker, value, self.sigma, self.r, self.q, self.T, self.averaging_dates,
-                                     self.option_type, self.num_paths, self.seed)
-            elif variable == 'risk_free_rate':
-                option = AsianOption(self.ticker, self.K, self.sigma, value, self.q, self.T, self.averaging_dates,
-                                     self.option_type, self.num_paths, self.seed)
-            elif variable == 'volatility':
-                option = AsianOption(self.ticker, self.K, value, self.r, self.q, self.T, self.averaging_dates,
-                                     self.option_type, self.num_paths, self.seed)
+            if variable == "strike_price":
+                option = AsianOption(
+                    self.ticker,
+                    value,
+                    self.sigma,
+                    self.r,
+                    self.q,
+                    self.T,
+                    self.averaging_dates,
+                    self.option_type,
+                    self.num_paths,
+                    self.seed,
+                )
+            elif variable == "risk_free_rate":
+                option = AsianOption(
+                    self.ticker,
+                    self.K,
+                    self.sigma,
+                    value,
+                    self.q,
+                    self.T,
+                    self.averaging_dates,
+                    self.option_type,
+                    self.num_paths,
+                    self.seed,
+                )
+            elif variable == "volatility":
+                option = AsianOption(
+                    self.ticker,
+                    self.K,
+                    value,
+                    self.r,
+                    self.q,
+                    self.T,
+                    self.averaging_dates,
+                    self.option_type,
+                    self.num_paths,
+                    self.seed,
+                )
             else:
-                raise ValueError("Unsupported variable type. Choose between 'strike_price', 'risk_free_rate', or 'volatility'.")
+                raise ValueError(
+                    "Unsupported variable type. Choose between 'strike_price', 'risk_free_rate', or 'volatility'."
+                )
 
-            if target_variable == 'option_price':
+            if target_variable == "option_price":
                 greek_value = option.calculate_greeks()[target_variable]
             else:
-                greek_value = option.calculate_greeks()[target_variable[0].upper()+target_variable[1:]]
+                greek_value = option.calculate_greeks()[
+                    target_variable[0].upper() + target_variable[1:]
+                ]
             greek_values.append(greek_value)
 
-        print(f'Variable values: {variable_values}')
-        print(f'Greek values: {greek_values}')
+        print(f"Variable values: {variable_values}")
+        print(f"Greek values: {greek_values}")
 
         return variable_values, greek_values
 
-    def plot_single_greek(self, variable_values, greek_values, target_variable, variable_name):
+    def plot_single_greek(
+        self, variable_values, greek_values, target_variable, variable_name
+    ):
         plt.figure(figsize=(10, 6))
-        plt.plot(variable_values, greek_values, label=target_variable.capitalize(), color='b')
-        plt.title(f'{target_variable.capitalize()} vs {variable_name.capitalize()}')
+        plt.plot(
+            variable_values, greek_values, label=target_variable.capitalize(), color="b"
+        )
+        plt.title(f"{target_variable.capitalize()} vs {variable_name.capitalize()}")
         plt.xlabel(variable_name.capitalize())
         plt.ylabel(target_variable.capitalize())
         plt.tight_layout()
 
-         # Save the plot
-        plot_filename = f'asian_{variable_name}_{target_variable}_sensitivity_plot.png'
+        # Save the plot
+        plot_filename = f"asian_{variable_name}_{target_variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
+
         plot_path = os.path.join(STATIC_DIR, plot_filename)
         plt.savefig(plot_path)
         plt.close()
-        
+
         return plot_path
 
-def lattice_convergence_test(max_steps, max_sims, obs, pricer_class, pricer_params, mode='steps'):
+
+def lattice_convergence_test(
+    max_steps, max_sims, obs, pricer_class, pricer_params, mode="steps"
+):
     if mode == "steps":
         steps = list(np.linspace(0, max_steps, obs).round().astype(int))
         steps.pop(0)
@@ -269,22 +345,22 @@ def lattice_convergence_test(max_steps, max_sims, obs, pricer_class, pricer_para
     results = []
 
     for param in steps if mode == "steps" else sims:
-        #N = param if mode == "steps" else steps
+        # N = param if mode == "steps" else steps
 
         current_params = pricer_params.copy()
         if mode == "steps":
             current_params["num_paths"] = int(param)  # Update time steps
         elif mode == "simulations":
             current_params["num_paths"] = int(param)
-        
-       
+
         lattice = pricer_class(**current_params)
 
         option_price = lattice.price()
-        
+
         results.append((param, option_price))
 
     return results
+
 
 def plot_convergence(results, mode):
     x, y = zip(*results)
@@ -303,16 +379,16 @@ def plot_convergence(results, mode):
     plt.ylabel("Option Price")
     plt.tight_layout()
     # Save the plot
-    plot_filename = f'asian_convergence_{mode}_plot.png'
+    plot_filename = f"asian_convergence_{mode}_plot_{uuid.uuid4().hex}.png"
+
     plot_path = os.path.join(STATIC_DIR, plot_filename)
     plt.savefig(plot_path)
     plt.close()
-    
+
     return plot_path
 
 
-
-'''
+"""
 S = 100.0
 K = 100.0
 sigma = 0.20
@@ -329,4 +405,4 @@ asian_option_test = AsianOption(
 price = asian_option_test.price()
 
 print(f"Test Asian Option Price: ${round(price, 2)}")
-'''
+"""
