@@ -19,7 +19,9 @@ import os
 import markdown
 import matplotlib.pyplot as plt
 import uuid
+import logging
 
+logger = logging.getLogger(__name__)
 
 credit_derivatives_bp = Blueprint("credit_derivatives", __name__)
 
@@ -238,8 +240,8 @@ def creditDefaultSwaps():
 
                 stressed_EL = cds_stressed.cds_results()
 
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during CDS scenario analysis")
 
     else:
         pass
@@ -290,7 +292,7 @@ def syntheticCDO():
             tranche_lower_3 = float(form_data["tranche_lower_3"])
             tranche_upper_3 = float(form_data["tranche_upper_3"])
         except ValueError as e:
-            print(f"Error converting to float: {e}")
+            logger.exception("Error converting tranche inputs to float")
             # Handle the error, e.g., set default values or return an error message
 
         # Retrieve the tranche inputs dynamically and create a list of tranches
@@ -431,8 +433,10 @@ def syntheticCDO():
                 cdo_analysis_results = True
 
             #   plt.close()  # Close the plot after saving
-            except Exception as e:
-                print(f"An error occurred during Sensitivity analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during Synthetic CDO sensitivity analysis"
+                )
 
         elif action == "scenario":
             try:
@@ -458,9 +462,11 @@ def syntheticCDO():
 
                 stressed_CDO = synthetic_cdo.calculate_synthetic_cdo()
 
-                print(stressed_CDO)
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+                logger.debug("Synthetic CDO stressed result: %s", stressed_CDO)
+            except Exception:
+                logger.exception(
+                    "An error occurred during Synthetic CDO scenario analysis"
+                )
     else:
         pass
     return render_template(
@@ -848,8 +854,10 @@ def creditLinkedNotes():
 
                     # plt.close()  # Close the plot after saving
 
-                except Exception as e:
-                    print(f"An error occurred during Sensitivity analysis: {e}")
+                except Exception:
+                    logger.exception(
+                        "An error occurred during fixed CLN sensitivity analysis"
+                    )
 
             elif action == "fixed-scenario":
                 try:
@@ -925,8 +933,8 @@ def creditLinkedNotes():
                             notionals,
                             amortization,
                         )
-                        print("Baseline", baseline_CLN)
-                        print("Stressed", stressed_CLN)
+                        logger.debug("Baseline %s", baseline_CLN)
+                        logger.debug("Stressed %s", stressed_CLN)
                     elif amort_selection == "Yes":
                         amortization = "Yes"
                         fram_bond_results = fixed_bond.fixed_rate_amortizing(
@@ -956,10 +964,12 @@ def creditLinkedNotes():
                             notionals,
                             amortization,
                         )
-                        print("Baseline", baseline_CLN)
-                        print("Stressed", stressed_CLN)
-                except Exception as e:
-                    print(f"An error occurred during scenario analysis: {e}")
+                        logger.debug("Baseline %s", baseline_CLN)
+                        logger.debug("Stressed %s", stressed_CLN)
+                except Exception:
+                    logger.exception(
+                        "An error occurred during fixed CLN scenario analysis"
+                    )
 
         elif tab_selected == "float-tab":
             # Retrieve form data from URL parameters
@@ -1373,8 +1383,10 @@ def creditLinkedNotes():
 
                     # plt.close()  # Close the plot after saving
 
-                except Exception as e:
-                    print(f"An error occurred during Sensitivity analysis: {e}")
+                except Exception:
+                    logger.exception(
+                        "An error occurred during floating CLN sensitivity analysis"
+                    )
 
             elif action == "float-scenario":
                 try:
@@ -1523,8 +1535,10 @@ def creditLinkedNotes():
                             )
                         )
 
-                except Exception as e:
-                    print(f"An error occurred during scenario analysis: {e}")
+                except Exception:
+                    logger.exception(
+                        "An error occurred during floating CLN scenario analysis"
+                    )
 
     return render_template(
         "credit_linked_notes.html",

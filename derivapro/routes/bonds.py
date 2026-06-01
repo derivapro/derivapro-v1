@@ -7,6 +7,8 @@ from openai import AzureOpenAI
 from dotenv import load_dotenv
 import logging
 
+logger = logging.getLogger(__name__)
+
 # Initialize Flask app
 nc_bonds_bp = Blueprint("nc_bonds", __name__)
 
@@ -59,21 +61,21 @@ def ask_gpt(question):
 
     except Exception as e:
         error_msg = str(e)
-        logging.error(f"Error occurred while calling OpenAI API: {error_msg}")
+        logger.exception("Error occurred while calling OpenAI API")
 
         if "403" in error_msg:
-            logging.error(
-                f"Authentication failed. Please check if the API key is correct and has the necessary permissions. Error details: {error_msg}"
+            logger.error(
+                "Authentication failed or access is restricted for the Azure OpenAI API."
             )
             return "Error: Access to the AI service is currently restricted. Please verify the API configuration or contact support."
         elif "401" in error_msg:
-            logging.error("Unauthorized access attempt. Please check API credentials.")
+            logger.error("Unauthorized access attempt. Please check API credentials.")
             return "Error: Authentication failed. Please verify the API configuration or contact support."
         elif "429" in error_msg:
-            logging.error("Rate limit exceeded for Azure OpenAI API")
+            logger.error("Rate limit exceeded for Azure OpenAI API")
             return "Error: Too many requests. Please wait a moment and try again."
         else:
-            logging.error(f"Unexpected error in Azure OpenAI API call: {error_msg}")
+            logger.error("Unexpected error in Azure OpenAI API call")
             return f"An error occurred while generating the assessment. Please try again. Error details: {error_msg}"
 
 
@@ -209,7 +211,7 @@ def nc_fixed_bonds():
         if action == "ai_assessment":
             # AI Assessment logic
             if fr_bond_results:
-                print(fr_bond_results)
+                logger.debug("Fixed bond results available for AI assessment.")
                 # Prepare the input for AI using the actual bond results
                 assessment_input = f"Please assess the bond pricing results based on the following outputs: {fr_bond_results}. Focus on the price changes across different shocks and any notable patterns."
                 gpt_assessment = ask_gpt(assessment_input)

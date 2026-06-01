@@ -4,7 +4,6 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, session
 from ..models.mdls_monte_carlo import MonteCarlo
 from ..models.mdls_monte_carlo import convergence_test
-
 from ..models.mdls_monte_carlo import plot_convergence as mc_plot_convergence
 from ..models.mdls_asian_options import (
     AsianOption,
@@ -12,19 +11,25 @@ from ..models.mdls_asian_options import (
     lattice_convergence_test,
     plot_convergence as asian_plot_convergence,
 )
-
 from ..models.mdls_monte_carlo import MonteCarloSmoothnessTest
 from ..models.mdls_autocallables import (
     AutoMonteCarlo,
     AutocallableSmoothnessTest,
     auto_convergence_test,
 )
+
 import importlib.util
 import sys
 import os
 import numpy as np
 import uuid
+import matplotlib.pyplot as plt
+import markdown
+from openai import AzureOpenAI
+from dotenv import load_dotenv
+import logging
 
+logger = logging.getLogger(__name__)
 
 # Import the New Monte Carlo module
 monte_carlo_newMC_path = os.path.join(
@@ -41,12 +46,6 @@ else:
     raise ImportError(
         f"Could not load NEw Monte Carlo module from {monte_carlo_newMC_path}"
     )
-import matplotlib.pyplot as plt
-import os
-import markdown
-from openai import AzureOpenAI
-from dotenv import load_dotenv
-import logging
 
 exotic_options_bp = Blueprint("exotic_options", __name__)
 
@@ -74,15 +73,8 @@ client = AzureOpenAI(
 def ask_gpt(question):
     """
     Sends a request to Azure OpenAI's GPT-4 API with the given question.
-
-    Args:
-        question (str): The input question or prompt to GPT.
-
-    Returns:
-        str: The generated response from GPT, or an error message in case of failure.
     """
     try:
-        # Send the request to Azure OpenAI API
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -93,12 +85,9 @@ def ask_gpt(question):
                 {"role": "user", "content": f"{question}"},
             ],
         )
-
-        # Extract the content of the response
         return response.choices[0].message.content
-
     except Exception as e:
-        logging.error(f"Error occurred while calling OpenAI API: {e}")
+        logger.exception("Error occurred while calling OpenAI API")
         return f"An error occurred: {e}"
 
 
@@ -167,9 +156,7 @@ def autocallable_options():
             try:
                 num_steps = int(request.form.get("num_steps", 50))
                 step_range = float(request.form.get("step_range", 0.1))
-                variable = request.form.get(
-                    "variable", "strike_price"
-                )  # strike_price / risk_free_rate / volatility
+                variable = request.form.get("variable", "strike_price")
                 target_variable = request.form.get("target_variable", "option_price")
 
                 tester = AutocallableSmoothnessTest(
@@ -205,8 +192,10 @@ def autocallable_options():
                 }
                 sensitivity_results = True
 
-            except Exception as e:
-                print(f"An error occurred during sensitivity analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during autocallable sensitivity analysis"
+                )
                 sensitivity_results = None
 
         elif action == "scenario":
@@ -215,7 +204,6 @@ def autocallable_options():
                 vol_change = float(request.form.get("vol_scenario", 0))
                 rate_change = float(request.form.get("rate_scenario", 0))
 
-                # base arrays expected by AutoMonteCarlo
                 base_barriers = np.full(N, barrier_levels)
                 base_coupons = np.full(N, coupon_rates)
 
@@ -280,8 +268,10 @@ def autocallable_options():
                     risk_pl_results=risk_pl_results,
                     md_content=md_content,
                 )
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during autocallable scenario analysis"
+                )
                 scenario_results = None
 
         elif action == "convergence":
@@ -314,7 +304,6 @@ def autocallable_options():
                     pricer_params=pricer_params,
                 )
 
-                # Plot + save with the exact filename your template expects
                 plot_path = mc_plot_convergence(results, mode)
                 session["autocallable_convergence_plot"] = (
                     os.path.basename(plot_path)
@@ -335,8 +324,10 @@ def autocallable_options():
                     md_content=md_content,
                 )
 
-            except Exception as e:
-                print(f"An error occurred during convergence analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during autocallable convergence analysis"
+                )
                 convergence_results = None
 
         elif action == "risk_pl":
@@ -356,7 +347,6 @@ def autocallable_options():
                     vol_change=vol_change,
                 )
 
-                # optional: store in session
                 session["risk_pl_results"] = risk_pl_results
 
                 return render_template(
@@ -370,8 +360,8 @@ def autocallable_options():
                     md_content=md_content,
                 )
 
-            except Exception as e:
-                print(f"An error occurred during RBPL analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during autocallable RBPL analysis")
                 risk_pl_results = None
 
                 return render_template(
@@ -410,8 +400,8 @@ def autocallable_options():
                     dividend_yield=q,
                 )
                 option_price = "${:,.4f}".format(option_price)
-            except Exception as e:
-                print(f"Error using New MC engine: {e}")
+            except Exception:
+                logger.exception("Error using new MC engine for autocallable pricing")
                 option = AutoMonteCarlo(ticker, K, r, sigma, T, q, N, M)
                 option_price = option.price_autocallable_option(
                     discretization=discretization,
@@ -534,8 +524,8 @@ def asian_options():
                     md_content=md_content,
                 )
 
-            except Exception as e:
-                print(f"An error occurred during sensitivity analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during Asian sensitivity analysis")
                 sensitivity_results = None
 
         elif action == "scenario":
@@ -614,8 +604,8 @@ def asian_options():
                     md_content=md_content,
                 )
 
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during Asian scenario analysis")
                 scenario_results = None
 
         elif action == "convergence":
@@ -647,9 +637,7 @@ def asian_options():
 
                 plot_path = asian_plot_convergence(results, mode)
                 plot_filename = os.path.basename(plot_path)
-
                 session["asian_convergence_plot"] = plot_filename
-
                 convergence_results = True
 
                 return render_template(
@@ -663,8 +651,8 @@ def asian_options():
                     md_content=md_content,
                 )
 
-            except Exception as e:
-                print(f"An error occurred during convergence analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during Asian convergence analysis")
                 convergence_results = None
 
                 return render_template(
@@ -701,8 +689,8 @@ def asian_options():
                     md_content=md_content,
                 )
 
-            except Exception as e:
-                print(f"An error occurred during RBPL analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during Asian RBPL analysis")
                 risk_pl_results = None
 
         if simulation_engine == "new_MC":
@@ -712,9 +700,7 @@ def asian_options():
                 stock_data = StockData(ticker)
                 S0 = float(stock_data.get_current_price())
                 averaging_dates_sorted = sorted(averaging_dates)
-                num_steps = (
-                    len(averaging_dates_sorted) - 1
-                )  # one fewer than the number of dates
+                num_steps = len(averaging_dates_sorted) - 1
                 T_years = (
                     averaging_dates_sorted[-1] - averaging_dates_sorted[0]
                 ).days / 365.25
@@ -725,7 +711,7 @@ def asian_options():
                     sigma=sigma,
                     T=T_years,
                     num_paths=num_paths,
-                    num_steps=num_steps,  # <<- Now exactly matches intervals between averaging dates
+                    num_steps=num_steps,
                     random_type="sobol",
                 )
 
@@ -737,7 +723,7 @@ def asian_options():
                 )
                 option_price = "${:,.4f}".format(option_price)
             except Exception as e:
-                print(f"Error using New MC engine: {e}")
+                logger.exception("Error using new MC engine for Asian pricing")
                 option_price = f"New MC error: {e}"
         else:
             option = AsianOption(
@@ -804,7 +790,6 @@ def barrier_options():
 
         if action == "sensitivity":
             try:
-                # Sensitivity analysis logic
                 form_data["num_sensitivity_steps"] = int(
                     request.form["num_sensitivity_steps"]
                 )
@@ -826,48 +811,34 @@ def barrier_options():
                     values, greek_values, target_variable, variable
                 )
 
-                # Save plot to static directory
-                print("start plotting")
-                # Construct a package-relative static folder path
-                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-                STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
-                os.makedirs(STATIC_DIR, exist_ok=True)
+                logger.debug("Starting barrier sensitivity plot generation")
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                static_dir = os.path.join(base_dir, "..", "static")
+                os.makedirs(static_dir, exist_ok=True)
                 plot_filename = f"barrier_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
+                plot_path = os.path.join(static_dir, plot_filename)
 
-                plot_path = os.path.join(STATIC_DIR, plot_filename)
-
-                # Print the plot path to ensure it's correct
-                print(f"Saving plot to: {plot_path}")
-
-                # Save plot as a base64 encoded string
-                # img_buffer = BytesIO()
-                # plt.savefig(img_buffer, format='png')  # Save plot to BytesIO buffer
+                logger.debug("Saving barrier sensitivity plot to: %s", plot_path)
                 plt.savefig(plot_path)
 
-                # img_buffer.seek(0)
-                # plot_base64 = base64.b64encode(img_buffer.read()).decode('utf-8')
-
-                # Store the results and plot path in the session
                 session["sensitivity_results"] = {
                     "variable": variable,
                     "values": values.tolist(),
                     "greek_values": greek_values,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
-                    # 'plot_base64': plot_base64  # Store the plot as base64
                 }
 
                 sensitivity_results = True
+                plt.close()
 
-                plt.close()  # Close the plot to release memory
-
-            except Exception as e:
-                print(f"An error occurred during sensitivity analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during barrier sensitivity analysis"
+                )
                 sensitivity_results = None
 
         elif action == "convergence":
-            # Get necessary form data for convergence analysis
-
             form_data["max_steps"] = int(request.form["max_steps"])
             form_data["max_sims"] = int(request.form["max_sims"])
             form_data["obs"] = int(request.form["obs"])
@@ -884,24 +855,21 @@ def barrier_options():
 
             mc_plot_convergence(barrier_step_results, mode)
 
-            # Save plot to static directory
-            # Construct a package-relative static folder path
-            BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-            STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
-            os.makedirs(STATIC_DIR, exist_ok=True)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            static_dir = os.path.join(base_dir, "..", "static")
+            os.makedirs(static_dir, exist_ok=True)
             plot_filename = f"barrier_convergence_plot_{uuid.uuid4().hex}.png"
-            plot_path = os.path.join(STATIC_DIR, plot_filename)
+            plot_path = os.path.join(static_dir, plot_filename)
             plt.savefig(plot_path)
             session["barrier_convergence_plot"] = plot_filename
-            # plt.savefig('derivapro/static/barrier_convergence_plot.png')
             convergence_results = True
 
         elif action == "scenario":
             try:
-                # Scenario analysis logic...
                 spot_change = float(request.form.get("spot_scenario", 0))
                 vol_change = float(request.form.get("vol_scenario", 0))
                 rate_change = float(request.form.get("rate_scenario", 0))
+
                 strike_price_raw = form_data.get("K")
                 strike_price = (
                     float(str(strike_price_raw).strip())
@@ -924,7 +892,6 @@ def barrier_options():
                     else 0.0
                 )
 
-                # Baseline calculation
                 option = MonteCarlo(**form_data)
                 baseline_price = option.price_barrier_option()
                 baseline_greeks = option.calculate_greeks()
@@ -935,7 +902,6 @@ def barrier_options():
                 baseline_theta = "{:.4f}".format(baseline_greeks["Theta"])
                 baseline_rho = "{:.4f}".format(baseline_greeks["Rho"])
 
-                # Stressed scenario calculation
                 stressed_spot = strike_price * (1 + spot_change)
                 stressed_vol = volatility + vol_change
                 stressed_rate = risk_free_rate + rate_change
@@ -965,29 +931,6 @@ def barrier_options():
                 stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
                 stressed_rho = "{:.4f}".format(stressed_greeks["Rho"])
 
-                """
-                scenario_table = [
-                    {
-                        "scenario": "Baseline",
-                        "option_price": baseline_price,
-                        "delta": baseline_delta,
-                        "gamma": baseline_gamma,
-                        "vega": baseline_vega,
-                        "theta": baseline_theta,
-                        "rho": baseline_rho,
-                    },
-                    {
-                        "scenario": "Stressed Scenario",
-                        "option_price": stressed_price,
-                        "delta": stressed_delta,
-                        "gamma": stressed_gamma,
-                        "vega": stressed_vega,
-                        "theta": stressed_theta,
-                        "rho": stressed_rho,
-                    },
-                ]
-                """
-
                 baseline_scenario_table = {
                     "scenario": "Baseline",
                     "baseline_price": baseline_price,
@@ -1008,20 +951,23 @@ def barrier_options():
                     "stressed_rho": stressed_rho,
                 }
 
-                print(baseline_scenario_table)
-                print(stressed_scenario_table)
+                logger.debug(
+                    "Barrier baseline scenario table: %s", baseline_scenario_table
+                )
+                logger.debug(
+                    "Barrier stressed scenario table: %s", stressed_scenario_table
+                )
 
-                # Save both the scenario table and the assessment to session
                 session["scenario_results"] = {
                     "baseline_scenario_table": baseline_scenario_table,
                     "stressed_scenario_table": stressed_scenario_table,
-                    "gpt_scenario_assessment": "No assessment yet.",  # Placeholder for GPT assessment
+                    "gpt_scenario_assessment": "No assessment yet.",
                 }
 
                 scenario_results = True
 
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during barrier scenario analysis")
                 scenario_results = None
 
         elif action == "ai_scenario_assessment":
@@ -1030,7 +976,6 @@ def barrier_options():
             stressed_table = scenario_results.get("stressed_scenario_table", {})
 
             if baseline_table and stressed_table:
-                # Format the scenario results for the assessment
                 table_text = f"""
                     Baseline Scenario:
                     Option Price={baseline_table["baseline_price"]}, Delta={baseline_table["baseline_delta"]}, 
@@ -1045,11 +990,8 @@ def barrier_options():
                 assessment_input = f"Please assess the scenario analysis of the option price and Greeks based on the following results: {table_text}. Please limit the assessment to be less than 100 words."
                 gpt_scenario_assessment = ask_gpt(assessment_input)
 
-                # Save the GPT assessment to the session
                 scenario_results["gpt_scenario_assessment"] = gpt_scenario_assessment
-                session["scenario_results"] = (
-                    scenario_results  # Update session with the assessment
-                )
+                session["scenario_results"] = scenario_results
             else:
                 scenario_results["gpt_scenario_assessment"] = (
                     "No scenario analysis results available for assessment."
@@ -1058,7 +1000,6 @@ def barrier_options():
 
         elif action == "risk_pl":
             try:
-                # RBPL analysis logic
                 form_data["price_change"] = float(request.form["price_change"])
                 form_data["vol_change"] = float(request.form["vol_change"])
 
@@ -1070,20 +1011,19 @@ def barrier_options():
                     price_change, vol_change, discretization=form_data["discretization"]
                 )
 
-                print(risk_pl_results)
+                logger.debug("Barrier risk-based P&L results: %s", risk_pl_results)
 
-            except Exception as e:
-                print(f"An error occurred during Risk-Based P&L analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during barrier Risk-Based P&L analysis"
+                )
                 risk_pl_results = None
 
         else:
-            # Get necessary form data for option pricing
             simulation_engine = request.form.get("simulation_engine", "original")
 
             if simulation_engine == "new_MC":
-                # Use New Monte Carlo engine
                 try:
-                    # Get stock data
                     from ..models.market_data import StockData
 
                     stock_data = StockData(
@@ -1094,7 +1034,6 @@ def barrier_options():
                     S0 = float(stock_data.get_closing_price())
                     T = stock_data.get_years_difference()
 
-                    # Create New Monte Carlo engine
                     mc_engine = monte_carlo_New_module.create_monte_carlo_engine(
                         S0=S0,
                         r=form_data["r"],
@@ -1105,7 +1044,6 @@ def barrier_options():
                         random_type="sobol",
                     )
 
-                    # Price barrier option using New MC engine
                     option_price = mc_engine.price_barrier_option(
                         strike_price=form_data["K"],
                         barrier_level=form_data["barrier"],
@@ -1113,17 +1051,14 @@ def barrier_options():
                         barrier_type=form_data["barrier_type"],
                         dividend_yield=form_data["q"],
                     )
-
                     option_price = "${:,.4f}".format(option_price)
 
-                except Exception as e:
-                    print(f"Error using new MC engine: {e}")
-                    # Fallback to original engine
+                except Exception:
+                    logger.exception("Error using new MC engine for barrier pricing")
                     option = MonteCarlo(**form_data)
                     option_price = option.price_barrier_option()
                     option_price = "${:,.4f}".format(option_price)
             else:
-                # Use original Monte Carlo engine
                 option = MonteCarlo(**form_data)
                 option_price = option.price_barrier_option()
                 option_price = "${:,.4f}".format(option_price)

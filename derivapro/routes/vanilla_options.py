@@ -16,7 +16,6 @@ from flask import (
 )
 from flask import send_file
 
-# import pdfkit  # For PDF export (if needed)
 from ..models.mdls_vanilla_options import BlackScholes, SmoothnessTest
 from ..models.market_data import StockData
 import matplotlib.pyplot as plt
@@ -24,15 +23,9 @@ import os
 import markdown
 from random import random
 from datetime import datetime
-from openai import OpenAI
-
-# import json
-# from weasyprint import HTML
+from openai import OpenAI  # kept to preserve existing imports
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-
-# import base64
-# from io import BytesIO
 from ..models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
 from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
 from openai import AzureOpenAI
@@ -43,6 +36,7 @@ import numpy as np
 import importlib.util
 import uuid
 
+logger = logging.getLogger(__name__)
 
 # Import the Monte Carlo module with space in filename
 monte_carlo_path = os.path.join(
@@ -57,7 +51,6 @@ else:
     raise ImportError(f"Could not load Monte Carlo module from {monte_carlo_path}")
 
 vanilla_options_bp = Blueprint("vanilla_options", __name__)
-
 
 # Load the environment variables from the .env file
 load_dotenv(find_dotenv())
@@ -84,16 +77,8 @@ client = AzureOpenAI(
 def ask_gpt(question):
     """
     Sends a request to Azure OpenAI's GPT-4 API with the given question.
-
-    Args:
-        question (str): The input question or prompt to GPT.
-        max_tokens (int): The maximum number of tokens in the response.
-
-    Returns:
-        str: The generated response from GPT, or an error message in case of failure.
     """
     try:
-        # Send the request to Azure OpenAI API
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -104,12 +89,9 @@ def ask_gpt(question):
                 {"role": "user", "content": f"{question}"},
             ],
         )
-
-        # Extract the content of the response
         return response.choices[0].message.content
-
     except Exception as e:
-        logging.error(f"Error occurred while calling OpenAI API: {e}")
+        logger.exception("Error occurred while calling OpenAI API")
         return f"An error occurred: {e}"
 
 
@@ -118,11 +100,11 @@ def save_assessment():
     assessment_data = request.json.get("assessment")
 
     try:
-        # Save the assessment to a file or database for later use
         with open("derivapro/static/assessment.txt", "w") as f:
             f.write(assessment_data)
         return jsonify({"status": "success"})
     except Exception as e:
+        logger.exception("Error saving assessment")
         return jsonify({"status": "error", "message": str(e)})
 
 
@@ -140,7 +122,6 @@ def european_options():
         content = readme_file.read()
     md_content = markdown.markdown(content)
 
-    # Retrieve form data from URL parameters
     form_data = {
         "ticker": request.args.get("ticker", ""),
         "strike_price": request.args.get("strike_price", ""),
@@ -152,7 +133,6 @@ def european_options():
         "model_type": request.args.get("model_type", ""),
     }
 
-    # Retrieve results if present
     option_price = request.args.get("option_price")
     delta = request.args.get("delta")
     gamma = request.args.get("gamma")
@@ -164,9 +144,9 @@ def european_options():
     gpt_assessment = None
 
     if request.method == "POST":
-        print("POST request received")
+        logger.debug("POST request received for european options")
         action = request.form.get("analysis_type")
-        print(f"Action: {action}")  # Add this line to see the action being processed
+        logger.debug("European options action: %s", action)
 
         form_data = {
             "ticker": request.form.get("ticker", ""),
@@ -181,7 +161,6 @@ def european_options():
             "num_steps": request.form.get("num_steps", type=int, default=252),
         }
 
-        # Save form data to session
         session["form_data"] = form_data
 
         ticker = form_data["ticker"]
@@ -192,15 +171,17 @@ def european_options():
         volatility = form_data["volatility"]
         option_type = form_data["option_type"]
 
-        # Print the raw start_date and end_date for debugging
-        print(f"Raw start_date: {start_date}, Raw end_date: {end_date}")
+        logger.debug(
+            "European options raw dates received: start_date=%s, end_date=%s",
+            start_date,
+            end_date,
+        )
 
         try:
-            # Ensure the dates are in the correct format
             start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
             end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
         except ValueError as e:
-            print("error")
+            logger.warning("European options date format error: %s", e)
             return render_template(
                 "european_options.html",
                 form_data=form_data,
@@ -215,8 +196,8 @@ def european_options():
 
         if action == "sensitivity":
             try:
-                print("Sensitivity analysis triggered")
-                # Sensitivity analysis logic
+                logger.debug("European options sensitivity analysis triggered")
+
                 form_data["num_steps"] = int(request.form["num_steps"])
                 form_data["step_range"] = float(request.form["step_range"])
                 form_data["variable"] = request.form["variable"]
@@ -227,9 +208,12 @@ def european_options():
                 variable = form_data["variable"]
                 target_variable = form_data["target_variable"]
 
-                print(
-                    f"Parameters: num_steps={num_steps}, step_range={step_range}, variable={variable}"
-                )  # Debugging line
+                logger.debug(
+                    "European sensitivity parameters: num_steps=%s, step_range=%s, variable=%s",
+                    num_steps,
+                    step_range,
+                    variable,
+                )
 
                 tester = SmoothnessTest(
                     ticker,
@@ -241,55 +225,46 @@ def european_options():
                     option_type,
                 )
 
-                print("Running sensitivity analysis...")
+                logger.debug("Running European sensitivity analysis")
                 values, delta, gamma, vega, theta, rho = (
                     tester.calculate_greeks_over_range(
                         variable, num_steps, step_range, target_variable
                     )
                 )
 
-                print("Plotting Greeks...")
+                logger.debug("Plotting European sensitivity Greeks")
                 tester.plot_greeks(values, delta, gamma, vega, theta, rho, variable)
 
-                # Show plot for debugging
-                # plt.show()
-
-                # Save the plot to the static directory
-                # Construct a package-relative static folder path 11/25/2025 Change
-                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-                STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
-                os.makedirs(STATIC_DIR, exist_ok=True)
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                static_dir = os.path.join(base_dir, "..", "static")
+                os.makedirs(static_dir, exist_ok=True)
 
                 plot_filename = f"{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
-
-                plot_path = os.path.join(STATIC_DIR, plot_filename)
+                plot_path = os.path.join(static_dir, plot_filename)
 
                 plt.savefig(plot_path)
                 plt.close()
 
-                # Print the plot path to ensure it's correct
-                print(f"Plot saved to {plot_path}")
+                logger.debug("European sensitivity plot saved to %s", plot_path)
 
-                # Store the results and plot path in the session
                 session["sensitivity_results"] = {
                     "variable": variable,
                     "values": values.tolist(),
-                    #'greek_values': greek_values,
                     "target_variable": target_variable,
-                    "plot_filename": plot_filename,  # Save the plot filename to session
+                    "plot_filename": plot_filename,
                 }
 
                 sensitivity_results = True
 
-            except Exception as e:
-                print(f"An error occurred during sensitivity analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during European sensitivity analysis"
+                )
                 sensitivity_results = None
 
         elif action == "ai_assessment":
-            # AI Assessment logic
             sensitivity_results = request.form.get("sensitivity_results")
             if sensitivity_results:
-                # Prepare the input for AI
                 assessment_input = f"Please assess the sensitivity analysis based on the outputs: {sensitivity_results}."
                 gpt_assessment = ask_gpt(assessment_input)
             else:
@@ -298,12 +273,9 @@ def european_options():
                 )
 
         else:
-            # Option pricing logic
             model_type = form_data.get("model_type", "black_scholes")
 
             if model_type == "black_scholes":
-                from ..models.mdls_vanilla_options import BlackScholes
-
                 option = BlackScholes(
                     ticker,
                     strike_price,
@@ -314,12 +286,10 @@ def european_options():
                     option_type,
                 )
 
-                if option_type == "call":
-                    option_price = option.call_price()
-                else:
-                    option_price = option.put_price()
+                option_price = (
+                    option.call_price() if option_type == "call" else option.put_price()
+                )
 
-                # Calculate Greeks for Black-Scholes
                 delta = "{:.4f}".format(option.delta())
                 gamma = "{:.4f}".format(option.gamma())
                 vega = "{:.4f}".format(option.vega())
@@ -327,11 +297,9 @@ def european_options():
                 rho = "{:.4f}".format(option.rho())
 
             elif model_type == "monte_carlo":
-                # Use unified Monte Carlo engine
                 num_paths = form_data.get("num_paths", 10000)
                 num_steps = form_data.get("num_steps", 252)
 
-                # Create Monte Carlo engine
                 mc_engine = monte_carlo_module.create_monte_carlo_engine(
                     S0=float(
                         StockData(ticker, start_date, end_date).get_closing_price()
@@ -344,13 +312,12 @@ def european_options():
                     random_type="sobol",
                 )
 
-                # Price the option
-                if option_type == "call":
-                    option_price = mc_engine.price_european_option(strike_price, "call")
-                else:
-                    option_price = mc_engine.price_european_option(strike_price, "put")
+                option_price = (
+                    mc_engine.price_european_option(strike_price, "call")
+                    if option_type == "call"
+                    else mc_engine.price_european_option(strike_price, "put")
+                )
 
-                # Calculate Greeks
                 greeks = mc_engine.calculate_greeks_finite_difference(
                     strike_price, option_type, "european"
                 )
@@ -359,8 +326,8 @@ def european_options():
                 vega = "{:.4f}".format(greeks["Vega"])
                 theta = "{:.4f}".format(greeks["Theta"])
                 rho = "{:.4f}".format(greeks["Rho"])
+
             else:
-                # Use existing lattice models
                 option = LatticeModel(
                     ticker,
                     strike_price,
@@ -383,9 +350,8 @@ def european_options():
                 else:
                     option_price = option.Cox_Ross_Rubinstein_Tree(
                         option_type, num_steps
-                    )  # Default
+                    )
 
-                # Calculate Greeks for lattice models
                 if model_type == "Cox Ross Rubinstein Tree":
                     greeks = option.CRRGreeks(option_type, num_steps)
                 elif model_type == "Jarrow Rudd Tree":
@@ -393,7 +359,7 @@ def european_options():
                 elif model_type == "Trinomial Asset Pricing":
                     greeks = option.TAPGreeks(option_type, num_steps)
                 else:
-                    greeks = option.CRRGreeks(option_type, num_steps)  # Default
+                    greeks = option.CRRGreeks(option_type, num_steps)
 
                 delta = "{:.4f}".format(greeks["Delta"])
                 gamma = "{:.4f}".format(greeks["Gamma"])
@@ -403,7 +369,6 @@ def european_options():
 
             option_price = "${:,.4f}".format(option_price)
 
-            # Save form data and results to session
             session["option_price"] = option_price
             session["delta"] = delta
             session["gamma"] = gamma
@@ -440,11 +405,8 @@ def european_options():
 
 @vanilla_options_bp.route("/model-performance", methods=["GET", "POST"])
 def model_performance():
-    # Retrieve form data from session
     convergence_results = None
     form_data = session.get("form_data", {})
-    sensitivity_results = session.get("sensitivity_results", None)
-    scenario_table = session.get("scenario_table", None)
     sensitivity_results = None
     scenario_results = None
     gpt_assessment = None
@@ -462,7 +424,6 @@ def model_performance():
 
         if action == "sensitivity":
             try:
-                # Sensitivity analysis logic
                 form_data["num_steps"] = int(request.form["num_steps"])
                 form_data["step_range"] = float(request.form["step_range"])
                 form_data["variable"] = request.form["variable"]
@@ -490,48 +451,37 @@ def model_performance():
                     values, greek_values, target_variable, variable
                 )
 
-                # Save plot to static directory
-                # Construct a package-relative static folder path 11/25/2025 Change
-                BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-                STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
-                os.makedirs(STATIC_DIR, exist_ok=True)
-                print("start plotting")
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                static_dir = os.path.join(base_dir, "..", "static")
+                os.makedirs(static_dir, exist_ok=True)
+                logger.debug("Starting model performance sensitivity plot generation")
 
                 plot_filename = f"european_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
+                plot_path = os.path.join(static_dir, plot_filename)
 
-                plot_path = os.path.join(STATIC_DIR, plot_filename)
-
-                # Print the plot path to ensure it's correct
-                print(f"Saving plot to: {plot_path}")
-
-                # Save plot as a base64 encoded string
-                # img_buffer = BytesIO()
-                # plt.savefig(img_buffer, format='png')  # Save plot to BytesIO buffer
+                logger.debug(
+                    "Saving model performance sensitivity plot to %s", plot_path
+                )
                 plt.savefig(plot_path)
 
-                # img_buffer.seek(0)
-                # plot_base64 = base64.b64encode(img_buffer.read()).decode('utf-8')
-
-                # Store the results and plot path in the session
                 session["sensitivity_results"] = {
                     "variable": variable,
                     "values": values.tolist(),
                     "greek_values": greek_values,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
-                    #'plot_base64': plot_base64  # Store the plot as base64
                 }
 
                 sensitivity_results = True
+                plt.close()
 
-                plt.close()  # Close the plot to release memory
-
-            except Exception as e:
-                print(f"An error occurred during sensitivity analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during model performance sensitivity analysis"
+                )
                 sensitivity_results = None
 
         elif action == "ai_sensitivity_assessment":
-            # Generate AI assessment for sensitivity analysis
             sensitivity_data = session.get("sensitivity_results")
 
             if sensitivity_data:
@@ -540,17 +490,13 @@ def model_performance():
                 target_variable = sensitivity_data.get("target_variable")
 
                 if values and variable and target_variable:
-                    print(values)
-
+                    logger.debug("Model performance sensitivity values: %s", values)
                     sensitivity_results_text = (
                         f"Sensitivity Analysis Results for {target_variable} with respect to {variable}:\n"
                         + "\n".join([f"{variable}={v}" for v in values])
                     )
-
                     assessment_input = f"Please assess the sensitivity analysis based on the outputs: {sensitivity_results_text}."
                     gpt_assessment = ask_gpt(assessment_input)
-
-                    # Save the AI assessment to session['sensitivity_results']
                     sensitivity_data["gpt_sensitivity_assessment"] = gpt_assessment
                     session["sensitivity_results"] = sensitivity_data
                 else:
@@ -563,17 +509,12 @@ def model_performance():
                 gpt_assessment = (
                     "No sensitivity analysis results available for assessment."
                 )
-                if sensitivity_data:
-                    sensitivity_data["gpt_sensitivity_assessment"] = gpt_assessment
-                    session["sensitivity_results"] = sensitivity_data
-                else:
-                    session["sensitivity_results"] = {
-                        "gpt_sensitivity_assessment": gpt_assessment
-                    }
+                session["sensitivity_results"] = {
+                    "gpt_sensitivity_assessment": gpt_assessment
+                }
 
         elif action == "scenario":
             try:
-                # Scenario analysis logic...
                 spot_change = float(request.form.get("spot_scenario", 0))
                 vol_change = float(request.form.get("vol_scenario", 0))
                 rate_change = float(request.form.get("rate_scenario", 0))
@@ -588,24 +529,14 @@ def model_performance():
                 ).date()
                 risk_free_rate = float(form_data.get("risk_free_rate"))
                 volatility = float(form_data.get("volatility"))
-
                 option_type = form_data.get("option_type")
-                model = form_data.get("model") or form_data.get("model_type")
+                model_name = form_data.get("model") or form_data.get("model_type")
                 num_steps = int(form_data.get("num_steps", 252))
 
-                # Baseline calculation
-                if model == "Monte_Carlo":
-                    from ..models.mdls_vanilla_options import AmericanMonteCarloOption
-
-                    num_paths = form_data.get("num_paths", 10000)
-                    mc_steps = form_data.get("mc_steps", 252)
-                    # option = AmericanMonteCarloOption(ticker, strike_price, start_date, end_date, risk_free_rate, volatility, option_type, num_paths, mc_steps)
-                    # baseline_price = option.call_price() if option_type == 'call' else option.put_price()
-                    # baseline_greeks = option.get_greeks()
+                if model_name == "Monte_Carlo":
                     baseline_price = None
                     baseline_greeks = None
                 else:
-                    # Use existing lattice models
                     option = LatticeModel(
                         ticker,
                         strike_price,
@@ -614,12 +545,12 @@ def model_performance():
                         risk_free_rate,
                         volatility,
                     )
-                    if model == "Cox Ross Rubinstein Tree":
+                    if model_name == "Cox Ross Rubinstein Tree":
                         baseline_price = option.Cox_Ross_Rubinstein_Tree(
                             option_type, num_steps
                         )
                         baseline_greeks = option.CRRGreeks(option_type, num_steps)
-                    elif model == "Jarrow Rudd Tree":
+                    elif model_name == "Jarrow Rudd Tree":
                         baseline_price = option.Jarrow_Rudd_Tree(option_type, num_steps)
                         baseline_greeks = option.JRTGreeks(option_type, num_steps)
                     else:
@@ -634,15 +565,11 @@ def model_performance():
                 baseline_theta = "{:.4f}".format(baseline_greeks["Theta"])
                 baseline_rho = "{:.4f}".format(baseline_greeks["Rho"])
 
-                # Stressed scenario calculation
                 stressed_spot = strike_price * (1 + spot_change)
                 stressed_vol = volatility + vol_change
                 stressed_rate = risk_free_rate + rate_change
 
-                if model == "Monte_Carlo":
-                    # stressed_option = AmericanMonteCarloOption(ticker, stressed_spot, start_date, end_date, stressed_rate, stressed_vol, option_type, num_paths, mc_steps)
-                    # stressed_price = stressed_option.call_price() if option_type == 'call' else stressed_option.put_price()
-                    # stressed_greeks = stressed_option.get_greeks()
+                if model_name == "Monte_Carlo":
                     stressed_price = None
                     stressed_greeks = None
                 else:
@@ -654,14 +581,14 @@ def model_performance():
                         stressed_rate,
                         stressed_vol,
                     )
-                    if model == "Cox Ross Rubinstein Tree":
+                    if model_name == "Cox Ross Rubinstein Tree":
                         stressed_price = stressed_option.Cox_Ross_Rubinstein_Tree(
                             option_type, num_steps, greeks=False
                         )
                         stressed_greeks = stressed_option.CRRGreeks(
                             option_type, num_steps
                         )
-                    elif model == "Jarrow Rudd Tree":
+                    elif model_name == "Jarrow Rudd Tree":
                         stressed_price = stressed_option.Jarrow_Rudd_Tree(
                             option_type, num_steps, greeks=True
                         )
@@ -683,29 +610,6 @@ def model_performance():
                 stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
                 stressed_rho = "{:.4f}".format(stressed_greeks["Rho"])
 
-                """
-                scenario_table = [
-                    {
-                        "scenario": "Baseline",
-                        "option_price": baseline_price,
-                        "delta": baseline_delta,
-                        "gamma": baseline_gamma,
-                        "vega": baseline_vega,
-                        "theta": baseline_theta,
-                        "rho": baseline_rho,
-                    },
-                    {
-                        "scenario": "Stressed Scenario",
-                        "option_price": stressed_price,
-                        "delta": stressed_delta,
-                        "gamma": stressed_gamma,
-                        "vega": stressed_vega,
-                        "theta": stressed_theta,
-                        "rho": stressed_rho,
-                    },
-                ]
-                """
-
                 baseline_scenario_table = {
                     "scenario": "Baseline",
                     "baseline_price": baseline_price,
@@ -726,20 +630,19 @@ def model_performance():
                     "stressed_rho": stressed_rho,
                 }
 
-                print(baseline_scenario_table)
-                print(stressed_scenario_table)
+                logger.debug("Scenario baseline table: %s", baseline_scenario_table)
+                logger.debug("Scenario stressed table: %s", stressed_scenario_table)
 
-                # Save both the scenario table and the assessment to session
                 session["scenario_results"] = {
                     "baseline_scenario_table": baseline_scenario_table,
                     "stressed_scenario_table": stressed_scenario_table,
-                    "gpt_scenario_assessment": "No assessment yet.",  # Placeholder for GPT assessment
+                    "gpt_scenario_assessment": "No assessment yet.",
                 }
 
                 scenario_results = True
 
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during scenario analysis")
                 scenario_results = None
 
         elif action == "ai_scenario_assessment":
@@ -748,7 +651,6 @@ def model_performance():
             stressed_table = scenario_results.get("stressed_scenario_table", {})
 
             if baseline_table and stressed_table:
-                # Format the scenario results for the assessment
                 table_text = f"""
                                 Baseline Scenario:
                                 Option Price={baseline_table["baseline_price"]}, Delta={baseline_table["baseline_delta"]}, 
@@ -762,12 +664,8 @@ def model_performance():
                                 """
                 assessment_input = f"Please assess the scenario analysis of the option price and Greeks based on the following results: {table_text}. Please limit the assessment to be less than 100 words."
                 gpt_scenario_assessment = ask_gpt(assessment_input)
-
-                # Save the GPT assessment to the session
                 scenario_results["gpt_scenario_assessment"] = gpt_scenario_assessment
-                session["scenario_results"] = (
-                    scenario_results  # Update session with the assessment
-                )
+                session["scenario_results"] = scenario_results
             else:
                 scenario_results["gpt_scenario_assessment"] = (
                     "No scenario analysis results available for assessment."
@@ -776,15 +674,11 @@ def model_performance():
 
         elif action == "convergence":
             try:
-                # Get convergence form data
-                model_type = request.form.get(
-                    "model_type", "monte_carlo"
-                )  # Should be 'monte_carlo'
+                model_type = request.form.get("model_type", "monte_carlo")
                 num_mc_paths = int(request.form.get("num_mc_paths", 10000))
                 num_mc_steps = int(request.form.get("num_mc_steps", 252))
                 obs = int(request.form.get("obs", 10))
 
-                # Retrieve option params (from form_data or session)
                 ticker = form_data.get("ticker", "")
                 strike_price = float(form_data.get("strike_price", 100))
                 start_date = form_data.get("start_date", "")
@@ -793,11 +687,9 @@ def model_performance():
                 sigma = float(form_data.get("volatility", 0.2))
                 option_type = form_data.get("option_type", "call")
 
-                # Get underlying info
                 S0 = float(StockData(ticker, start_date, end_date).get_closing_price())
                 T = StockData(ticker, start_date, end_date).get_years_difference()
 
-                # Run MC convergence over number of paths
                 mc_results = []
                 paths_range = np.linspace(800, num_mc_paths, obs).round().astype(int)
                 for n_paths in paths_range:
@@ -816,14 +708,14 @@ def model_performance():
                         price = mc_engine.price_european_option(strike_price, "put")
                     mc_results.append((int(n_paths), float(price)))
 
-                # Plot and save
                 plot_convergence(mc_results, mode="simulations")
                 plot_filename = f"vanilla_convergence_plot_{uuid.uuid4().hex}.png"
                 plot_path = os.path.join("derivapro", "static", plot_filename)
                 plt.savefig(plot_path)
                 plt.close()
-                print(
-                    "Plot file exists after save?",
+
+                logger.debug(
+                    "Model performance convergence plot exists after save? %s",
                     os.path.exists(plot_path),
                 )
 
@@ -835,8 +727,10 @@ def model_performance():
 
                 convergence_results = True
 
-            except Exception as e:
-                print(f"An error occurred during convergence analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during model performance convergence analysis"
+                )
                 convergence_results = None
 
     return render_template(
@@ -865,7 +759,6 @@ def model_performance():
 
 @vanilla_options_bp.route("/go-back", methods=["GET"])
 def go_back():
-    # Retrieve form data and results from session
     form_data = session.get("form_data", {})
     option_price = session.get("option_price")
     delta = session.get("delta")
@@ -874,7 +767,6 @@ def go_back():
     theta = session.get("theta")
     rho = session.get("rho")
 
-    # Construct the URL with query parameters
     params = {
         "ticker": form_data.get("ticker", ""),
         "strike_price": form_data.get("strike_price", ""),
@@ -910,12 +802,11 @@ def model_governance():
         action = request.form.get("analysis_type")
 
         if action == "ai_assessment":
-            # Prepare the prompt for AI assessment
-            prompt = f"Please assess the reasonableness and comprehensiveness of the model governance for the vanilla option model as shown in the following text:\n\n{md_content}"
-            # Generate the assessment
-            gpt_assessment = ask_gpt(
-                prompt
-            )  # Assuming `ask_gpt` is a function that generates ChatGPT responses
+            prompt = (
+                "Please assess the reasonableness and comprehensiveness of the "
+                f"model governance for the vanilla option model as shown in the following text:\n\n{md_content}"
+            )
+            gpt_assessment = ask_gpt(prompt)
 
     return render_template(
         "model_governance.html", md_content=html_content, gpt_assessment=gpt_assessment
@@ -924,12 +815,10 @@ def model_governance():
 
 @vanilla_options_bp.route("/ongoing-monitoring", methods=["GET"])
 def ongoing_monitoring():
-    # Path to the markdown file
     md_file_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "ongoing_monitoring.md"
     )
 
-    # Read and render the markdown content
     with open(md_file_path, "r", encoding="utf-8") as md_file:
         md_content = markdown.markdown(md_file.read())
 
@@ -974,8 +863,8 @@ def american_options():
             "num_steps": safe_int(
                 request.form.get("num_steps", request.form.get("mc_steps", 252)), 252
             ),
-            "pricing_model": request.form.get("pricing_model"),  # NEW NAME for pricing
-            "model": request.form.get("model"),  # for convergence analysis
+            "pricing_model": request.form.get("pricing_model"),
+            "model": request.form.get("model"),
             "num_paths": safe_int(request.form.get("num_paths"), 10000),
             "mc_steps": safe_int(request.form.get("mc_steps"), 252),
         }
@@ -988,9 +877,7 @@ def american_options():
             ):
                 form_data["pricing_model"] = last_session_data["pricing_model"]
             else:
-                form_data["pricing_model"] = (
-                    "Cox Ross Rubinstein Tree"  # fallback default
-                )
+                form_data["pricing_model"] = "Cox Ross Rubinstein Tree"
 
         ticker = form_data["ticker"]
         strike_price = form_data["strike_price"]
@@ -1000,16 +887,13 @@ def american_options():
         volatility = form_data["sigma"]
         option_type = form_data["option_type"]
         num_steps = form_data["num_steps"]
-        model = form_data["model"]
+        model_name = form_data["model"]
         pricing_model = form_data["pricing_model"]
 
-        # Handle different model types
         if pricing_model == "Monte Carlo":
-            # Use unified Monte Carlo engine for American options
             num_paths = form_data.get("num_paths", 10000)
             mc_steps = form_data.get("mc_steps", 252)
 
-            # Create Monte Carlo engine
             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                 S0=float(StockData(ticker, start_date, end_date).get_closing_price()),
                 r=risk_free_rate,
@@ -1020,7 +904,6 @@ def american_options():
                 random_type="sobol",
             )
 
-            # Build payoff_func and LSMCEngine
             payoff_func = (
                 (lambda S: np.maximum(S - strike_price, 0))
                 if option_type == "call"
@@ -1029,7 +912,6 @@ def american_options():
             lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
             option_price = lsmc_engine.price_option(payoff_func, option_type)
 
-            # Calculate Greeks
             greeks = mc_engine.calculate_greeks_finite_difference(
                 strike_price, option_type, "american"
             )
@@ -1042,25 +924,20 @@ def american_options():
             session["form_data"] = form_data
 
         elif pricing_model == "Binomial Tree":
-            # --- PARSE DIVIDENDS FIELD ---
             raw_dividends = request.form.get("dividends", "").strip()
             parsed_dividends = []
             if raw_dividends:
                 for entry in raw_dividends.split(","):
                     parts = entry.strip().split(":")
                     if len(parts) == 2:
-                        # proportional dividend: "YYYY-MM-DD:0.02"
                         parsed_dividends.append((parts[0], float(parts[1])))
                     elif len(parts) == 3:
-                        # cash dividend: "YYYY-MM-DD:1.5:1.0"
                         parsed_dividends.append((
                             parts[0],
                             float(parts[1]),
                             float(parts[2]),
                         ))
-            # Now parsed_dividends is a list: [("2025-11-15", 1.5, 1.0), ("2025-12-15", 0.02), ...]
 
-            # --- INSTANTIATE New Binomial Tree ENGINE ---
             engine = BinomialTreeEngineCRR(
                 ticker=ticker,
                 strike_price=strike_price,
@@ -1073,7 +950,7 @@ def american_options():
                 dividends=parsed_dividends,
             )
             option_price = engine.price_american_option()
-            greeks = engine.get_greeks()  # Returns dict
+            greeks = engine.get_greeks()
 
             delta = "{:.4f}".format(greeks["delta"])
             gamma = "{:.4f}".format(greeks["gamma"])
@@ -1081,12 +958,10 @@ def american_options():
             theta = "{:.4f}".format(greeks["theta"])
             rho = "{:.4f}".format(greeks["rho"])
 
-            session["form_data"] = form_data  # Save last-used form
-            # Optionally, save raw_dividends to session so the input remains filled
+            session["form_data"] = form_data
             session["form_data"]["dividends"] = raw_dividends
 
         else:
-            # Use existing lattice models
             option = LatticeModel(
                 ticker, strike_price, start_date, end_date, risk_free_rate, volatility
             )
@@ -1098,11 +973,8 @@ def american_options():
             elif pricing_model == "Trinomial Asset Pricing":
                 option_price = option.Trinomial_Asset_Pricing(option_type, num_steps)
             else:
-                option_price = option.Cox_Ross_Rubinstein_Tree(
-                    option_type, num_steps
-                )  # Default
+                option_price = option.Cox_Ross_Rubinstein_Tree(option_type, num_steps)
 
-            # Calculate Greeks for lattice models
             if pricing_model == "Cox Ross Rubinstein Tree":
                 greeks = option.CRRGreeks(option_type, num_steps)
             elif pricing_model == "Jarrow Rudd Tree":
@@ -1110,7 +982,7 @@ def american_options():
             elif pricing_model == "Trinomial Asset Pricing":
                 greeks = option.TAPGreeks(option_type, num_steps)
             else:
-                greeks = option.CRRGreeks(option_type, num_steps)  # Default
+                greeks = option.CRRGreeks(option_type, num_steps)
 
             delta = "{:.4f}".format(greeks["Delta"])
             gamma = "{:.4f}".format(greeks["Gamma"])
@@ -1124,7 +996,6 @@ def american_options():
 
         if action == "sensitivity":
             try:
-                # Sensitivity analysis logic
                 form_data["num_sensitivity_steps"] = int(
                     request.form["num_sensitivity_steps"]
                 )
@@ -1144,12 +1015,9 @@ def american_options():
                 elif form_data["model"] == "Trinomial Asset Pricing":
                     smoothness_model = "TAP"
                 elif "monte" in str(form_data["model"]).lower():
-                    # elif form_data["model"] == "Monte Carlo":
-                    # Handle Monte Carlo sensitivity analysis
                     num_paths = form_data.get("num_paths", 10000)
                     mc_steps = form_data.get("mc_steps", 252)
 
-                    # Generate variable range
                     if variable == "strike_price":
                         base_value = form_data["strike_price"]
                     elif variable == "risk_free_rate":
@@ -1159,7 +1027,6 @@ def american_options():
                     else:
                         base_value = 0
 
-                    # Create variable range
                     variable_range = np.linspace(
                         base_value * (1 - step_range),
                         base_value * (1 + step_range),
@@ -1168,7 +1035,6 @@ def american_options():
                     greek_values = []
 
                     for val in variable_range:
-                        # Create Monte Carlo engine for this value
                         if variable == "strike_price":
                             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                                 S0=float(
@@ -1185,7 +1051,6 @@ def american_options():
                                 num_steps=mc_steps,
                                 random_type="sobol",
                             )
-
                             payoff_func = (
                                 (lambda S: np.maximum(S - val, 0))
                                 if option_type == "call"
@@ -1217,6 +1082,7 @@ def american_options():
                             )
                             lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
                             price = lsmc_engine.price_option(payoff_func, option_type)
+
                         elif variable == "volatility":
                             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                                 S0=float(
@@ -1243,7 +1109,6 @@ def american_options():
 
                         greek_values.append(price)
 
-                    # Create plot
                     plt.figure(figsize=(10, 6))
                     plt.plot(variable_range, greek_values, "b-", linewidth=2)
                     plt.xlabel(variable.replace("_", " ").title())
@@ -1254,11 +1119,9 @@ def american_options():
                     plt.grid(True)
                     plt.tight_layout()
 
-                    # Save plot
                     plot_filename = f"american_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
                     plot_path = os.path.join("derivapro", "static", plot_filename)
                     plt.savefig(plot_path)
-
                     plt.close()
 
                     sensitivity_results = {
@@ -1268,7 +1131,6 @@ def american_options():
                     }
 
                 else:
-                    # Use existing lattice models for sensitivity analysis
                     tester = AmericanOptionSmoothnessTest(
                         form_data["ticker"],
                         form_data["strike_price"],
@@ -1288,11 +1150,9 @@ def american_options():
                         values, greek_values, target_variable, variable
                     )
 
-                    # Save plot to static directory
-                    print("start plotting")
+                    logger.debug("Starting American sensitivity plot generation")
                     plot_filename = f"american_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
                     plot_path = os.path.join("derivapro", "static", plot_filename)
-
                     plt.savefig(plot_path)
 
                     sensitivity_results = {
@@ -1302,11 +1162,11 @@ def american_options():
                     }
                     session["sensitivity_results"] = sensitivity_results
 
-            except Exception as e:
-                session.pop(
-                    "sensitivity_results", None
-                )  # gracefully remove old results if error
-                print(f"An error occurred during sensitivity analysis: {e}")
+            except Exception:
+                session.pop("sensitivity_results", None)
+                logger.exception(
+                    "An error occurred during American sensitivity analysis"
+                )
                 sensitivity_results = None
 
         elif action == "ai_sensitivity_assessment":
@@ -1319,16 +1179,18 @@ def american_options():
                 greek_values = sensitivity_data.get("greek_values")
 
                 if values and variable and target_variable and greek_values:
-                    # Format the sensitivity results for the assessment
                     sensitivity_text = f"""
                     Sensitivity Analysis Results for {target_variable} with respect to {variable}:
                     Input Values: {values}
                     Output Values: {greek_values}
                     """
-                    assessment_input = f"Please assess the sensitivity analysis results based on the following data: {sensitivity_text}. Focus on the relationship between {variable} and {target_variable}, and any notable patterns or risks. Please limit the assessment to be less than 100 words."
+                    assessment_input = (
+                        f"Please assess the sensitivity analysis results based on the following data: {sensitivity_text}. "
+                        f"Focus on the relationship between {variable} and {target_variable}, and any notable patterns or risks. "
+                        "Please limit the assessment to be less than 100 words."
+                    )
                     gpt_sensitivity_assessment = ask_gpt(assessment_input)
 
-                    # Save the assessment to session
                     sensitivity_data["gpt_sensitivity_assessment"] = (
                         gpt_sensitivity_assessment
                     )
@@ -1345,7 +1207,6 @@ def american_options():
 
         elif action == "risk_pl":
             try:
-                # RBPL analysis logic
                 form_data["price_change"] = float(request.form["price_change"])
                 form_data["vol_change"] = float(request.form["vol_change"])
 
@@ -1367,13 +1228,11 @@ def american_options():
                     model=rbpl_model,
                 )
 
-                # Save only the RPBL results to session, without any assessment
                 session["risk_pl_results"] = {"results": risk_pl_results}
+                logger.debug("American risk-based P&L results: %s", risk_pl_results)
 
-                print(risk_pl_results)
-
-            except Exception as e:
-                print(f"An error occurred during Risk-Based P&L analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during Risk-Based P&L analysis")
                 risk_pl_results = None
 
         elif action == "ai_rpbl_assessment":
@@ -1381,7 +1240,6 @@ def american_options():
             rpbl_results = risk_pl_data.get("results", {})
 
             if rpbl_results:
-                # Format the RPBL results for the assessment
                 rpbl_text = f"""
                     Risk-Based P&L Analysis Results:
                     Price Change Impact: {rpbl_results.get("price_change_impact", "N/A")}
@@ -1393,10 +1251,12 @@ def american_options():
                     Theta Contribution: {rpbl_results.get("theta_contribution", "N/A")}
                     Rho Contribution: {rpbl_results.get("rho_contribution", "N/A")}
                     """
-                assessment_input = f"Please assess the Risk-Based P&L analysis results based on the following data: {rpbl_text}. Focus on the key drivers of P&L and potential risks. Please limit the assessment to be less than 100 words."
+                assessment_input = (
+                    f"Please assess the Risk-Based P&L analysis results based on the following data: {rpbl_text}. "
+                    "Focus on the key drivers of P&L and potential risks. Please limit the assessment to be less than 100 words."
+                )
                 gpt_rpbl_assessment = ask_gpt(assessment_input)
 
-                # Save the GPT assessment to the session
                 risk_pl_data["gpt_rpbl_assessment"] = gpt_rpbl_assessment
                 session["risk_pl_results"] = risk_pl_data
             else:
@@ -1434,59 +1294,23 @@ def american_options():
                 form_data["option_type"] = str(request.form["option_type"])
                 form_data["obs"] = safe_int(request.form.get("obs"), 10)
                 mode = form_data["mode"]
-                model = form_data["model"]
+                model_name = form_data["model"]
                 obs = form_data["obs"]
                 option_type = form_data["option_type"]
 
-                # Defensive int conversion for MC-only fields
-                def safe_int(val, default):
+                def safe_int_local(val, default):
                     try:
                         return int(val)
                     except (ValueError, TypeError):
                         return default
 
-                # if model == "Monte Carlo" and mode == "simulations":
-                #     # --- Monte Carlo convergence analysis over number of paths ---
-                #     num_paths = safe_int(request.form.get('num_paths'), 10000)
-                #     mc_steps = safe_int(request.form.get('mc_steps'), 252)
-
-                #     ticker = form_data['ticker']
-                #     start_date = form_data['start_date']
-                #     end_date = form_data['end_date']
-                #     S0 = float(StockData(ticker, start_date, end_date).get_closing_price())
-                #     T = StockData(ticker, start_date, end_date).get_years_difference()
-                #     r = form_data['r']
-                #     sigma = form_data['sigma']
-                #     strike_price = form_data['strike_price']
-                #     # Sweep num_paths values
-                #     mc_results = []
-                #     paths_range = np.linspace(800, num_paths, obs).round().astype(int)
-                #     for n_paths in paths_range:
-                #         mc_engine = monte_carlo_module.create_monte_carlo_engine(
-                #             S0=S0, r=r, sigma=sigma, T=T, num_paths=int(n_paths), num_steps=mc_steps, random_type="sobol"
-                #         )
-                #         if option_type == "call":
-                #             price = mc_engine.price_american_option(strike_price, "call")
-                #         else:
-                #             price = mc_engine.price_american_option(strike_price, "put")
-                #         mc_results.append((int(n_paths), float(price)))
-                #     plot_convergence(mc_results, mode="simulations")
-                #     plt.savefig('derivapro/static/monte_carlo_convergence_plot.png')  # <-- CHANGE HERE
-                #     session['convergence_results'] = {
-                #         'results': mc_results,
-                #         'mode': "simulations",
-                #         'plot_filename': 'monte_carlo_convergence_plot.png'  # <-- CHANGE HERE
-                #     }
-                #     convergence_results = True
-                #     plt.close()
-
-                if model == "Monte Carlo" and mode == "simulations":
+                if model_name == "Monte Carlo" and mode == "simulations":
                     try:
-                        print(
-                            "[DEBUG] Starting MC convergence analysis block (simulations mode)."
+                        logger.debug(
+                            "Starting Monte Carlo convergence analysis block (simulations mode)"
                         )
-                        num_paths = safe_int(request.form.get("num_paths"), 10000)
-                        mc_steps = safe_int(request.form.get("mc_steps"), 252)
+                        num_paths = safe_int_local(request.form.get("num_paths"), 10000)
+                        mc_steps = safe_int_local(request.form.get("mc_steps"), 252)
                         ticker = form_data["ticker"]
                         start_date = form_data["start_date"]
                         end_date = form_data["end_date"]
@@ -1504,9 +1328,15 @@ def american_options():
                         paths_range = (
                             np.linspace(800, num_paths, obs).round().astype(int)
                         )
-                        print(f"[DEBUG] Monte Carlo paths_range: {paths_range}")
+                        logger.debug(
+                            "Monte Carlo convergence paths_range: %s", paths_range
+                        )
+
                         for n_paths in paths_range:
-                            print(f"[DEBUG] Running MC pricing with n_paths={n_paths}")
+                            logger.debug(
+                                "Running Monte Carlo convergence pricing with n_paths=%s",
+                                n_paths,
+                            )
                             mc_engine = monte_carlo_module.create_monte_carlo_engine(
                                 S0=S0,
                                 r=r,
@@ -1523,7 +1353,11 @@ def american_options():
                             )
                             lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
                             price = lsmc_engine.price_option(payoff_func, option_type)
-                            print(f"[DEBUG] MC price for {n_paths} paths: {price}")
+                            logger.debug(
+                                "Monte Carlo convergence price for %s paths: %s",
+                                n_paths,
+                                price,
+                            )
                             mc_results.append((int(n_paths), float(price)))
 
                         plot_convergence(mc_results, mode="simulations")
@@ -1534,8 +1368,11 @@ def american_options():
                         plt.savefig(plot_path)
                         plt.close()
                         file_exists = os.path.exists(plot_path)
-                        print(
-                            f"[DEBUG] Plot file ({plot_path}) exists after save? {file_exists}"
+
+                        logger.debug(
+                            "Monte Carlo convergence plot %s exists after save? %s",
+                            plot_path,
+                            file_exists,
                         )
 
                         session["convergence_results"] = {
@@ -1544,24 +1381,19 @@ def american_options():
                             "plot_filename": plot_filename,
                         }
 
-                        print(
-                            f"[DEBUG] Saved session['convergence_results']: {session['convergence_results']}"
+                        logger.debug(
+                            "Saved session convergence results: %s",
+                            session["convergence_results"],
                         )
                         convergence_results = True
 
-                    except Exception as ex:
-                        import traceback
-
-                        print(f"[ERROR] Exception in MC convergence block: {ex}")
-                        print(traceback.format_exc())
+                    except Exception:
+                        logger.exception("Exception in Monte Carlo convergence block")
                         convergence_results = None
 
-                # ... inside the 'convergence' block, after defining mode/model/params, before the final else ...
-
-                elif model == "Binomial Tree" and mode == "steps":
-                    # New Binomial Tree convergence analysis by steps
-                    max_steps = safe_int(request.form.get("max_steps"), 100)
-                    obs = safe_int(request.form.get("obs"), 10)
+                elif model_name == "Binomial Tree" and mode == "steps":
+                    max_steps = safe_int_local(request.form.get("max_steps"), 100)
+                    obs = safe_int_local(request.form.get("obs"), 10)
                     ticker = form_data["ticker"]
                     strike_price = form_data["strike_price"]
                     start_date = form_data["start_date"]
@@ -1569,7 +1401,7 @@ def american_options():
                     r = form_data["r"]
                     sigma = form_data["sigma"]
                     option_type = form_data["option_type"]
-                    # Parse dividends field if present (reuse logic from above)
+
                     raw_dividends = request.form.get("dividends", "").strip()
                     parsed_dividends = []
                     if raw_dividends:
@@ -1617,8 +1449,7 @@ def american_options():
                     plt.close()
 
                 else:
-                    # --- Lattice convergence analysis ---
-                    form_data["max_steps"] = safe_int(
+                    form_data["max_steps"] = safe_int_local(
                         request.form.get("max_steps"), 100
                     )
                     max_steps = form_data["max_steps"]
@@ -1626,18 +1457,20 @@ def american_options():
                     convergence_params = form_data.copy()
                     if "pricing_model" in convergence_params:
                         del convergence_params["pricing_model"]
+
                     american_step_results = lattice_convergence_test(
                         max_steps,
                         max_sims,
                         obs,
                         LatticeModel,
                         convergence_params,
-                        model,
+                        model_name,
                         option_type,
                     )
-                    print("[DEBUG] american_step_results =")
-                    for tup in american_step_results:
-                        print(f"  Steps/Param: {tup[0]}, Option Price: {tup[1]}")
+                    logger.debug(
+                        "American step convergence results: %s",
+                        american_step_results,
+                    )
 
                     plot_convergence(american_step_results, mode)
                     plot_filename = f"lattice_convergence_plot_{uuid.uuid4().hex}.png"
@@ -1652,8 +1485,10 @@ def american_options():
                     convergence_results = True
                     plt.close()
 
-            except Exception as e:
-                print(f"An error occurred during convergence analysis: {e}")
+            except Exception:
+                logger.exception(
+                    "An error occurred during American convergence analysis"
+                )
                 convergence_results = None
 
         elif action == "ai_convergence_assessment":
@@ -1664,16 +1499,17 @@ def american_options():
                 mode = convergence_data.get("mode")
 
                 if results:
-                    # Format the convergence results for the assessment
                     convergence_text = f"""
                     Convergence Analysis Results:
                     Mode: {mode}
                     Results: {results}
                     """
-                    assessment_input = f"Please assess the convergence analysis results based on the following data: {convergence_text}. Focus on the convergence behavior and any potential issues or recommendations. Please limit the assessment to be less than 100 words."
+                    assessment_input = (
+                        f"Please assess the convergence analysis results based on the following data: {convergence_text}. "
+                        "Focus on the convergence behavior and any potential issues or recommendations. "
+                        "Please limit the assessment to be less than 100 words."
+                    )
                     gpt_convergence_assessment = ask_gpt(assessment_input)
-
-                    # Save the assessment to session
                     convergence_data["gpt_convergence_assessment"] = (
                         gpt_convergence_assessment
                     )
@@ -1690,7 +1526,6 @@ def american_options():
 
         elif action == "scenario":
             try:
-                # Scenario analysis logic...
                 spot_change = float(request.form.get("spot_scenario", 0))
                 vol_change = float(request.form.get("vol_scenario", 0))
                 rate_change = float(request.form.get("rate_scenario", 0))
@@ -1705,20 +1540,12 @@ def american_options():
                 risk_free_rate = float(form_data.get("r"))
                 volatility = float(form_data.get("sigma"))
                 option_type = form_data.get("option_type")
-                model = form_data.get("model")
+                model_name = form_data.get("model")
 
-                # Baseline calculation
-                if model == "Monte Carlo":
-                    # from ..models.mdls_vanilla_options import AmericanMonteCarloOption
-                    num_paths = form_data.get("num_paths", 10000)
-                    mc_steps = form_data.get("mc_steps", 252)
-                    # option = AmericanMonteCarloOption(ticker, strike_price, start_date, end_date, risk_free_rate, volatility, option_type, num_paths, mc_steps)
-                    # baseline_price = option.call_price() if option_type == 'call' else option.put_price()
-                    # baseline_greeks = option.get_greeks()
+                if model_name == "Monte Carlo":
                     baseline_price = None
                     baseline_greeks = None
                 else:
-                    # Use existing lattice models
                     option = LatticeModel(
                         ticker,
                         strike_price,
@@ -1727,12 +1554,12 @@ def american_options():
                         risk_free_rate,
                         volatility,
                     )
-                    if model == "Cox Ross Rubinstein Tree":
+                    if model_name == "Cox Ross Rubinstein Tree":
                         baseline_price = option.Cox_Ross_Rubinstein_Tree(
                             option_type, num_steps
                         )
                         baseline_greeks = option.CRRGreeks(option_type, num_steps)
-                    elif model == "Jarrow Rudd Tree":
+                    elif model_name == "Jarrow Rudd Tree":
                         baseline_price = option.Jarrow_Rudd_Tree(option_type, num_steps)
                         baseline_greeks = option.JRTGreeks(option_type, num_steps)
                     else:
@@ -1742,22 +1569,17 @@ def american_options():
                         baseline_greeks = option.TAPGreeks(option_type, num_steps)
 
                 baseline_price = "{:.4f}".format(baseline_price)
-
                 baseline_delta = "{:.4f}".format(baseline_greeks["Delta"])
                 baseline_gamma = "{:.4f}".format(baseline_greeks["Gamma"])
                 baseline_vega = "{:.4f}".format(baseline_greeks["Vega"])
                 baseline_theta = "{:.4f}".format(baseline_greeks["Theta"])
                 baseline_rho = "{:.4f}".format(baseline_greeks["Rho"])
 
-                # Stressed scenario calculation
                 stressed_spot = strike_price * (1 + spot_change)
                 stressed_vol = volatility + vol_change
                 stressed_rate = risk_free_rate + rate_change
 
-                if model == "Monte Carlo":
-                    # stressed_option = AmericanMonteCarloOption(ticker, stressed_spot, start_date, end_date, stressed_rate, stressed_vol, option_type, num_paths, mc_steps)
-                    # stressed_price = stressed_option.call_price() if option_type == 'call' else stressed_option.put_price()
-                    # stressed_greeks = stressed_option.get_greeks()
+                if model_name == "Monte Carlo":
                     stressed_price = None
                     stressed_greeks = None
                 else:
@@ -1769,14 +1591,14 @@ def american_options():
                         stressed_rate,
                         stressed_vol,
                     )
-                    if model == "Cox Ross Rubinstein Tree":
+                    if model_name == "Cox Ross Rubinstein Tree":
                         stressed_price = stressed_option.Cox_Ross_Rubinstein_Tree(
                             option_type, num_steps, greeks=False
                         )
                         stressed_greeks = stressed_option.CRRGreeks(
                             option_type, num_steps
                         )
-                    elif model == "Jarrow Rudd Tree":
+                    elif model_name == "Jarrow Rudd Tree":
                         stressed_price = stressed_option.Jarrow_Rudd_Tree(
                             option_type, num_steps, greeks=True
                         )
@@ -1792,35 +1614,11 @@ def american_options():
                         )
 
                 stressed_price = "{:.4f}".format(stressed_price)
-
                 stressed_delta = "{:.4f}".format(stressed_greeks["Delta"])
                 stressed_gamma = "{:.4f}".format(stressed_greeks["Gamma"])
                 stressed_vega = "{:.4f}".format(stressed_greeks["Vega"])
                 stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
                 stressed_rho = "{:.4f}".format(stressed_greeks["Rho"])
-
-                """
-                scenario_table = [
-                    {
-                        "scenario": "Baseline",
-                        "option_price": baseline_price,
-                        "delta": baseline_delta,
-                        "gamma": baseline_gamma,
-                        "vega": baseline_vega,
-                        "theta": baseline_theta,
-                        "rho": baseline_rho,
-                    },
-                    {
-                        "scenario": "Stressed Scenario",
-                        "option_price": stressed_price,
-                        "delta": stressed_delta,
-                        "gamma": stressed_gamma,
-                        "vega": stressed_vega,
-                        "theta": stressed_theta,
-                        "rho": stressed_rho,
-                    },
-                ]
-                """
 
                 baseline_scenario_table = {
                     "scenario": "Baseline",
@@ -1842,20 +1640,19 @@ def american_options():
                     "stressed_rho": stressed_rho,
                 }
 
-                print(baseline_scenario_table)
-                print(stressed_scenario_table)
+                logger.debug("Scenario baseline table: %s", baseline_scenario_table)
+                logger.debug("Scenario stressed table: %s", stressed_scenario_table)
 
-                # Save both the scenario table and the assessment to session
                 session["scenario_results"] = {
                     "baseline_scenario_table": baseline_scenario_table,
                     "stressed_scenario_table": stressed_scenario_table,
-                    "gpt_scenario_assessment": "No assessment yet.",  # Placeholder for GPT assessment
+                    "gpt_scenario_assessment": "No assessment yet.",
                 }
 
                 scenario_results = True
 
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during scenario analysis")
                 scenario_results = None
 
         elif action == "ai_scenario_assessment":
@@ -1864,7 +1661,6 @@ def american_options():
             stressed_table = scenario_results.get("stressed_scenario_table", {})
 
             if baseline_table and stressed_table:
-                # Format the scenario results for the assessment
                 table_text = f"""
                 Baseline Scenario:
                 Option Price={baseline_table["baseline_price"]}, Delta={baseline_table["baseline_delta"]}, 
@@ -1876,14 +1672,13 @@ def american_options():
                 Gamma={stressed_table["stressed_gamma"]}, Vega={stressed_table["stressed_vega"]}, 
                 Theta={stressed_table["stressed_theta"]}, Rho={stressed_table["stressed_rho"]}
                 """
-                assessment_input = f"Please assess the scenario analysis of the option price and Greeks based on the following results: {table_text}. Please limit the assessment to be less than 100 words."
-                gpt_scenario_assessment = ask_gpt(assessment_input)
-
-                # Save the GPT assessment to the session
-                scenario_results["gpt_scenario_assessment"] = gpt_scenario_assessment
-                session["scenario_results"] = (
-                    scenario_results  # Update session with the assessment
+                assessment_input = (
+                    f"Please assess the scenario analysis of the option price and Greeks based on the following results: {table_text}. "
+                    "Please limit the assessment to be less than 100 words."
                 )
+                gpt_scenario_assessment = ask_gpt(assessment_input)
+                scenario_results["gpt_scenario_assessment"] = gpt_scenario_assessment
+                session["scenario_results"] = scenario_results
             else:
                 scenario_results["gpt_scenario_assessment"] = (
                     "No scenario analysis results available for assessment."
@@ -1893,9 +1688,11 @@ def american_options():
     form_data.setdefault("num_paths", 10000)
     form_data.setdefault("mc_steps", 252)
 
-    print(
-        f"[DEBUG] pricing_model used for main pricing: {form_data.get('pricing_model')}"
+    logger.debug(
+        "Pricing model used for main pricing: %s",
+        form_data.get("pricing_model"),
     )
+
     return render_template(
         "american_options.html",
         option_price=option_price,
@@ -1920,11 +1717,9 @@ def american_options():
 
 @vanilla_options_bp.route("/reporting", methods=["GET"])
 def reporting():
-    # Retrieve the stored results from session
     sensitivity_results = session.get("sensitivity_results", {})
     scenario_results = session.get("scenario_results", {})
 
-    # Check if sensitivity_results exist before processing
     sensitivity_combined = []
     sensitivity_plot = None
     sensitivity_assessment = "No assessment available."
@@ -1939,25 +1734,25 @@ def reporting():
         sensitivity_plot = sensitivity_results.get("plot_path", None)
         sensitivity_assessment = sensitivity_results.get(
             "gpt_sensitivity_assessment", "No assessment available."
-        )  # Fetch the assessment from sensitivity_results
+        )
 
         if sensitivity_plot:
-            print("Sensitivity plot is present.")
+            logger.debug("Sensitivity plot is present")
         else:
-            print("No sensitivity plot found.")
+            logger.debug("No sensitivity plot found")
 
-    # Get the scenario table and assessment
     scenario_table = scenario_results.get("table", [])
     scenario_assessment = scenario_results.get(
         "gpt_scenario_assessment", "No assessment available."
     )
 
-    # Prepare the sensitivity description
     target_variable = sensitivity_results.get("target_variable", "target variable")
     variable = sensitivity_results.get("variable", "input variable")
-    sensitivity_description = f"Sensitivity analysis was conducted on {target_variable} with respect to changes in the {variable}."
+    sensitivity_description = (
+        f"Sensitivity analysis was conducted on {target_variable} "
+        f"with respect to changes in the {variable}."
+    )
 
-    # Prepare other report fields
     report_data = {
         "model_name": "Vanilla Option Model",
         "validation_type": "Baseline Validation",
@@ -1969,42 +1764,34 @@ def reporting():
         "validation_scope": "The validation scope includes conceptual soundness, model performance...",
         "data_quality": "The data quality was assessed based on completeness, accuracy, and reliability...",
         "conceptual_soundness": "The model is conceptually sound with a well-structured pricing mechanism...",
-        "sensitivity_description": sensitivity_description,  # Updated to include dynamic description
+        "sensitivity_description": sensitivity_description,
         "scenario_description": "Scenario analysis was conducted with stress on spot price, volatility, and interest rates...",
         "benchmarking_description": "Benchmarking analysis compares the model outputs with standard benchmarks...",
         "rpbl_analysis": "RPBL analysis includes...",
         "model_governance": "Governance details for the model...",
         "appendix_content": "Appendix content...",
-        "sensitivity_combined": sensitivity_combined,  # Pass the combined sensitivity data as tuples
-        "sensitivity_plot": sensitivity_plot,  # Pass the plot
-        "scenario_results": scenario_table,  # Pass the scenario table
+        "sensitivity_combined": sensitivity_combined,
+        "sensitivity_plot": sensitivity_plot,
+        "scenario_results": scenario_table,
     }
 
-    # AI Assessments
     report_data["sensitivity_assessment"] = sensitivity_assessment
-    report_data["scenario_assessment"] = (
-        scenario_assessment  # Use the assessment from scenario_results
-    )
+    report_data["scenario_assessment"] = scenario_assessment
 
-    # Render the report using the report template
     rendered_report = render_template("report_template.html", **report_data)
-
     return rendered_report
 
 
 @vanilla_options_bp.route("/download-report", methods=["GET"])
 def download_report():
-    # Generate the report as PDF
     base_dir = os.path.dirname(os.path.abspath(__file__))
     pdf_output_path = os.path.join(
         base_dir, "..", "static", "model_validation_report.pdf"
     )
 
-    # Create the PDF using ReportLab
     c = canvas.Canvas(pdf_output_path, pagesize=letter)
     width, height = letter
 
-    # Add title, meta information, and dynamic data like results and assessments
     c.setFont("Helvetica-Bold", 24)
     c.drawCentredString(width / 2.0, height - 100, "Model Validation Report")
 
@@ -2013,14 +1800,9 @@ def download_report():
     c.drawCentredString(width / 2.0, height - 150, "Baseline Validation")
     c.drawCentredString(width / 2.0, height - 170, "Date: 2024-09-01")
 
-    # Add sections and results to the PDF (e.g., Sensitivity Analysis, Scenario Analysis)
-    # Add dynamic content like results from sensitivity and scenario assessments
-    # ... you can continue populating the PDF here.
-
     c.showPage()
     c.save()
 
-    # Serve the PDF for download
     return send_file(
         pdf_output_path, as_attachment=True, download_name="Model_Validation_Report.pdf"
     )
@@ -2029,16 +1811,15 @@ def download_report():
 @vanilla_options_bp.route("/conceptual-soundness", methods=["GET"])
 def conceptual_soundness():
     try:
-        # Use absolute path or relative path from project root
         file_path = os.path.join(os.path.dirname(__file__), "black_scholes.md")
         with open(file_path, "r") as file:
             content = file.read()
-            print(f"Content read: {content[:100]}")  # Debug print
+            logger.debug("Conceptual soundness content read successfully")
     except FileNotFoundError:
         content = "File not found. Please check if black_scholes.txt exists in the routes folder."
-        print("File not found error")  # Debug print
+        logger.warning("Conceptual soundness file not found")
     except Exception as e:
         content = f"Error reading file: {str(e)}"
-        print(f"Error: {str(e)}")  # Debug print
+        logger.exception("Error reading conceptual soundness content")
 
     return render_template("conceptual_soundness.html", content=content)

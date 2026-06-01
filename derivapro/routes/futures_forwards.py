@@ -14,7 +14,9 @@ import markdown
 import matplotlib.pyplot as plt
 from datetime import datetime
 import uuid
+import logging
 
+logger = logging.getLogger(__name__)
 
 futures_forwards_bp = Blueprint("futures_forwards", __name__)
 
@@ -253,8 +255,8 @@ def forwards():
                 }
 
                 forward_scenario_results = True
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during forward scenario analysis")
                 forward_scenario_results = None
 
         elif action == "risk_pl":
@@ -279,9 +281,11 @@ def forwards():
                 )
                 forward_risk_pl = forward_model.risk_pl_analysis(price_change)
 
-                print(forward_risk_pl)
-            except Exception as e:
-                print(f"An error occurred during Risk-Based P&L analysis: {e}")
+                logger.debug("Forward risk-based P&L results: %s", forward_risk_pl)
+            except Exception:
+                logger.exception(
+                    "An error occurred during forward Risk-Based P&L analysis"
+                )
                 forward_risk_pl = None
 
     return render_template(
@@ -546,8 +550,8 @@ def futures():
                 }
 
                 future_scenario_results = True
-            except Exception as e:
-                print(f"An error occurred during scenario analysis: {e}")
+            except Exception:
+                logger.exception("An error occurred during futures scenario analysis")
                 future_scenario_results = None
         elif action == "risk_pl":
             try:
@@ -573,9 +577,11 @@ def futures():
                 )
                 future_risk_pl = future_model.risk_pl_analysis(price_change)
 
-                print(future_risk_pl)
-            except Exception as e:
-                print(f"An error occurred during Risk-Based P&L analysis: {e}")
+                logger.debug("Futures risk-based P&L results: %s", future_risk_pl)
+            except Exception:
+                logger.exception(
+                    "An error occurred during futures Risk-Based P&L analysis"
+                )
                 future_risk_pl = None
         else:
             pass
