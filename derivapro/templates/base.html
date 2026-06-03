@@ -1,12 +1,13 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <title>{% block title %}Page Title{% endblock %}</title>
     <!-- MathJax -->
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <!-- <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script> -->
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script>
         window.MathJax = {
@@ -24,6 +25,7 @@
         };
     </script>
 </head>
+
 <body>
     <div class="top-bar">
         <button id="toggleMenu">Hide Menu</button>
@@ -35,7 +37,7 @@
             <div class="logo-container">
                 <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="nav-logo">
             </div>
-        
+
             <ul>
                 <li><a href="{{ url_for('index.index') }}">Home</a></li>
                 <!-- Top-level Products menu -->
@@ -49,8 +51,10 @@
                                 <li>
                                     <a href="{{ url_for('vanilla_options.vanilla_options') }}">Vanilla Options</a>
                                     <ul>
-                                        <li><a href="{{ url_for('vanilla_options.european_options') }}">European</a></li>
-                                        <li><a href="{{ url_for('vanilla_options.american_options') }}">American</a></li>
+                                        <li><a href="{{ url_for('vanilla_options.european_options') }}">European</a>
+                                        </li>
+                                        <li><a href="{{ url_for('vanilla_options.american_options') }}">American</a>
+                                        </li>
                                     </ul>
                                 </li>
                                 <li>
@@ -58,12 +62,14 @@
                                     <ul>
                                         <li><a href="{{ url_for('exotic_options.barrier_options') }}">Barrier</a></li>
                                         <li><a href="{{ url_for('exotic_options.asian_options') }}">Asian</a></li>
-                                        <li><a href="{{ url_for('exotic_options.autocallable_options') }}">Autocallable</a></li>
+                                        <li><a
+                                                href="{{ url_for('exotic_options.autocallable_options') }}">Autocallable</a>
+                                        </li>
                                     </ul>
                                 </li>
                             </ul>
                         </li>
-        
+
                         <!-- 2. Bonds / Fixed Income -->
                         <li>
                             <a href="#">Bonds / Fixed Income</a>
@@ -72,14 +78,16 @@
                                     <a href="{{ url_for('nc_bonds.nc_bonds') }}">Non-Callable Bonds</a>
                                     <ul>
                                         <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}">Fixed Rate</a></li>
-                                        <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Fixed Rate Amortizing</a></li>
+                                        <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Fixed Rate
+                                                Amortizing</a></li>
                                         <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}">Floating Rate</a></li>
-                                        <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Floating Rate Amortizing</a></li>
+                                        <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Floating Rate
+                                                Amortizing</a></li>
                                     </ul>
                                 </li>
                             </ul>
                         </li>
-        
+
                         <!-- 3. Interest Rate Derivatives -->
                         <li>
                             <a href="#">Interest Rate Derivatives</a>
@@ -102,61 +110,68 @@
                                 </li>
                             </ul>
                         </li>
-        
+
                         <!-- 4. Credit Derivatives -->
                         <li>
                             <a href="#">Credit Derivatives</a>
                             <ul>
-                                <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">CDS (Credit Default Swap)</a></li>
+                                <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">CDS (Credit Default
+                                        Swap)</a></li>
                                 <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}">Synthetic CDO</a></li>
-                                <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}">CLN (Credit-Linked Note)</a></li>
+                                <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}">CLN (Credit-Linked
+                                        Note)</a></li>
                             </ul>
                         </li>
-        
+
                         <!-- 5. Volatility / Risk Products -->
                         <li>
                             <a href="#">Volatility / Risk Products</a>
                             <ul>
                                 <li>
-                                    <a href="{{ url_for('volatility_derivatives.volatility_derivatives') }}">Volatility Derivatives</a>
+                                    <a href="{{ url_for('volatility_derivatives.volatility_derivatives') }}">Volatility
+                                        Derivatives</a>
                                     <ul>
-                                        <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}">Variance Swaps</a></li>
+                                        <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}">Variance
+                                                Swaps</a></li>
                                     </ul>
                                 </li>
-                                <li><a href="{{ url_for('volatility_surface.volatility_surface') }}">Volatility Surface</a></li>
+                                <li><a href="{{ url_for('volatility_surface.volatility_surface') }}">Volatility
+                                        Surface</a></li>
                             </ul>
                         </li>
-        
+
                         <!-- 6. Market Curves / Term Structures -->
                         <li><a href="{{ url_for('term_structure.calculate_term_structure') }}">Term Structure</a></li>
 
                         <!-- 7. Prepament Models -->
-                         <li>
-                            <a href="#">Prepayment Products
-                            <ul>
-                                <a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a></li>
-                                <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}" class="nav-link">Prepayment Model Validator</a></li>
-                            </ul>
-                            </a>
-                         </li>
                         <li>
+                            <a href="#">Prepayment Products
+                                <ul>
+                                    <a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a>
+                        </li>
+                        <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}"
+                                class="nav-link">Prepayment Model Validator</a></li>
                     </ul>
+                    </a>
                 </li>
-        
-                <!-- Standalone / separate menu items -->
+                <li>
+            </ul>
+            </li>
 
-                <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market Data</a></li>
-                <li><a href="{{ url_for('reports_generated.reports_generated') }}" class="nav-link">Reports</a></li>
+            <!-- Standalone / separate menu items -->
+
+            <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market Data</a></li>
+            <li><a href="{{ url_for('reports_generated.reports_generated') }}" class="nav-link">Reports</a></li>
             </ul>
         </nav>
-        
-        
+
+
         <main>
             {% block content %}{% endblock %}
         </main>
     </div>
     <script>
-        document.getElementById('toggleMenu').addEventListener('click', function() {
+        document.getElementById('toggleMenu').addEventListener('click', function () {
             var navPanel = document.getElementById('navPanel');
             if (navPanel.classList.contains('hidden')) {
                 navPanel.classList.remove('hidden');
@@ -168,9 +183,9 @@
         });
 
         // Highlight the selected link
-        document.querySelectorAll('.nav-link').forEach(function(link) {
-            link.addEventListener('click', function() {
-                document.querySelectorAll('.nav-link').forEach(function(link) {
+        document.querySelectorAll('.nav-link').forEach(function (link) {
+            link.addEventListener('click', function () {
+                document.querySelectorAll('.nav-link').forEach(function (link) {
                     link.classList.remove('selected');
                 });
                 this.classList.add('selected');
@@ -178,9 +193,9 @@
         });
 
         // Persist the selected state on page load
-        window.addEventListener('load', function() {
+        window.addEventListener('load', function () {
             var currentUrl = window.location.href;
-            document.querySelectorAll('.nav-link').forEach(function(link) {
+            document.querySelectorAll('.nav-link').forEach(function (link) {
                 if (link.href === currentUrl) {
                     link.classList.add('selected');
                 }
@@ -188,4 +203,5 @@
         });
     </script>
 </body>
+
 </html>
