@@ -1,5 +1,8 @@
 import QuantLib as ql
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Swaps:
     def __init__(self, value_date, calendar, interpolation, compounding, currency, shocks,
@@ -222,7 +225,7 @@ class Swaps:
         maturityDate = self._convert_to_quantlib_date(maturityDate)
         
         valid_notional_dates = [d for d in notional_dates if d and isinstance(d, str) and len(d.split('-')) == 3]
-        print("Valid Notional Dates:", valid_notional_dates)
+        logger.debug("Valid notional dates: %s", valid_notional_dates)
         notional_dates = [self._convert_to_quantlib_date(d) for d in valid_notional_dates]
 
         # Align the notionals with the bond's schedule

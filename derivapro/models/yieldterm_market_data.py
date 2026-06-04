@@ -4,11 +4,16 @@ from fredapi import Fred
 from datetime import datetime
 import pandas as pd
 import math
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 # --- Base Provider Interface ---
 class MarketRateProvider:
     def get_market_rates(self, start_date=None):
         raise NotImplementedError("Subclasses must implement this method")
+
 
 def to_pd_timestamp(date_input):
     """Convert input to normalized pandas Timestamp (date only)."""
@@ -16,7 +21,11 @@ def to_pd_timestamp(date_input):
         return date_input.normalize()
     if isinstance(date_input, datetime):
         return pd.Timestamp(date_input).normalize()
-    if hasattr(date_input, "year") and hasattr(date_input, "month") and hasattr(date_input, "dayOfMonth"):
+    if (
+        hasattr(date_input, "year")
+        and hasattr(date_input, "month")
+        and hasattr(date_input, "dayOfMonth")
+    ):
         # QuantLib.Date
         dt = datetime(date_input.year(), date_input.month(), date_input.dayOfMonth())
         return pd.Timestamp(dt).normalize()
@@ -24,17 +33,18 @@ def to_pd_timestamp(date_input):
         return pd.Timestamp(date_input).normalize()
     raise TypeError(f"Unsupported date type: {type(date_input)}")
 
+
 class FREDSwapRatesProvider(MarketRateProvider):
     def __init__(self, api_key):
         self.fred = Fred(api_key=api_key)
         self.swap_ids = {
-            '1Y': 'DSWP1',
-            '2Y': 'WSWP2',
-            '3Y': 'DSWP3',
-            '4Y': 'DSWP4',
-            '5Y': 'DSWP5',
-            '7Y': 'WSWP7',
-            '30Y': 'DSWP30'
+            "1Y": "DSWP1",
+            "2Y": "WSWP2",
+            "3Y": "DSWP3",
+            "4Y": "DSWP4",
+            "5Y": "DSWP5",
+            "7Y": "WSWP7",
+            "30Y": "DSWP30",
         }
 
     def get_market_rates(self, start_date=None):
@@ -45,29 +55,37 @@ class FREDSwapRatesProvider(MarketRateProvider):
                 py_start_date = to_pd_timestamp(start_date)
                 data = data[data.index >= py_start_date]
             if data.empty:
-                # print(f"No swap data available for {label} after {start_date}")
                 latest_value = None
             else:
                 latest_value = data.dropna().iloc[-1]
-            latest_rates[label] = (latest_value / 100) if latest_value is not None else None
-        
+            latest_rates[label] = (
+                (latest_value / 100) if latest_value is not None else None
+            )
+
         # Dynamically create list, skip None values
         def tenor_key(label):
-            return int(''.join(filter(str.isdigit, label)))
-        
+            return int("".join(filter(str.isdigit, label)))
+
         return [
             (ql.Period(tenor_key(label), ql.Years), latest_rates[label])
             for label in sorted(latest_rates.keys(), key=tenor_key)
             if latest_rates[label] is not None
         ]
 
+
 class TreasuryRateProvider(MarketRateProvider):
     def __init__(self, api_key):
         self.fred = Fred(api_key=api_key)
         self.series_ids = {
-            '1M': 'GS1M', '3M': 'GS3M', '6M': 'GS6M',
-            '1Y': 'GS1', '2Y': 'GS2', '5Y': 'GS5', '7Y': 'GS7',
-            '10Y': 'GS10', '30Y': 'GS30'
+            "1M": "GS1M",
+            "3M": "GS3M",
+            "6M": "GS6M",
+            "1Y": "GS1",
+            "2Y": "GS2",
+            "5Y": "GS5",
+            "7Y": "GS7",
+            "10Y": "GS10",
+            "30Y": "GS30",
         }
 
     def get_market_rates(self, start_date=None):
@@ -80,20 +98,32 @@ class TreasuryRateProvider(MarketRateProvider):
             data = self.fred.get_series(series_id, observation_end=end_date)
             data = data.dropna()
             if data.empty:
-                raise ValueError(f"No treasury data available for {label} on or before {end_date}")
+                raise ValueError(
+                    f"No treasury data available for {label} on or before {end_date}"
+                )
             latest_value = data.iloc[-1]
             latest_rates[label] = latest_value / 100  # Convert from % to decimal
 
         def tenor_key(label):
-            return int(''.join(filter(str.isdigit, label)))
+            return int("".join(filter(str.isdigit, label)))
 
         return [
-            (ql.Period(tenor_key(label), ql.Months if 'M' in label else ql.Years), latest_rates[label])
+            (
+                ql.Period(tenor_key(label), ql.Months if "M" in label else ql.Years),
+                latest_rates[label],
+            )
             for label in sorted(latest_rates.keys(), key=tenor_key)
         ]
 
+
 class SOFRRateProvider(MarketRateProvider):
-    def sofr_operations(self, rateType: str = 'sofr', startDate: str = None, format: str = 'json', data_type: str = 'rate'):
+    def sofr_operations(
+        self,
+        rateType: str = "sofr",
+        startDate: str = None,
+        format: str = "json",
+        data_type: str = "rate",
+    ):
         if startDate is not None:
             if isinstance(startDate, ql.Date):
                 startDate = startDate.to_date().isoformat()  # 'YYYY-MM-DD'
@@ -101,7 +131,9 @@ class SOFRRateProvider(MarketRateProvider):
                 # assume already in correct format
                 pass
             else:
-                raise ValueError("startDate must be QuantLib Date or string in 'YYYY-MM-DD' format")
+                raise ValueError(
+                    "startDate must be QuantLib Date or string in 'YYYY-MM-DD' format"
+                )
         else:
             startDate = "2025-06-24"
 
@@ -115,7 +147,11 @@ class SOFRRateProvider(MarketRateProvider):
             data = response.json()
             return data
         else:
-            print(f"Request failed with status code: {response.status_code}")
+            logger.warning(
+                "SOFR data request failed with status code %s for url %s",
+                response.status_code,
+                url,
+            )
             return None
 
     def get_market_rates(self, startDate=None):
@@ -126,9 +162,12 @@ class SOFRRateProvider(MarketRateProvider):
                 tenor = ql.Period(1, ql.Days)  # SOFR usually daily rates
                 rate = entry["percentRate"] / 100.0
                 rates.append((tenor, rate))
-            return rates[-1:] #Pull only the last overnight rate that represents today's value
+            return rates[
+                -1:
+            ]  # Pull only the last overnight rate that represents today's value
         else:
             return []
+
 
 # class SOFRCompoundedRateCalculator:
 #     def __init__(self, rates, day_count=None, calendar=None):
@@ -179,8 +218,15 @@ class SOFRRateProvider(MarketRateProvider):
 #         else:
 #             raise ValueError(f"Unsupported compounding method: {method}")
 
+
 class SOFRCompoundedRateCalculator:
-    def __init__(self, rates, day_count=ql.Actual360(), compounding=ql.Compounded, compounding_frequency=ql.Daily):
+    def __init__(
+        self,
+        rates,
+        day_count=ql.Actual360(),
+        compounding=ql.Compounded,
+        compounding_frequency=ql.Daily,
+    ):
         """
         rates: list of tuples (ql.Date, rate as decimal)
         """
@@ -197,8 +243,10 @@ class SOFRCompoundedRateCalculator:
 
         total_factor = 1.0
         for d, r in filtered_rates:
-            dt = self.day_count.yearFraction(d, d+1)
-            ir = ql.InterestRate(r, self.day_count, self.compounding, self.compounding_frequency)
+            dt = self.day_count.yearFraction(d, d + 1)
+            ir = ql.InterestRate(
+                r, self.day_count, self.compounding, self.compounding_frequency
+            )
             total_factor *= ir.compoundFactor(dt)
 
         # Convert total factor back to rate
@@ -206,9 +254,6 @@ class SOFRCompoundedRateCalculator:
         return compounded_rate
 
 
-
-
-        
 # class ShockedSOFRRateProvider(MarketRateProvider):
 
 #     def sofr_operations(self, rateType: str = 'sofr', startDate: str = None, format: str = 'json', data_type: str = 'rate'):

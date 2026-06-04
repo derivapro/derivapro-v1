@@ -2,8 +2,11 @@ import math
 import datetime
 import warnings
 import numpy as np
+import logging
 from scipy.stats import norm
 from derivapro.models.market_data import StockData
+
+logger = logging.getLogger(__name__)
 
 
 class BinomialTreeEngineCRR:
@@ -56,37 +59,62 @@ class BinomialTreeEngineCRR:
         raise ValueError("Dates must be datetime.date or 'YYYY-MM-DD' strings")
 
     def diagnostics(self):
-        print("[CRR Diagnostics] Inputs")
-        print(
-            f"  S0={self.S0:.6f}, K={self.K:.6f}, T={self.T:.6f}, r={self.r:.6f}, sigma={self.sigma:.6f}"
+        logger.debug("[CRR Diagnostics] Inputs")
+        logger.debug(
+            "  S0=%.6f, K=%.6f, T=%.6f, r=%.6f, sigma=%.6f",
+            self.S0,
+            self.K,
+            self.T,
+            self.r,
+            self.sigma,
         )
-        print(f"  Requested N={self.N}, Internal N_steps={self.N_steps}")
-        print("[CRR Diagnostics] Derived params (first/last step shown)")
-        print(f"  dt_first={self.dt_list[0]:.8f}, dt_last={self.dt_list[-1]:.8f}")
-        print(
-            f"  u_first={self.u_list[0]:.8f}, d_first={self.d_list[0]:.8f}, pu_first={self.pu_list[0]:.8f}"
+
+        logger.debug("  Requested N=%s, Internal N_steps=%s", self.N, self.N_steps)
+        logger.debug("[CRR Diagnostics] Derived params (first/last step shown)")
+        logger.debug(
+            "  dt_first=%.8f, dt_last=%.8f",
+            self.dt_list[0],
+            self.dt_list[-1],
         )
-        print(f"  discount_first={self.discount_list[0]:.8f}")
+        logger.debug(
+            "  u_first=%.8f, d_first=%.8f, pu_first=%.8f",
+            self.u_list[0],
+            self.d_list[0],
+            self.pu_list[0],
+        )
+        logger.debug("  discount_first=%.8f", self.discount_list[0])
+
         F = self._setup_forward_tree()
         S = self._setup_spot_tree(F)
-        print("[CRR Diagnostics] Spot tree checks")
-        print(f"  S[0,0]={S[0, 0]:.6f} (should equal S0)")
-        print(
-            f"  S[N_steps,0]={S[self.N_steps, 0]:.6f}, S[N_steps,N_steps]={S[self.N_steps, self.N_steps]:.6f}"
+        logger.debug("[CRR Diagnostics] Spot tree checks")
+        logger.debug("  S[0,0]=%.6f (should equal S0)", S[0, 0])
+        logger.debug(
+            "  S[N_steps,0]=%.6f, S[N_steps,N_steps]=%.6f",
+            S[self.N_steps, 0],
+            S[self.N_steps, self.N_steps],
         )
+
         if self._internal_divs:
-            print("[CRR Diagnostics] Internal dividends at steps:")
+            logger.debug("[CRR Diagnostics] Internal dividends at steps:")
             for d in self._internal_divs:
                 if d.get("type") == "prop":
-                    print(
-                        f"   - step_index={d['step_index']}, type=prop, q={d['q']:.6f}, t_rel={d['t_rel']:.6f}"
+                    logger.debug(
+                        "   - step_index=%s, type=prop, q=%.6f, t_rel=%.6f",
+                        d["step_index"],
+                        d["q"],
+                        d["t_rel"],
                     )
                 else:
-                    print(
-                        f"   - step_index={d['step_index']}, type=cash, D={d.get('D')}, CF={d.get('CF')}, pv={d.get('pv', 0.0):.6f}, t_rel={d['t_rel']:.6f}"
+                    logger.debug(
+                        "   - step_index=%s, type=cash, D=%s, CF=%s, pv=%s, t_rel=%s",
+                        d["step_index"],
+                        d.get("D"),
+                        d.get("CF"),
+                        d.get("pv", 0.0),
+                        d["t_rel"],
                     )
         else:
-            print("[CRR Diagnostics] No dividends detected. This is pure CRR.")
+            logger.debug("[CRR Diagnostics] No dividends detected. This is pure CRR.")
 
     def _validate_parameters(self):
         if self.S0 <= 0:
@@ -392,8 +420,18 @@ class BinomialTreeEngineCRR:
     def price_american_option(self):
         F = self._setup_forward_tree()
         S = self._setup_spot_tree(F)
-        print("DEBUG: F0=", F[0, 0], "minF=", np.min(F), "maxF=", np.max(F))
-        print("DEBUG: S0=", S[0, 0], "minS=", np.min(S), "maxS=", np.max(S))
+        logger.debug(
+            "Forward tree stats: F0=%s, minF=%s, maxF=%s",
+            F[0, 0],
+            np.min(F),
+            np.max(F),
+        )
+        logger.debug(
+            "Spot tree stats: S0=%s, minS=%s, maxS=%s",
+            S[0, 0],
+            np.min(S),
+            np.max(S),
+        )
         C = self._build_premium_tree_american(F, S)
         return float(C[0, 0])
 

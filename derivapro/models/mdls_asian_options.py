@@ -7,7 +7,9 @@ import os
 import matplotlib.pyplot as plt
 from ..models.market_data import StockData
 import uuid
+import logging
 
+logger = logging.getLogger(__name__)
 
 # Construct a package-relative static folder path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -43,21 +45,27 @@ class AsianOption:
         self.seed = seed
 
     def price(self):
-        print("---[DEBUG: Original/AsianOption Inputs]---")
-        print(f"Spot (S): {self.S}")
-        print(f"Strike (K): {self.K}")
-        print(f"Volatility (sigma): {self.sigma}")
-        print(f"Risk-free rate (r): {self.r}")
-        print(f"Dividend yield (q): {self.q}")
-        print(f"Expiry: {self.T}")
-        print(f"Averaging Dates: {self.averaging_dates}")
-        print(f"Option Type: {self.option_type}")
-        print(f"Num paths: {self.num_paths}")
-        print("------------------------------------------")
+        logger.debug("---[DEBUG: Original/AsianOption Inputs]---")
+        logger.debug("Spot (S): %s", self.S)
+        logger.debug("Strike (K): %s", self.K)
+        logger.debug("Volatility (sigma): %s", self.sigma)
+        logger.debug("Risk-free rate (r): %s", self.r)
+        logger.debug("Dividend yield (q): %s", self.q)
+        logger.debug("Expiry: %s", self.T)
+        logger.debug("Averaging Dates: %s", self.averaging_dates)
+        logger.debug("Option Type: %s", self.option_type)
+        logger.debug("Num paths: %s", self.num_paths)
+        logger.debug("------------------------------------------")
 
-        print("[DEBUG] Averaging Dates to QuantLib QL.Date conversion:")
+        logger.debug("[DEBUG] Averaging Dates to QuantLib QL.Date conversion:")
         for date in self.averaging_dates:
-            print(f"  {date} (datetime) -> {date.day}-{date.month}-{date.year}")
+            logger.debug(
+                "  %s (datetime) -> %s-%s-%s",
+                date,
+                date.day,
+                date.month,
+                date.year,
+            )
 
         day_count = ql.Actual365Fixed()
         calendar = ql.UnitedStates(ql.UnitedStates.NYSE)
@@ -78,7 +86,7 @@ class AsianOption:
                 ql.BlackConstantVol(calculation_date, calendar, self.sigma, day_count)
             ),
         )
-        print(type(bs_process))
+        logger.debug("Black-Scholes process type: %s", type(bs_process))
         engine = ql.MCDiscreteArithmeticAPEngine(
             bs_process, "PseudoRandom", requiredSamples=self.num_paths, seed=self.seed
         )
@@ -94,10 +102,12 @@ class AsianOption:
         averaging_dates = [
             ql.Date(date.day, date.month, date.year) for date in self.averaging_dates
         ]
-        print("[DEBUG] QL.AveragingDates (as QL.Date and as year fraction from today):")
+        logger.debug(
+            "[DEBUG] QL.AveragingDates (as QL.Date and as year fraction from today):"
+        )
         for qd in averaging_dates:
             yf = ql.Actual365Fixed().yearFraction(ql.Date.todaysDate(), qd)
-            print(f"  QL.Date: {qd}, year fraction: {yf:.6f}")
+            logger.debug("  QL.Date: %s, year fraction: %.6f", qd, yf)
 
         expiry_date = ql.Date(self.T.day, self.T.month, self.T.year)
         payoff = ql.PlainVanillaPayoff(
@@ -110,7 +120,7 @@ class AsianOption:
 
         asian_option.setPricingEngine(engine)
         price = asian_option.NPV()
-        print(f"Asian option price: {price}")
+        logger.debug("Asian option price: %s", price)
 
         return price
 
@@ -301,8 +311,8 @@ class AsianOptionSmoothnessTest:
                 ]
             greek_values.append(greek_value)
 
-        print(f"Variable values: {variable_values}")
-        print(f"Greek values: {greek_values}")
+        logger.debug("Variable values: %s", variable_values)
+        logger.debug("Greek values: %s", greek_values)
 
         return variable_values, greek_values
 

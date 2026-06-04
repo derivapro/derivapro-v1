@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 from ..models.market_data import StockData
 import os
 import uuid
+import logging
 
+logger = logging.getLogger(__name__)
 
 # Construct a package-relative static folder path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -156,12 +158,18 @@ class AutoMonteCarlo:
         # Debug info (optional)
         if np.any(autocalled_any):
             avg_first_step = np.mean((first_idx[autocalled_any] + 1))
-            print(f"[DEBUG Fixed] Num autocalled: {np.sum(autocalled_any)} / {self.M}")
-            print(
-                f"[DEBUG Fixed] Avg first autocall step: {avg_first_step:.2f} of {self.N}"
+            logger.debug(
+                "[DEBUG Fixed] Num autocalled: %s / %s",
+                np.sum(autocalled_any),
+                self.M,
+            )
+            logger.debug(
+                "[DEBUG Fixed] Avg first autocall step: %.2f of %s",
+                avg_first_step,
+                self.N,
             )
         else:
-            print("[DEBUG Fixed] No paths autocalled.")
+            logger.debug("[DEBUG Fixed] No paths autocalled.")
 
         return option_price
 
@@ -384,8 +392,8 @@ class AutocallableSmoothnessTest:
             )[target_variable]
             greek_values.append(greek_value)
 
-        print(f"Variable values: {variable_values}")
-        print(f"Greek values: {greek_values}")
+        logger.debug("Variable values: %s", variable_values)
+        logger.debug("Greek values: %s", greek_values)
 
         return variable_values, greek_values
 

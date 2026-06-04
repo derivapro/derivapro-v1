@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from fredapi import Fred
 from datetime import datetime
+import logging
 from ..models.yieldterm_market_data import (
     MarketRateProvider,
     TreasuryRateProvider,
@@ -10,6 +11,8 @@ from ..models.yieldterm_market_data import (
     FREDSwapRatesProvider,
 )
 from scipy.optimize import least_squares
+
+logger = logging.getLogger(__name__)
 
 
 class YieldTermStructure:
@@ -49,13 +52,13 @@ class YieldTermStructure:
             try:
                 tenor = self._normalize_tenor(tenor)
             except Exception as e:
-                print(f"Skipping invalid tenor {tenor}: {e}")
+                logger.warning("Skipping invalid tenor %s: %s", tenor, e)
                 continue
 
             if source.lower() == "swap":
                 # Check for known invalid rate data (e.g., placeholder -999 or missing rate)
                 if rate is None or rate == -999 or np.isnan(rate):
-                    print(f"Skipping invalid swap rate for tenor {tenor}")
+                    logger.warning("Skipping invalid swap rate for tenor %s", tenor)
                     continue
             self.market_rates.append((tenor, rate, source))
 
@@ -67,7 +70,7 @@ class YieldTermStructure:
             if source.lower() == "swap" and (
                 rate is None or rate == -999 or np.isnan(rate)
             ):
-                print(f"Skipping invalid swap rate for tenor {tenor}")
+                logger.warning("Skipping invalid swap rate for tenor %s", tenor)
                 continue
             quote = ql.QuoteHandle(ql.SimpleQuote(rate))
             source_lc = source.lower()
