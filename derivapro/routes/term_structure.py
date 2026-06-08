@@ -23,7 +23,10 @@ import matplotlib.pyplot as plt
 from flask import session, current_app
 import markdown
 import numpy as np
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 term_structure_bp = Blueprint("term_structure", __name__)
 
@@ -70,9 +73,9 @@ def calculate_term_structure():
         # day, month, year = map(int, start_date_str.split('-'))
         # start_date = ql.Date(day, month, year)
 
-        print(yield_curve_tenors_str)
+        logger.debug("Yield curve tenor strings: %s", yield_curve_tenors_str)
         yield_tenors = [ql.Period(t) for t in yield_curve_tenors_str]
-        print(yield_tenors)
+        logger.debug("Parsed yield tenors: %s", yield_tenors)
 
         forward_tenor = ql.Period(forward_tenor_str)
 
@@ -90,7 +93,7 @@ def calculate_term_structure():
                 selected_treasury_rates.append((tenor, rate))
             else:
                 continue
-        print(selected_treasury_rates)
+        logger.debug("Selected treasury rates: %s", selected_treasury_rates)
 
         # Sofr Rates
         sofr_rates = sofr_provider.get_market_rates(startDate=start_date)
@@ -100,7 +103,7 @@ def calculate_term_structure():
                 selected_sofr_rates.append((tenor, rate))
             else:
                 continue
-        print(selected_sofr_rates)
+        logger.debug("Selected SOFR rates: %s", selected_sofr_rates)
 
         # Swap Rates
         swap_rates = swap_provider.get_market_rates(start_date=start_date)
@@ -110,7 +113,7 @@ def calculate_term_structure():
                 selected_swap_rates.append((tenor, rate))
             else:
                 continue
-        print(selected_swap_rates)
+        logger.debug("Selected swap rates: %s", selected_swap_rates)
 
         session_id = uuid.uuid4().hex
 
@@ -122,7 +125,7 @@ def calculate_term_structure():
                 parallelShockValue = request.form.get("parallelShockValue")
 
                 if parallelShockValue == "+50":
-                    print("+50 read")
+                    logger.debug("Parallel shock selected: +50 bps")
                     shocked_treasury_rates = [
                         (tenor, rate + 0.005) for tenor, rate in selected_treasury_rates
                     ]
@@ -135,7 +138,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "+100":
-                    print("+100 read")
+                    logger.debug("Parallel shock selected: +100 bps")
                     shocked_treasury_rates = [
                         (tenor, rate + 0.01) for tenor, rate in selected_treasury_rates
                     ]
@@ -148,7 +151,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "+150":
-                    print("+150 read")
+                    logger.debug("Parallel shock selected: +150 bps")
                     shocked_treasury_rates = [
                         (tenor, rate + 0.015) for tenor, rate in selected_treasury_rates
                     ]
@@ -161,7 +164,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "+200":
-                    print("+200 read")
+                    logger.debug("Parallel shock selected: +200 bps")
                     shocked_treasury_rates = [
                         (tenor, rate + 0.02) for tenor, rate in selected_treasury_rates
                     ]
@@ -174,7 +177,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "+250":
-                    print("+250 read")
+                    logger.debug("Parallel shock selected: +250 bps")
                     shocked_treasury_rates = [
                         (tenor, rate + 0.025) for tenor, rate in selected_treasury_rates
                     ]
@@ -187,7 +190,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "+300":
-                    print("+300 read")
+                    logger.debug("Parallel shock selected: +300 bps")
                     shocked_treasury_rates = [
                         (tenor, rate + 0.03) for tenor, rate in selected_treasury_rates
                     ]
@@ -200,7 +203,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "-50":
-                    print("-50 read")
+                    logger.debug("Parallel shock selected: -50 bps")
                     shocked_treasury_rates = [
                         (tenor, rate - 0.005) for tenor, rate in selected_treasury_rates
                     ]
@@ -213,7 +216,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "-100":
-                    print("-100 read")
+                    logger.debug("Parallel shock selected: -100 bps")
                     shocked_treasury_rates = [
                         (tenor, rate - 0.01) for tenor, rate in selected_treasury_rates
                     ]
@@ -226,7 +229,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "-150":
-                    print("-150 read")
+                    logger.debug("Parallel shock selected: -150 bps")
                     shocked_treasury_rates = [
                         (tenor, rate - 0.015) for tenor, rate in selected_treasury_rates
                     ]
@@ -239,7 +242,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "-200":
-                    print("-200 read")
+                    logger.debug("Parallel shock selected: -200 bps")
                     shocked_treasury_rates = [
                         (tenor, rate - 0.02) for tenor, rate in selected_treasury_rates
                     ]
@@ -252,7 +255,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "-250":
-                    print("-250 read")
+                    logger.debug("Parallel shock selected: -250 bps")
                     shocked_treasury_rates = [
                         (tenor, rate - 0.025) for tenor, rate in selected_treasury_rates
                     ]
@@ -265,7 +268,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif parallelShockValue == "-300":
-                    print("-300 read")
+                    logger.debug("Parallel shock selected: -300 bps")
                     shocked_treasury_rates = [
                         (tenor, rate - 0.03) for tenor, rate in selected_treasury_rates
                     ]
@@ -278,7 +281,7 @@ def calculate_term_structure():
                         else []
                     )
                 else:
-                    print("No shock read")
+                    logger.debug("No parallel shock selected")
                     shocked_treasury_rates = selected_treasury_rates
                     shocked_sofr_rates = selected_sofr_rates
                     shocked_swap_rates = selected_swap_rates
@@ -293,7 +296,7 @@ def calculate_term_structure():
 
                 ts_shocked.average_duplicate_rates(start_date)
 
-                print(ts_shocked.market_rates)
+                logger.debug("Shocked market rates: %s", ts_shocked.market_rates)
 
                 # 1. Create filename first
                 safe_parallelShockValue = (
@@ -322,7 +325,7 @@ def calculate_term_structure():
                 # Bootstrap the curve
                 curve1 = ts_shocked.bootstrap_curve(start_date, method_name)
 
-                print("success1")
+                logger.debug("Parallel shocked curve bootstrapped successfully")
 
                 # Conditionally calculate fit stats only if fit_selection is "yes"
                 if fit_selection.lower() == "yes":
@@ -332,10 +335,10 @@ def calculate_term_structure():
                     _, _, _, r2_zero_sv1, r2_df_sv1, r2_fwd_sv1 = (
                         ts_shocked.fit_svensson_curve(start_date, curve1)
                     )
-                    print("success2")
-                    print("Plot filename sent to template:", plot1_filename)
-                    print(
-                        "File exists:",
+                    logger.debug("Parallel fit statistics calculated successfully")
+                    logger.debug("Plot filename sent to template: %s", plot1_filename)
+                    logger.debug(
+                        "Parallel shocked plot exists: %s",
                         os.path.exists(
                             os.path.join(
                                 current_app.root_path, "static", "plots", plot1_filename
@@ -357,7 +360,9 @@ def calculate_term_structure():
                         r2_sv_fwd=r2_fwd_sv1,
                     )
                 else:
-                    print("success3")
+                    logger.debug(
+                        "Parallel shocked curve rendered without fit statistics"
+                    )
                     # When fit_selection is "no", don't pass R2 values
                     return render_template(
                         "term_structure.html",
@@ -367,7 +372,7 @@ def calculate_term_structure():
                     )
 
             except Exception as e:
-                print("break1", e)
+                logger.exception("Parallel term structure analysis failed: %s", e)
                 return render_template(
                     "term_structure.html",
                     form_data=form_data,
@@ -424,7 +429,7 @@ def calculate_term_structure():
                     return rate
 
                 if nonParallelShockValue == "Steepener":
-                    print("Steepener read")
+                    logger.debug("Non-parallel shock selected: Steepener")
                     shocked_treasury_rates = [
                         (tenor, apply_steepener_shock(tenor, rate))
                         for tenor, rate in selected_treasury_rates
@@ -442,7 +447,7 @@ def calculate_term_structure():
                         else []
                     )
                 elif nonParallelShockValue == "Flattener":
-                    print("Flattener read")
+                    logger.debug("Non-parallel shock selected: Flattener")
                     shocked_treasury_rates = [
                         (tenor, apply_flattener_shock(tenor, rate))
                         for tenor, rate in selected_treasury_rates
@@ -460,7 +465,7 @@ def calculate_term_structure():
                         else []
                     )
                 else:
-                    print("No shock read")
+                    logger.debug("No non-parallel shock selected")
                     shocked_treasury_rates = selected_treasury_rates
                     shocked_sofr_rates = selected_sofr_rates
                     shocked_swap_rates = selected_swap_rates
@@ -472,7 +477,6 @@ def calculate_term_structure():
                 )
                 ts_shocked.append_market_rates(shocked_sofr_rates, source="sofr")
                 ts_shocked.append_market_rates(shocked_swap_rates, source="swap")
-                # print(ts_shocked.market_rates)
 
                 ts_shocked.average_duplicate_rates(start_date)
                 # Create a replica of this in here (average duplicate rates worked for baseline)
@@ -505,7 +509,7 @@ def calculate_term_structure():
                 # Bootstrap the curve
                 curve2 = ts_shocked.bootstrap_curve(start_date, method_name)
 
-                print("success1")
+                logger.debug("Non-parallel shocked curve bootstrapped successfully")
 
                 # Conditionally calculate fit stats only if fit_selection is "yes"
                 if fit_selection.lower() == "yes":
@@ -515,10 +519,10 @@ def calculate_term_structure():
                     _, _, _, r2_zero_sv2, r2_df_sv2, r2_fwd_sv2 = (
                         ts_shocked.fit_svensson_curve(start_date, curve2)
                     )
-                    print("success2")
-                    print("Plot filename sent to template:", plot2_filename)
-                    print(
-                        "File exists:",
+                    logger.debug("Non-parallel fit statistics calculated successfully")
+                    logger.debug("Plot filename sent to template: %s", plot2_filename)
+                    logger.debug(
+                        "Non-parallel shocked plot exists: %s",
                         os.path.exists(
                             os.path.join(
                                 current_app.root_path, "static", "plots", plot2_filename
@@ -540,7 +544,9 @@ def calculate_term_structure():
                         r2_sv_fwd=r2_fwd_sv2,
                     )
                 else:
-                    print("success3")
+                    logger.debug(
+                        "Non-parallel shocked curve rendered without fit statistics"
+                    )
                     # When fit_selection is "no", don't pass R2 values
                     return render_template(
                         "term_structure.html",
@@ -549,7 +555,7 @@ def calculate_term_structure():
                         md_content=md_content,
                     )
             except Exception as e:
-                print("break2", e)
+                logger.exception("Non-parallel term structure analysis failed: %s", e)
                 return render_template(
                     "term_structure.html",
                     form_data=form_data,
@@ -561,27 +567,26 @@ def calculate_term_structure():
         else:
             try:
                 # Initialize YieldTermStructure and append rates
-                print("plot = true")
+                logger.debug("Generating baseline term structure plot")
                 ts = YieldTermStructure()
-                # print(yield_tenors)
 
-                print("Selected Treasury Rates")
+                logger.debug("Appending selected treasury rates")
                 ts.append_market_rates(selected_treasury_rates, source="treasury")
                 # ts.append_market_rates(treasury_rates, source="treasury")
                 # for tenor in treasury_rates:
-                # print(tenor)
 
-                print("Selected Sofr Rates")
+
+                logger.debug("Appending selected SOFR rates")
                 ts.append_market_rates(selected_sofr_rates, source="sofr")
                 # ts.append_market_rates(sofr_rates, source="sofr")
                 # for tenor in sofr_rates:
-                # print(tenor)
 
-                print("Selected Swap Rates")
+
+                logger.debug("Appending selected swap rates")
                 ts.append_market_rates(selected_swap_rates, source="swap")
                 # ts.append_market_rates(swap_rates, source="swap")
                 # for tenor in swap_rates:
-                # print(tenor)
+
 
                 ts.average_duplicate_rates(start_date)
 
@@ -605,7 +610,7 @@ def calculate_term_structure():
 
                 # Conditionally calculate fit stats only if fit_selection is "yes"
                 if fit_selection.lower() == "yes":
-                    print("fit selection = yes")
+                    logger.debug("Fit selection enabled for baseline term structure")
                     _, _, _, r2_zero_ns, r2_df_ns, r2_fwd_ns = (
                         ts.fit_nelson_siegel_curve(start_date, curve)
                     )
@@ -628,7 +633,7 @@ def calculate_term_structure():
                     )
                 else:
                     # When fit_selection is "no", don't pass R2 values
-                    print("fit selection = no")
+                    logger.debug("Fit selection disabled for baseline term structure")
                     return render_template(
                         "term_structure.html",
                         form_data=form_data,
@@ -637,7 +642,7 @@ def calculate_term_structure():
                     )
 
             except Exception as e:
-                print("break3", e)
+                logger.exception("Baseline term structure analysis failed: %s", e)
                 return render_template(
                     "term_structure.html",
                     form_data=form_data,

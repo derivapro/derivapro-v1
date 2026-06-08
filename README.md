@@ -120,7 +120,7 @@ Key model modules include:
 - `models/market_data.py`
 - `models/mdls_vanilla_options.py`
 - `models/mdls_monte_carlo.py`
-- `models/mdls_monte_carlo_NEW.py`
+- `models/mdls_monte_carlo_v2.py`
 - `models/mdls_binomial_tree.py`
 - `models/mdls_lattice_trees.py`
 - `models/mdls_asian_options.py`
@@ -162,7 +162,7 @@ Older binomial development artifacts have been moved out of the active runtime p
 ### Monte Carlo implementation
 Monte Carlo support is currently split across:
 - `derivapro/models/mdls_monte_carlo.py`
-- `derivapro/models/mdls_monte_carlo_NEW.py`
+- `derivapro/models/mdls_monte_carlo_v2.py`
 
 At present, the codebase still contains both:
 - older route-facing Monte Carlo helpers used by parts of the application

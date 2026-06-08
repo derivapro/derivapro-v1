@@ -3,7 +3,10 @@ import math
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+import logging
 from ..models.market_data import StockData
+
+logger = logging.getLogger(__name__)
 
 class Forwards:
     def __init__(self, ticker, risk_free_rate, dividend_yield, convenience_yield, entry_date, 
@@ -59,7 +62,7 @@ class Forwards:
             storage_cost = self.storage_cost / self.spot_price_entry
             price = round(self.spot_price_entry * math.exp((self.risk_free_rate
                                                             - self.convenience_yield + storage_cost - self.dividend_yield) * self.time_to_maturity), 4) 
-            print(storage_cost)
+            logger.debug("Normalized storage cost: %s", storage_cost)
         else:
             price = round(self.spot_price_entry * math.exp((self.risk_free_rate - self.dividend_yield) * self.time_to_maturity), 4)
         return price
@@ -624,7 +627,10 @@ class FuturesAnalysis:
                 margin_call_list.append(True)
                 margin_call_dates.append(current_date.strftime('%Y-%m-%d'))  # Store the date when margin call is triggered
                 margin_balance = self.maintenance_margin  # Top up to initial margin
-                print(f"Margin call triggered on {current_date.strftime('%Y-%m-%d')}")
+                logger.warning(
+                    "Margin call triggered on %s",
+                    current_date.strftime("%Y-%m-%d"),
+                )
             else:
                 margin_call_list.append(False)
                 margin_call_dates.append(current_date.strftime('%Y-%m-%d'))  # Store the date with no margin call

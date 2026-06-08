@@ -6,6 +6,10 @@ from typing import Union, List, Optional
 from datetime import datetime
 from datetime import timedelta
 from numpy import floor, ceil
+import logging
+
+logger = logging.getLogger(__name__)
+
 # =============================================================================
 # MONTE CARLO SIMULATION ENGINE - This module implements Monte Carlo simulation for generating uniform randoms, normal distributions, correlated variates, discretization, and variance reduction techniques.
 # =============================================================================
@@ -568,9 +572,17 @@ class MonteCarloSimulationEngine:
         option_price = np.maximum(np.exp(-self.r * self.T) * np.mean(payoffs), 0)
         
         # Log pricing results
-        print(f"European {option_type} option priced: ${option_price:.4f}")
-        print(f"Final stock price range: [{final_stock_prices.min():.2f}, {final_stock_prices.max():.2f}]")
-        print(f"Payoff range: [{payoffs.min():.4f}, {payoffs.max():.4f}]")
+        logger.debug("European %s option priced: $%.4f", option_type, option_price)
+        logger.debug(
+            "Final stock price range: [%.2f, %.2f]",
+            final_stock_prices.min(),
+            final_stock_prices.max(),
+        )
+        logger.debug(
+            "Payoff range: [%.4f, %.4f]",
+            payoffs.min(),
+            payoffs.max(),
+        )
         
         return option_price
 
@@ -742,7 +754,13 @@ class MonteCarloSimulationEngine:
             # Option is knocked in if stock price goes below barrier
             knocked_out = ~np.any(stock_paths < barrier_level, axis=1)
             
-        print(f'[New MC] OptionType={option_type}, BarrierType={barrier_type}, KnockedOutCount={np.sum(knocked_out)} / {self.num_paths}')
+        logger.debug(
+            "[New MC] OptionType=%s, BarrierType=%s, KnockedOutCount=%s / %s",
+            option_type,
+            barrier_type,
+            np.sum(knocked_out),
+            self.num_paths,
+        )
 
         # Calculate payoffs at maturity
         final_prices = stock_paths[:, -1]
@@ -759,11 +777,29 @@ class MonteCarloSimulationEngine:
         option_price = np.maximum(np.exp(-self.r * self.T) * np.mean(payoffs), 0)
         
         # Log pricing results
-        print(f"Barrier {barrier_type} {option_type} option priced: ${option_price:.4f}")
-        print(f"Barrier level: ${barrier_level:.2f}")
-        print(f"Final stock price range: [{final_prices.min():.2f}, {final_prices.max():.2f}]")
-        print(f"Payoff range: [{payoffs.min():.4f}, {payoffs.max():.4f}]")
-        print(f"Knocked out paths: {np.sum(knocked_out)}/{self.num_paths} ({100*np.sum(knocked_out)/self.num_paths:.1f}%)")
+        logger.debug(
+            "Barrier %s %s option priced: $%.4f",
+            barrier_type,
+            option_type,
+            option_price,
+        )
+        logger.debug("Barrier level: $%.2f", barrier_level)
+        logger.debug(
+            "Final stock price range: [%.2f, %.2f]",
+            final_prices.min(),
+            final_prices.max(),
+        )
+        logger.debug(
+            "Payoff range: [%.4f, %.4f]",
+            payoffs.min(),
+            payoffs.max(),
+        )
+        logger.debug(
+            "Knocked out paths: %s/%s (%.1f%%)",
+            np.sum(knocked_out),
+            self.num_paths,
+            100 * np.sum(knocked_out) / self.num_paths,
+        )
         
         return option_price
 
@@ -780,18 +816,6 @@ class MonteCarloSimulationEngine:
         Returns:
         - Option price (guaranteed non-negative)
         """
-
-        print("---[DEBUG: New MC Inputs]---")
-        print(f"Spot (S0): {self.S0}")
-        print(f"Strike: {strike_price}")
-        print(f"Volatility (sigma): {self.sigma}")
-        print(f"Risk-free rate (r): {self.r}")
-        print(f"Dividend yield (q): {dividend_yield}")
-        print(f"Expiry (T): {self.T}")
-        print(f"Averaging Dates: {averaging_dates}")
-        print(f"Option Type: {option_type}")
-        print(f"Num paths: {self.num_paths}")
-        print("------------------------------------------")
 
         self.validate_parameters()
         if strike_price <= 0:
@@ -810,11 +834,14 @@ class MonteCarloSimulationEngine:
         # 3. Build the time grid as year fractions from today
         time_grid = [(d - today).days / 365.0 for d in averaging_dates_sorted]
 
-        print(f"[New MC] Anchor 'today' = {today}")
-        print(f"[New MC] Averaging Dates and time grid:")
+        logger.debug("[New MC] Anchor 'today' = %s", today)
+        logger.debug("[New MC] Averaging Dates and time grid:")
         for d, tfrac in zip(averaging_dates_sorted, time_grid):
-            print(f"  Averaging Date: {d.date()}  |  Year fraction from today: {tfrac:.6f}")
-
+            logger.debug(
+                "  Averaging Date: %s | Year fraction from today: %.6f",
+                d.date(),
+                tfrac,
+            )
         num_steps = len(time_grid) - 1
 
         n_paths = self.num_paths
@@ -834,13 +861,13 @@ class MonteCarloSimulationEngine:
         else:
             payoffs = np.maximum(strike_price - average_prices, 0)
 
-        print("[New MC] MC mean of average prices (before payoff):", np.mean(average_prices))
-        print("[New MC] MC mean payoff before discounting:", np.mean(payoffs))
+        logger.debug("[New MC] MC mean of average prices (before payoff): %.4f", np.mean(average_prices))
+        logger.debug("[New MC] MC mean payoff before discounting: %.4f", np.mean(payoffs))
 
         # 4. Discount using final time_grid entry (which is exactly years from today to expiry)
         T_discount = time_grid[-1]
         option_price = np.exp(-self.r * T_discount) * np.mean(payoffs)
-        print(f"Asian {option_type} option priced: ${option_price:.4f}")
+        logger.debug("Asian %s option priced: $%.4f", option_type, option_price)
         return option_price
 
     def price_autocallable_option(
@@ -886,7 +913,13 @@ class MonteCarloSimulationEngine:
             if len(coupon_rates) != N:
                 raise ValueError("coupon_rates must have length N (number of steps)")
 
-        print(f"[DEBUG] S0={S0}, N={N}, barrier_levels (first 5)={barrier_levels[:5]}, coupon_rates (first 5)={coupon_rates[:5]}")
+        logger.debug(
+            "[DEBUG] S0=%s, N=%s, barrier_levels (first 5)=%s, coupon_rates (first 5)=%s",
+            S0,
+            N,
+            barrier_levels[:5],
+            coupon_rates[:5],
+        )
 
         # === Use model's own safe simulation engine ===
         uniform_randoms = self.generate_uniform_randoms()
@@ -915,8 +948,11 @@ class MonteCarloSimulationEngine:
             first_autocall[triggered] = t
 
         if np.any(autocalled):
-            print(f"[DEBUG] Average first autocall time (steps): {np.mean(first_autocall[autocalled])}")
-            print(f"[DEBUG] Num autocalled: {np.sum(autocalled)} / {M}")
+            logger.debug(
+                "[DEBUG] Average first autocall time (steps): %s",
+                np.mean(first_autocall[autocalled]),
+            )
+            logger.debug("[DEBUG] Num autocalled: %s / %s", np.sum(autocalled), M)
 
         # For non-autocalled paths, give redemption at maturity (principal protection or not)
         not_autocalled = ~autocalled
@@ -935,12 +971,21 @@ class MonteCarloSimulationEngine:
         )
         option_price = np.mean(payoffs * discount_factors)
 
-        print(f"AutoCallable {option_type} option priced: ${option_price:.4f}")
-        print(f"Strike price: ${strike_price:.2f}")
-        print(f"Barrier levels: {barrier_levels}")
-        print(f"Coupon rates: {coupon_rates}")
-        print(f"Payoff range: [{payoffs.min():.4f}, {payoffs.max():.4f}]")
-        print(f"Autocalled paths: {np.sum(autocalled)}/{M} ({100*np.sum(autocalled)/M:.1f}%)")
+        logger.debug("AutoCallable %s option priced: $%.4f", option_type, option_price)
+        logger.debug("Strike price: $%.2f", strike_price)
+        logger.debug("Barrier levels: %s", barrier_levels)
+        logger.debug("Coupon rates: %s", coupon_rates)
+        logger.debug(
+            "Payoff range: [%.4f, %.4f]",
+            payoffs.min(),
+            payoffs.max(),
+        )
+        logger.debug(
+            "Autocalled paths: %s/%s (%.1f%%)",
+            np.sum(autocalled),
+            M,
+            100 * np.sum(autocalled) / M,
+        )
         return option_price
 
     def _convert_dates_to_indices(self, averaging_dates):
@@ -1334,15 +1379,23 @@ class MonteCarloSimulationEngine:
         negative_mask = np.any(paths <= 0, axis=1)
         if np.any(negative_mask):
             num_negative = np.sum(negative_mask)
-            print(f"WARNING: {num_negative} paths have negative prices out of {self.num_paths} total paths")
-            print(f"Clamping negative prices to minimum threshold")
+            logger.warning(
+                "%s paths have non-positive prices out of %s total paths",
+                num_negative,
+                self.num_paths,
+            )
+            logger.warning("Clamping non-positive prices to minimum threshold")
             
             # Clamp to minimum threshold (0.1% of initial price)
             min_threshold = self.S0 * 0.001
             paths = np.maximum(paths, min_threshold)
             
-            print(f"Corrected {num_negative} paths to minimum threshold of {min_threshold}")
-        
+            logger.warning(
+                "Corrected %s paths to minimum threshold of %s",
+                num_negative,
+                min_threshold,
+            )
+            
         return paths
 
 class LSMCEngine:
@@ -1390,7 +1443,7 @@ class LSMCEngine:
             cashflows[idx_itm[exercise]] = exercise_value[exercise]
             cashflows = discount_factor * cashflows
         option_price = np.exp(-self.mc_engine.r * dt) * np.mean(cashflows)
-        print(f"[LSMC] Option priced via generic LSMC: ${option_price:.4f}")
+        logger.debug("[LSMC] Option priced via generic LSMC: $%.4f", option_price)
         return option_price
 
 # Factory Function 

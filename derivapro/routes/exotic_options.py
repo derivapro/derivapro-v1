@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request, session
 from ..models.mdls_monte_carlo import MonteCarlo
 from ..models.mdls_monte_carlo import convergence_test
 from ..models.mdls_monte_carlo import plot_convergence as mc_plot_convergence
+from ..models import mdls_monte_carlo_v2 as monte_carlo_New_module
 from ..models.mdls_asian_options import (
     AsianOption,
     AsianOptionSmoothnessTest,
@@ -18,7 +19,7 @@ from ..models.mdls_autocallables import (
     auto_convergence_test,
 )
 
-import importlib.util
+
 import sys
 import os
 import numpy as np
@@ -32,20 +33,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Import the New Monte Carlo module
-monte_carlo_newMC_path = os.path.join(
-    os.path.dirname(__file__), "..", "models", "mdls_monte_carlo_NEW.py"
-)
-spec = importlib.util.spec_from_file_location(
-    "monte_carlo_New_module", monte_carlo_newMC_path
-)
-if spec is not None:
-    monte_carlo_New_module = importlib.util.module_from_spec(spec)
-    if spec.loader is not None:
-        spec.loader.exec_module(monte_carlo_New_module)
-else:
-    raise ImportError(
-        f"Could not load NEw Monte Carlo module from {monte_carlo_newMC_path}"
-    )
+# monte_carlo_newMC_path = os.path.join(
+#     os.path.dirname(__file__), "..", "models", "mdls_monte_carlo_NEW.py"
+# )
+# spec = importlib.util.spec_from_file_location(
+#     "monte_carlo_New_module", monte_carlo_newMC_path
+# )
+# if spec is not None:
+#     monte_carlo_New_module = importlib.util.module_from_spec(spec)
+#     if spec.loader is not None:
+#         spec.loader.exec_module(monte_carlo_New_module)
+# else:
+#     raise ImportError(
+#         f"Could not load NEw Monte Carlo module from {monte_carlo_newMC_path}"
+#     )
 
 exotic_options_bp = Blueprint("exotic_options", __name__)
 

@@ -28,27 +28,27 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from ..models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
 from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
+from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 from openai import AzureOpenAI
 
 from dotenv import load_dotenv, find_dotenv
 import logging
 import numpy as np
-import importlib.util
 import uuid
 
 logger = logging.getLogger(__name__)
 
-# Import the Monte Carlo module with space in filename
-monte_carlo_path = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "models", "mdls_monte_carlo_NEW.py"
-)
-spec = importlib.util.spec_from_file_location("monte_carlo_module", monte_carlo_path)
-if spec is not None:
-    monte_carlo_module = importlib.util.module_from_spec(spec)
-    if spec.loader is not None:
-        spec.loader.exec_module(monte_carlo_module)
-else:
-    raise ImportError(f"Could not load Monte Carlo module from {monte_carlo_path}")
+# # Import the Monte Carlo module with space in filename
+# monte_carlo_path = os.path.join(
+#     os.path.dirname(os.path.dirname(__file__)), "models", "mdls_monte_carlo_NEW.py"
+# )
+# spec = importlib.util.spec_from_file_location("monte_carlo_module", monte_carlo_path)
+# if spec is not None:
+#     monte_carlo_module = importlib.util.module_from_spec(spec)
+#     if spec.loader is not None:
+#         spec.loader.exec_module(monte_carlo_module)
+# else:
+#     raise ImportError(f"Could not load Monte Carlo module from {monte_carlo_path}")
 
 vanilla_options_bp = Blueprint("vanilla_options", __name__)
 
