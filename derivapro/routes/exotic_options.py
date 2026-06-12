@@ -18,6 +18,10 @@ from ..models.mdls_autocallables import (
     AutocallableSmoothnessTest,
     auto_convergence_test,
 )
+from ..models.mdls_structured_products import (
+    AutocallableNoteTerms,
+    price_autocallable_note,
+)
 
 
 import sys
@@ -92,6 +96,20 @@ def ask_gpt(question):
         return f"An error occurred: {e}"
 
 
+def _parse_float_list(raw_value, default_values):
+    if raw_value in [None, ""]:
+        return list(default_values)
+    return [float(item.strip()) for item in raw_value.split(",") if item.strip()]
+
+
+def _format_currency(value):
+    return "${:,.4f}".format(float(value))
+
+
+def _format_percent(value):
+    return "{:.2f}%".format(float(value) * 100)
+
+
 @exotic_options_bp.route("/", methods=["GET", "POST"])
 def exotic_options():
     return render_template("exotic_options.html")
@@ -109,10 +127,93 @@ def autocallable_options():
     option_price = sensitivity_results = scenario_results = convergence_results = (
         risk_pl_results
     ) = None
+    structured_results = None
     form_data = {}
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
+
+        if action == "structured_pricing":
+            structured_form_data = dict(request.form)
+            try:
+                spot_prices = _parse_float_list(
+                    request.form.get("structured_spot_prices"),
+                    [100.0],
+                )
+                volatilities = _parse_float_list(
+                    request.form.get("structured_volatilities"),
+                    [0.20] * len(spot_prices),
+                )
+                if len(volatilities) == 1 and len(spot_prices) > 1:
+                    volatilities = volatilities * len(spot_prices)
+
+                observation_times = _parse_float_list(
+                    request.form.get("structured_observation_times"),
+                    [0.25, 0.50, 0.75, 1.00],
+                )
+
+                terms = AutocallableNoteTerms(
+                    spot_prices=spot_prices,
+                    volatilities=volatilities,
+                    risk_free_rate=float(request.form.get("structured_r", 0.045)),
+                    dividend_yield=float(request.form.get("structured_q", 0.0)),
+                    maturity=float(request.form.get("structured_maturity", 1.0)),
+                    observation_times=observation_times,
+                    notional=float(request.form.get("structured_notional", 1000000)),
+                    coupon_rate=float(request.form.get("structured_coupon_rate", 0.025)),
+                    coupon_barrier=float(request.form.get("structured_coupon_barrier", 0.70)),
+                    autocall_barrier=float(request.form.get("structured_autocall_barrier", 1.00)),
+                    protection_barrier=float(request.form.get("structured_protection_barrier", 0.60)),
+                    memory_coupon=request.form.get("structured_memory_coupon") == "on",
+                    correlation=float(request.form.get("structured_correlation", 0.30)),
+                    num_paths=int(request.form.get("structured_num_paths", 10000)),
+                    num_steps=int(request.form.get("structured_num_steps", 252)),
+                    random_type=request.form.get("structured_random_type", "sobol"),
+                )
+
+                raw_results = price_autocallable_note(terms)
+                structured_results = {
+                    "price": _format_currency(raw_results["price"]),
+                    "standard_error": _format_currency(raw_results["standard_error"]),
+                    "autocall_probability": _format_percent(raw_results["autocall_probability"]),
+                    "protection_breach_probability": _format_percent(
+                        raw_results["protection_breach_probability"]
+                    ),
+                    "average_coupon_count": "{:.2f}".format(
+                        raw_results["average_coupon_count"]
+                    ),
+                    "observation_count": raw_results["observation_count"],
+                    "underlying_count": raw_results["underlying_count"],
+                    "worst_final_level_mean": _format_percent(
+                        raw_results["worst_final_level_mean"]
+                    ),
+                    "worst_final_level_p05": _format_percent(
+                        raw_results["worst_final_level_p05"]
+                    ),
+                    "worst_final_level_p50": _format_percent(
+                        raw_results["worst_final_level_p50"]
+                    ),
+                    "worst_final_level_p95": _format_percent(
+                        raw_results["worst_final_level_p95"]
+                    ),
+                }
+            except Exception as exc:
+                logger.exception("Structured autocallable pricing failed")
+                structured_results = {"error": str(exc)}
+
+            return render_template(
+                "autocallables.html",
+                option_price=option_price,
+                form_data=form_data,
+                structured_form_data=structured_form_data,
+                structured_results=structured_results,
+                sensitivity_results=sensitivity_results,
+                convergence_results=convergence_results,
+                scenario_results=scenario_results,
+                risk_pl_results=risk_pl_results,
+                md_content=md_content,
+            )
+
         form_data = {
             "ticker": request.form["ticker"],
             "K": request.form["K"],
@@ -427,6 +528,8 @@ def autocallable_options():
         convergence_results=convergence_results,
         scenario_results=scenario_results,
         risk_pl_results=risk_pl_results,
+        structured_results=structured_results,
+        structured_form_data={},
         md_content=md_content,
     )
 
