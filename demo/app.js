@@ -199,6 +199,49 @@ function drawBarChart(svg, bars) {
   svg.innerHTML = `<line class="axis" x1="${pad}" y1="${zero}" x2="${width - pad}" y2="${zero}"></line>${nodes}`;
 }
 
+function updateBarrier() {
+  const style = $("barrier-type").value;
+  const spot = number("barrier-spot");
+  const strike = number("barrier-strike");
+  const barrier = number("barrier-level");
+  const maturity = number("barrier-maturity");
+  const rate = number("barrier-rate");
+  const surfaceVol = interpolateVol(maturity, strike / spot) * 100;
+  const vanilla = blackScholes("call", spot, strike, rate, surfaceVol, maturity).price;
+  const distance = style === "down-out" ? (spot - barrier) / spot : (barrier - spot) / spot;
+  const clampedDistance = clamp(distance, 0, 1);
+  const survival = clamp(0.35 + 2.6 * clampedDistance, 0, 0.98);
+  const knockedOut = distance <= 0;
+  const price = knockedOut ? 0 : vanilla * survival;
+  $("barrier-vol-readout").textContent = pct(surfaceVol, 2);
+  $("barrier-price").textContent = currency(price, 2);
+  $("barrier-vanilla").textContent = currency(vanilla, 2);
+  $("barrier-survival").textContent = pct(knockedOut ? 0 : survival * 100, 1);
+  $("barrier-distance").textContent = pct(distance * 100, 1);
+  const report = $("report-barrier-price");
+  if (report) report.textContent = currency(price, 2);
+}
+
+function updateAsian() {
+  const type = $("asian-type").value;
+  const spot = number("asian-spot");
+  const strike = number("asian-strike");
+  const rate = number("asian-rate");
+  const vol = number("asian-volatility");
+  const maturity = number("asian-maturity");
+  const observations = Math.max(1, number("asian-observations"));
+  const adjustedVol = vol / Math.sqrt(3) * Math.sqrt((observations + 1) / observations);
+  const asian = blackScholes(type, spot, strike, rate, adjustedVol, maturity).price;
+  const euro = blackScholes(type, spot, strike, rate, vol, maturity).price;
+  const discount = euro === 0 ? 0 : (1 - asian / euro) * 100;
+  $("asian-price").textContent = currency(asian, 2);
+  $("asian-adj-vol").textContent = pct(adjustedVol, 2);
+  $("asian-euro-ref").textContent = currency(euro, 2);
+  $("asian-discount").textContent = pct(discount, 1);
+  const report = $("report-asian-price");
+  if (report) report.textContent = currency(asian, 2);
+}
+
 function updateOptions() {
   const type = $("option-type").value;
   const spot = number("spot");
@@ -327,6 +370,49 @@ function updateSwaps() {
   $("swap-shock").textContent = currency(-dv01 * 100, 0);
 }
 
+function updateCDS() {
+  const notional = number("cds-notional");
+  const spread = number("cds-spread") / 10000;
+  const hazard = number("cds-hazard") / 100;
+  const recovery = number("cds-recovery") / 100;
+  const discount = number("cds-discount") / 100;
+  const maturity = number("cds-maturity");
+  const lgd = 1 - recovery;
+  const defaultProb = 1 - Math.exp(-hazard * maturity);
+  const discountFactor = Math.exp(-discount * maturity / 2);
+  const expectedLossPv = notional * lgd * defaultProb * discountFactor;
+  const premiumAnnuity = Array.from({ length: Math.max(1, Math.round(maturity * 4)) }, (_, i) => {
+    const t = (i + 1) / 4;
+    return 0.25 * Math.exp(-(discount + hazard) * t);
+  }).reduce((a, b) => a + b, 0);
+  const premiumPv = notional * spread * premiumAnnuity;
+  const fairSpread = premiumAnnuity === 0 ? 0 : expectedLossPv / (notional * premiumAnnuity) * 10000;
+  const value = expectedLossPv - premiumPv;
+  $("cds-value").textContent = currency(value, 0);
+  $("cds-el").textContent = currency(expectedLossPv, 0);
+  $("cds-premium").textContent = currency(premiumPv, 0);
+  $("cds-fair-spread").textContent = `${fairSpread.toFixed(0)} bps`;
+  const report = $("report-cds-value");
+  if (report) report.textContent = currency(value, 0);
+}
+
+function updateSurfacePage() {
+  const maturity = number("surface-maturity");
+  const moneynessGrid = marketData.vol_surface.moneyness;
+  const points = moneynessGrid.map((m) => ({ x: m * 100, y: interpolateVol(maturity, m) * 100 }));
+  drawLineChart($("surface-page-chart"), points, {
+    leftLabel: "80%",
+    rightLabel: "120%",
+    topLabel: "Volatility",
+    alt: true,
+  });
+  $("surface-page-label").textContent = `${maturity.toFixed(2)}Y maturity`;
+  $("surface-atm-vol").textContent = pct(interpolateVol(maturity, 1) * 100, 2);
+  $("surface-vol-80").textContent = pct(interpolateVol(maturity, 0.8) * 100, 2);
+  $("surface-vol-100").textContent = pct(interpolateVol(maturity, 1.0) * 100, 2);
+  $("surface-vol-120").textContent = pct(interpolateVol(maturity, 1.2) * 100, 2);
+}
+
 function updatePortfolio() {
   const equityShock = number("equity-shock");
   const volShock = number("vol-shock");
@@ -370,13 +456,28 @@ function updateMarketDataCharts() {
   $("curve-asof-label").textContent = `As of ${marketData.as_of}`;
 }
 
+function updateReport() {
+  const option = $("option-price");
+  const bond = $("bond-price");
+  const portfolio = $("portfolio-pnl");
+  if ($("report-option-price") && option) $("report-option-price").textContent = option.textContent;
+  if ($("report-bond-price") && bond) $("report-bond-price").textContent = bond.textContent;
+  if ($("report-portfolio-pnl") && portfolio) $("report-portfolio-pnl").textContent = portfolio.textContent;
+  if ($("report-asof")) $("report-asof").textContent = `Sample data as of ${marketData.as_of}`;
+}
+
 function updateAll() {
   updateOptions();
+  updateBarrier();
+  updateAsian();
   updateBonds();
   updateForwards();
   updateSwaps();
+  updateCDS();
   updatePortfolio();
+  updateSurfacePage();
   updateMarketDataCharts();
+  updateReport();
 }
 
 function setPage(name) {
@@ -399,6 +500,10 @@ function setupNavigation() {
     $("navPanel").classList.toggle("hidden");
     $("toggleMenu").textContent = $("navPanel").classList.contains("hidden") ? "Show Menu" : "Hide Menu";
   });
+
+  if ($("print-report")) {
+    $("print-report").addEventListener("click", () => window.print());
+  }
 
   const initial = window.location.hash ? window.location.hash.slice(1) : "overview";
   if ($(initial)) setPage(initial);
@@ -427,8 +532,12 @@ async function boot() {
   setupNavigation();
   setupInputs();
   $("spot").value = marketData.spot.toFixed(0);
+  $("barrier-spot").value = marketData.spot.toFixed(0);
+  $("asian-spot").value = marketData.spot.toFixed(0);
   $("forward-spot").value = marketData.spot.toFixed(0);
   $("rate").value = (marketData.risk_free_rate * 100).toFixed(2);
+  $("barrier-rate").value = (marketData.risk_free_rate * 100).toFixed(2);
+  $("asian-rate").value = (marketData.risk_free_rate * 100).toFixed(2);
   $("forward-rate").value = (marketData.risk_free_rate * 100).toFixed(2);
   $("income-yield").value = (marketData.dividend_yield * 100).toFixed(2);
   updateAll();

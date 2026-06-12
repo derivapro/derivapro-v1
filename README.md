@@ -42,7 +42,7 @@ You can also open the local file directly after cloning the repository:
 demo/index.html
 ```
 
-The Lite demo includes simplified interactive modules for European options, fixed-rate bonds, forwards, swaps, portfolio stress, and packaged sample market data. It is designed for a quick glance and basic user operation only. It does not run the Flask backend, QuantLib, live market data feeds, AI assessment, user persistence, or production report generation.
+The Lite demo includes simplified interactive modules for European options, barrier options, Asian options, fixed-rate bonds, forwards, swaps, CDS, volatility surface views, portfolio stress, a report snapshot, and packaged sample market data. It is designed for a quick glance and basic user operation only. It does not run the Flask backend, QuantLib, live market data feeds, AI assessment, user persistence, or production report generation.
 
 The full Flask application remains the source for production analytics, market data workflows, model-governance features, and future portfolio-level risk management.
 

@@ -235,7 +235,9 @@ main {
 .chart-card,
 .result-card,
 .scenario-table,
-.module-note {
+.module-note,
+.method-card,
+.report-panel {
   border: 1px solid var(--line);
   border-radius: 5px;
   background: #fff;
@@ -527,6 +529,91 @@ svg {
   padding: 16px;
 }
 
+.method-card {
+  padding: 16px;
+  border-left: 5px solid var(--accent);
+  background: #fffaf4;
+}
+
+.method-card h3 {
+  margin: 0 0 8px;
+  color: var(--nav);
+}
+
+.method-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.report-panel {
+  padding: 22px;
+}
+
+.report-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.report-header h2 {
+  margin: 0 0 6px;
+  color: var(--nav);
+}
+
+.report-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.action-button {
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--nav-hover);
+  color: #fff;
+  font-weight: 700;
+}
+
+.action-button:hover {
+  background: #006bb3;
+}
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.report-grid div {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fafafa;
+}
+
+.report-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.report-grid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--nav);
+  font-size: 22px;
+}
+
 @media (max-width: 1000px) {
   .content {
     display: block;
@@ -568,11 +655,37 @@ svg {
 
   .form-grid,
   .result-grid,
+  .report-grid,
   .table-row {
     grid-template-columns: 1fr;
   }
 
   .form-group.full-width {
     grid-column: auto;
+  }
+}
+
+
+@media print {
+  .top-bar,
+  nav,
+  .page:not(#report),
+  .action-button {
+    display: none !important;
+  }
+
+  .content {
+    display: block;
+    margin-top: 0;
+  }
+
+  main {
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  #report {
+    display: block !important;
   }
 }

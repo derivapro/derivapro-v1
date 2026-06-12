@@ -41,13 +41,17 @@ It does not use live market data, yfinance, FRED, QuantLib, Azure/OpenAI, or the
 ## Included demo modules
 
 - European option pricing and Greeks
+- Barrier option approximation
+- Asian option approximation
 - Static volatility-surface lookup and interpolation
 - Fixed-rate bond pricing, duration, convexity, and DV01
 - Static yield-curve lookup and interpolation
 - Forward contract fair value and payoff chart
 - Plain vanilla swap quick valuation
+- Credit default swap expected-loss view
 - Portfolio stress illustration
 - Sample market data charts
+- Demo report snapshot with browser print/PDF support
 
 ## How to run locally
 
