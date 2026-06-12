@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DerivaPro Lite Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav class="topbar" aria-label="Demo navigation">
+      <div class="brand">
+        <img class="brand-logo" src="../derivapro/static/logo.jpg" alt="DerivaPro logo">
+        <div>
+          <strong>DerivaPro Lite</strong>
+          <span>Browser-only demo</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a href="../README.md">Project README</a>
+        <button class="ghost-button" id="reset-demo" type="button">Reset Demo</button>
+      </div>
+    </nav>
+
+    <section class="hero-grid">
+      <div class="hero-copy">
+        <p class="eyebrow">Financial instruments pricing, evaluation, and risk</p>
+        <h1>Explore DerivaPro without installing a quant stack.</h1>
+        <p>
+          This lightweight demo runs fully in the browser. It showcases the product experience
+          with simplified pricing workflows for options, bonds, forwards, swaps, and portfolio stress.
+        </p>
+        <div class="hero-actions">
+          <button class="primary-button" data-jump="options" type="button">Price an Option</button>
+          <button class="secondary-button" data-jump="portfolio" type="button">View Portfolio Risk</button>
+        </div>
+      </div>
+
+      <aside class="hero-panel" aria-label="Demo snapshot">
+        <div class="panel-header">
+          <span>Demo Coverage</span>
+          <strong>5 modules</strong>
+        </div>
+        <div class="metric-grid">
+          <div>
+            <span>Option price</span>
+            <strong id="hero-option-price">$10.45</strong>
+          </div>
+          <div>
+            <span>Portfolio stress</span>
+            <strong id="hero-stress-pnl">-$28,420</strong>
+          </div>
+          <div>
+            <span>Bond duration</span>
+            <strong id="hero-duration">4.38y</strong>
+          </div>
+          <div>
+            <span>Forward price</span>
+            <strong id="hero-forward">$103.05</strong>
+          </div>
+        </div>
+        <p class="fine-print">
+          Demo calculations are simplified and browser-only. Production analytics live in the Flask platform.
+        </p>
+      </aside>
+    </section>
+  </header>
+
+  <main>
+    <section class="status-strip" aria-label="Product status">
+      <div>
+        <span class="status-label done">Done</span>
+        <strong>Instrument-level pricing</strong>
+        <p>Options, rates, credit, fixed income, volatility, forwards, and prepayment workflows exist in the full app.</p>
+      </div>
+      <div>
+        <span class="status-label active">In progress</span>
+        <strong>Reporting and model governance</strong>
+        <p>Report-style pages and model documentation are active areas of development.</p>
+      </div>
+      <div>
+        <span class="status-label planned">Planned</span>
+        <strong>Portfolio-level risk</strong>
+        <p>Persistent portfolios, VaR, CVaR, stress testing, and risk ladders are the next platform layer.</p>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="workspace-header">
+        <div>
+          <p class="eyebrow">Interactive demo modules</p>
+          <h2>Pricing and risk sandbox</h2>
+        </div>
+        <p>
+          Change the inputs below and watch the outputs update instantly. No backend server, Python runtime,
+          API keys, or package installation required.
+        </p>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="Demo modules">
+        <button class="tab active" id="tab-options" data-tab="options" role="tab" aria-controls="options" aria-selected="true">Options</button>
+        <button class="tab" id="tab-bonds" data-tab="bonds" role="tab" aria-controls="bonds" aria-selected="false">Bonds</button>
+        <button class="tab" id="tab-forwards" data-tab="forwards" role="tab" aria-controls="forwards" aria-selected="false">Forwards</button>
+        <button class="tab" id="tab-swaps" data-tab="swaps" role="tab" aria-controls="swaps" aria-selected="false">Swaps</button>
+        <button class="tab" id="tab-portfolio" data-tab="portfolio" role="tab" aria-controls="portfolio" aria-selected="false">Portfolio Risk</button>
+      </div>
+
+      <section class="tab-panel active" id="options" role="tabpanel" aria-labelledby="tab-options">
+        <div class="module-grid">
+          <form class="input-panel" id="option-form">
+            <h3>European Option</h3>
+            <label>
+              Option type
+              <select id="option-type">
+                <option value="call">Call</option>
+                <option value="put">Put</option>
+              </select>
+            </label>
+            <label>Spot price <input id="spot" type="number" value="100" step="1"></label>
+            <label>Strike price <input id="strike" type="number" value="100" step="1"></label>
+            <label>Risk-free rate (%) <input id="rate" type="number" value="5" step="0.1"></label>
+            <label>Volatility (%) <input id="volatility" type="number" value="20" step="0.5"></label>
+            <label>Maturity (years) <input id="maturity" type="number" value="1" step="0.25"></label>
+          </form>
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Black-Scholes demo price</span>
+              <strong id="option-price">$10.45</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Delta</span><strong id="delta">0.6368</strong></div>
+              <div><span>Gamma</span><strong id="gamma">0.0188</strong></div>
+              <div><span>Vega</span><strong id="vega">37.5240</strong></div>
+              <div><span>Theta</span><strong id="theta">-6.4140</strong></div>
+              <div><span>Rho</span><strong id="rho">53.2325</strong></div>
+              <div><span>Input moneyness</span><strong id="moneyness">100.0%</strong></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Price sensitivity to spot</strong>
+                <span>80% to 120% of spot</span>
+              </div>
+              <svg id="option-chart" viewBox="0 0 640 220" role="img" aria-label="Option price sensitivity chart"></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="bonds" role="tabpanel" aria-labelledby="tab-bonds">
+        <div class="module-grid">
+          <form class="input-panel" id="bond-form">
+            <h3>Fixed-Rate Bond</h3>
+            <label>Face value <input id="bond-face" type="number" value="1000" step="100"></label>
+            <label>Coupon rate (%) <input id="coupon-rate" type="number" value="5" step="0.1"></label>
+            <label>Yield to maturity (%) <input id="ytm" type="number" value="4.5" step="0.1"></label>
+            <label>Maturity (years) <input id="bond-years" type="number" value="5" step="1"></label>
+            <label>Payments per year <input id="bond-frequency" type="number" value="2" step="1" min="1"></label>
+          </form>
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Clean price approximation</span>
+              <strong id="bond-price">$1,021.71</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Modified duration</span><strong id="bond-duration">4.38y</strong></div>
+              <div><span>Convexity</span><strong id="bond-convexity">23.12</strong></div>
+              <div><span>DV01</span><strong id="bond-dv01">$0.45</strong></div>
+              <div><span>Premium / discount</span><strong id="bond-premium">$21.71</strong></div>
+            </div>
+            <div class="scenario-table">
+              <div class="table-row table-head"><span>Yield shock</span><span>Price</span><span>P&L</span></div>
+              <div class="table-row"><span>-100 bps</span><span id="bond-price-down">$1,068.01</span><span id="bond-pnl-down">$46.30</span></div>
+              <div class="table-row"><span>Base</span><span id="bond-price-base">$1,021.71</span><span>$0.00</span></div>
+              <div class="table-row"><span>+100 bps</span><span id="bond-price-up">$978.02</span><span id="bond-pnl-up">-$43.69</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="forwards" role="tabpanel" aria-labelledby="tab-forwards">
+        <div class="module-grid">
+          <form class="input-panel" id="forward-form">
+            <h3>Forward Contract</h3>
+            <label>Spot price <input id="forward-spot" type="number" value="100" step="1"></label>
+            <label>Risk-free rate (%) <input id="forward-rate" type="number" value="5" step="0.1"></label>
+            <label>Dividend / income yield (%) <input id="income-yield" type="number" value="2" step="0.1"></label>
+            <label>Storage / carry cost (%) <input id="carry-cost" type="number" value="0" step="0.1"></label>
+            <label>Maturity (years) <input id="forward-years" type="number" value="1" step="0.25"></label>
+          </form>
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Fair forward price</span>
+              <strong id="forward-price">$103.05</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Cost of carry</span><strong id="net-carry">3.00%</strong></div>
+              <div><span>Long payoff at spot +10%</span><strong id="forward-up">$6.95</strong></div>
+              <div><span>Long payoff at spot -10%</span><strong id="forward-down">-$13.05</strong></div>
+              <div><span>Break-even spot</span><strong id="forward-breakeven">$103.05</strong></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Long forward payoff</strong>
+                <span>Terminal spot range</span>
+              </div>
+              <svg id="forward-chart" viewBox="0 0 640 220" role="img" aria-label="Forward payoff chart"></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="swaps" role="tabpanel" aria-labelledby="tab-swaps">
+        <div class="module-grid">
+          <form class="input-panel" id="swap-form">
+            <h3>Plain Vanilla Swap</h3>
+            <label>Notional <input id="swap-notional" type="number" value="1000000" step="100000"></label>
+            <label>Fixed rate paid (%) <input id="fixed-rate" type="number" value="4.2" step="0.1"></label>
+            <label>Market par swap rate (%) <input id="par-rate" type="number" value="4.5" step="0.1"></label>
+            <label>Discount rate (%) <input id="discount-rate" type="number" value="4.4" step="0.1"></label>
+            <label>Maturity (years) <input id="swap-years" type="number" value="5" step="1"></label>
+            <label>Payments per year <input id="swap-frequency" type="number" value="2" step="1" min="1"></label>
+          </form>
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Receiver swap value approximation</span>
+              <strong id="swap-value">$13,407</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Swap annuity</span><strong id="swap-annuity">4.469</strong></div>
+              <div><span>Rate spread</span><strong id="swap-spread">0.30%</strong></div>
+              <div><span>DV01 approximation</span><strong id="swap-dv01">$447</strong></div>
+              <div><span>+100 bps P&L</span><strong id="swap-shock">-$44,692</strong></div>
+            </div>
+            <p class="module-note">
+              This simplified view shows the product shape. The full platform uses richer curve and QuantLib-based workflows.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="portfolio" role="tabpanel" aria-labelledby="tab-portfolio">
+        <div class="module-grid">
+          <form class="input-panel" id="portfolio-form">
+            <h3>Portfolio Stress</h3>
+            <label>Equity shock (%) <input id="equity-shock" type="number" value="-10" step="1"></label>
+            <label>Volatility shock (%) <input id="vol-shock" type="number" value="5" step="1"></label>
+            <label>Rate shock (bps) <input id="rate-shock" type="number" value="50" step="25"></label>
+            <label>Credit spread shock (bps) <input id="credit-shock" type="number" value="75" step="25"></label>
+          </form>
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Demo portfolio P&L</span>
+              <strong id="portfolio-pnl">-$28,420</strong>
+            </div>
+            <div class="scenario-table">
+              <div class="table-row table-head"><span>Book</span><span>Exposure driver</span><span>P&L</span></div>
+              <div class="table-row"><span>Equity Options</span><span>Delta / Vega</span><span id="pnl-equity">-$18,500</span></div>
+              <div class="table-row"><span>Rates</span><span>DV01</span><span id="pnl-rates">-$6,700</span></div>
+              <div class="table-row"><span>Credit</span><span>CS01</span><span id="pnl-credit">-$3,220</span></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Risk contribution</strong>
+                <span>Illustrative desk breakdown</span>
+              </div>
+              <svg id="portfolio-chart" viewBox="0 0 640 220" role="img" aria-label="Portfolio risk contribution chart"></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <strong>DerivaPro Lite</strong>
+    <span>Static browser demo. No backend. No package installation. No AI calls.</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

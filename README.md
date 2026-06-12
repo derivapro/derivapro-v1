@@ -26,6 +26,20 @@ The current version is a working analytical application with broad instrument co
 
 ---
 
+## ⚡ DerivaPro Lite Demo
+
+A no-install static demo is available under [`demo/`](demo/). It runs entirely in the browser with plain HTML, CSS, and JavaScript.
+
+Open this file directly to try it:
+
+```text
+demo/index.html
+```
+
+The Lite demo includes simplified interactive modules for European options, fixed-rate bonds, forwards, swaps, and portfolio stress. It is designed for quick product demonstrations; the full Flask application remains the source for production analytics, market data workflows, and model-governance features.
+
+---
+
 ## 🎯 Platform Vision
 
 DerivaPro is being developed toward a full browser-launched platform where users can:
