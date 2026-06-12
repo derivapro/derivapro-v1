@@ -24,6 +24,10 @@
 
 The current version is a working analytical application with broad instrument coverage. The next development stages focus on turning it into a production-quality platform with stronger security, persistent storage, user-scoped workflows, automated testing, portfolio-level risk management, and professional reporting.
 
+### Recent Platform Update
+
+DerivaPro now includes a first structured-products expansion for **Phoenix-style autocallable notes** in the Flask application. The new workflow supports single-underlying or worst-of basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional/maturity inputs, static volatility assumptions, and flat basket correlation. It reuses the newer Monte Carlo path engine and applies structured-note payoff logic on top of the simulated paths.
+
 ---
 
 ## ⚡ DerivaPro Lite Demo
@@ -69,7 +73,7 @@ DerivaPro already includes active workflows across several major financial produ
 | Category | Current Coverage |
 |---|---|
 | **Equity Options** | European and American options, Black-Scholes, binomial/lattice models, Monte Carlo workflows, Greeks, convergence, sensitivity, and scenario analysis. |
-| **Exotic Options** | Barrier options, Asian options, and autocallable-related workflows. |
+| **Exotic Options / Structured Products** | Barrier options, Asian options, basic autocallable workflows, and Phoenix-style structured autocallable notes with basket, memory coupon, autocall, coupon barrier, and protection barrier terms. |
 | **Fixed Income** | Non-callable fixed-rate bonds, fixed-rate amortizing bonds, floating-rate bonds, and floating-rate amortizing bonds. |
 | **Interest Rate Derivatives** | Swaps, swaptions, term structure analytics, market-rate extraction, and rates API utilities. |
 | **Credit Derivatives** | Credit default swaps, synthetic CDO analytics, and credit-linked notes. |
@@ -85,13 +89,14 @@ DerivaPro already includes active workflows across several major financial produ
 | Area | Status | Notes |
 |---|---:|---|
 | Flask application factory and blueprint architecture | ✅ Done | Modular route registration through `derivapro/routes`. |
-| Product-level pricing workflows | ✅ Done / active | Current workflows span options, rates, credit, fixed income, volatility, forwards, and prepayment. |
+| Product-level pricing workflows | ✅ Done / active | Current workflows span options, structured autocallables, rates, credit, fixed income, volatility, forwards, and prepayment. |
 | Markdown-backed model documentation | ✅ Done / active | Route-level Markdown content supports explanations, governance notes, and user guidance. |
 | Environment-based secrets/configuration | 🟡 In progress | `.env.example` exists; configuration should continue moving away from hardcoded values. |
 | Structured logging | 🟡 In progress | `logging_config.py` exists; remaining ad hoc logging should be normalized. |
-| Monte Carlo modernization | 🟡 In progress | Both legacy and v2 Monte Carlo modules exist; consolidation is a roadmap item. |
+| Monte Carlo modernization | 🟡 In progress | Both legacy and v2 Monte Carlo modules exist; the new structured autocallable workflow now reuses the v2 path engine for payoff simulation. |
 | Prepayment modeling workflow | 🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries. |
 | Report generation | 🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned. |
+| Structured product payoff coverage | 🟡 In progress | Phoenix-style autocallable note support has started; broader payoff-builder components remain a roadmap item. |
 | Portfolio-level risk | 🔵 Planned | Current workflows are mostly instrument-level; portfolio aggregation is the next major product step. |
 | Database persistence and user identity | 🔵 Planned | Current state is mostly session/file based. |
 | Automated tests and CI | 🔵 Planned | Pricing regression tests and route tests are needed before production use. |
