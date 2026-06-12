@@ -7,121 +7,138 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="hero">
-    <nav class="topbar" aria-label="Demo navigation">
-      <div class="brand">
-        <img class="brand-logo" src="../derivapro/static/logo.jpg" alt="DerivaPro logo">
-        <div>
-          <strong>DerivaPro Lite</strong>
-          <span>Browser-only demo</span>
-        </div>
+  <div class="top-bar">
+    <button id="toggleMenu" type="button">Hide Menu</button>
+    <div class="top-bar-title">DerivaPro Lite Demo</div>
+    <a class="public-link" href="https://derivapro.github.io/derivapro-v1/demo/">Public Demo Link</a>
+  </div>
+
+  <div class="content">
+    <nav id="navPanel" aria-label="DerivaPro Lite navigation">
+      <div class="logo-container">
+        <img src="../derivapro/static/logo.jpg" alt="DerivaPro logo" class="nav-logo">
       </div>
-      <div class="topbar-actions">
-        <a href="../README.md">Project README</a>
-        <button class="ghost-button" id="reset-demo" type="button">Reset Demo</button>
-      </div>
+      <ul>
+        <li><a href="#overview" class="nav-link selected" data-tab="overview">Overview</a></li>
+        <li>
+          <a href="#">Products</a>
+          <ul>
+            <li><a href="#options" class="nav-link" data-tab="options">European Options</a></li>
+            <li><a href="#bonds" class="nav-link" data-tab="bonds">Fixed-Rate Bonds</a></li>
+            <li><a href="#forwards" class="nav-link" data-tab="forwards">Forwards</a></li>
+            <li><a href="#swaps" class="nav-link" data-tab="swaps">Swaps</a></li>
+            <li><a href="#portfolio" class="nav-link" data-tab="portfolio">Portfolio Risk</a></li>
+          </ul>
+        </li>
+        <li><a href="#market-data" class="nav-link" data-tab="market-data">Sample Market Data</a></li>
+        <li><a href="../README.md">Project README</a></li>
+      </ul>
     </nav>
 
-    <section class="hero-grid">
-      <div class="hero-copy">
-        <p class="eyebrow">Financial instruments pricing, evaluation, and risk</p>
-        <h1>Explore DerivaPro without installing a quant stack.</h1>
-        <p>
-          This lightweight demo runs fully in the browser. It showcases the product experience
-          with simplified pricing workflows for options, bonds, forwards, swaps, and portfolio stress.
-        </p>
-        <div class="hero-actions">
-          <button class="primary-button" data-jump="options" type="button">Price an Option</button>
-          <button class="secondary-button" data-jump="portfolio" type="button">View Portfolio Risk</button>
+    <main>
+      <section class="page active" id="overview">
+        <div class="page-title">
+          <p class="eyebrow">Browser-only product preview</p>
+          <h1>DerivaPro Lite</h1>
+          <p>
+            This static demo gives users a quick glance at DerivaPro's pricing and risk workflows
+            without installing Python, Flask, QuantLib, or market-data packages.
+          </p>
         </div>
-      </div>
 
-      <aside class="hero-panel" aria-label="Demo snapshot">
-        <div class="panel-header">
-          <span>Demo Coverage</span>
-          <strong>5 modules</strong>
+        <div class="notice">
+          <strong>Demo data note:</strong>
+          This page uses static sample market data packaged with the demo and simplified browser-side formulas.
+          It does not connect to live market data, run QuantLib, or call the Flask app backend.
         </div>
-        <div class="metric-grid">
-          <div>
-            <span>Option price</span>
-            <strong id="hero-option-price">$10.45</strong>
+
+        <div class="status-grid">
+          <div class="status-card">
+            <span class="status-label done">Done</span>
+            <h3>Instrument-level analytics</h3>
+            <p>Options, rates, credit, fixed income, volatility, forwards, and prepayment workflows exist in the full Flask app.</p>
           </div>
-          <div>
-            <span>Portfolio stress</span>
-            <strong id="hero-stress-pnl">-$28,420</strong>
+          <div class="status-card">
+            <span class="status-label active">Demo focus</span>
+            <h3>Level 2 static preview</h3>
+            <p>Uses packaged sample volatility surface, yield curve, and portfolio sensitivities to mimic market-data-driven workflows.</p>
           </div>
-          <div>
-            <span>Bond duration</span>
-            <strong id="hero-duration">4.38y</strong>
-          </div>
-          <div>
-            <span>Forward price</span>
-            <strong id="hero-forward">$103.05</strong>
+          <div class="status-card">
+            <span class="status-label planned">Planned</span>
+            <h3>Full platform deployment</h3>
+            <p>The production platform will use a backend for live data, model governance, persistence, reports, and portfolio risk.</p>
           </div>
         </div>
-        <p class="fine-print">
-          Demo calculations are simplified and browser-only. Production analytics live in the Flask platform.
-        </p>
-      </aside>
-    </section>
-  </header>
 
-  <main>
-    <section class="status-strip" aria-label="Product status">
-      <div>
-        <span class="status-label done">Done</span>
-        <strong>Instrument-level pricing</strong>
-        <p>Options, rates, credit, fixed income, volatility, forwards, and prepayment workflows exist in the full app.</p>
-      </div>
-      <div>
-        <span class="status-label active">In progress</span>
-        <strong>Reporting and model governance</strong>
-        <p>Report-style pages and model documentation are active areas of development.</p>
-      </div>
-      <div>
-        <span class="status-label planned">Planned</span>
-        <strong>Portfolio-level risk</strong>
-        <p>Persistent portfolios, VaR, CVaR, stress testing, and risk ladders are the next platform layer.</p>
-      </div>
-    </section>
-
-    <section class="workspace">
-      <div class="workspace-header">
-        <div>
-          <p class="eyebrow">Interactive demo modules</p>
-          <h2>Pricing and risk sandbox</h2>
+        <div class="module-summary">
+          <button class="summary-card" data-tab="options" type="button">
+            <span>01</span>
+            <strong>European Options</strong>
+            <p>Black-Scholes price, Greeks, and static volatility-surface lookup.</p>
+          </button>
+          <button class="summary-card" data-tab="bonds" type="button">
+            <span>02</span>
+            <strong>Fixed-Rate Bonds</strong>
+            <p>Bond price, duration, convexity, DV01, and sample yield curve mode.</p>
+          </button>
+          <button class="summary-card" data-tab="portfolio" type="button">
+            <span>03</span>
+            <strong>Portfolio Risk</strong>
+            <p>Illustrative equity, rates, and credit stress contributions.</p>
+          </button>
         </div>
-        <p>
-          Change the inputs below and watch the outputs update instantly. No backend server, Python runtime,
-          API keys, or package installation required.
-        </p>
-      </div>
+      </section>
 
-      <div class="tabs" role="tablist" aria-label="Demo modules">
-        <button class="tab active" id="tab-options" data-tab="options" role="tab" aria-controls="options" aria-selected="true">Options</button>
-        <button class="tab" id="tab-bonds" data-tab="bonds" role="tab" aria-controls="bonds" aria-selected="false">Bonds</button>
-        <button class="tab" id="tab-forwards" data-tab="forwards" role="tab" aria-controls="forwards" aria-selected="false">Forwards</button>
-        <button class="tab" id="tab-swaps" data-tab="swaps" role="tab" aria-controls="swaps" aria-selected="false">Swaps</button>
-        <button class="tab" id="tab-portfolio" data-tab="portfolio" role="tab" aria-controls="portfolio" aria-selected="false">Portfolio Risk</button>
-      </div>
+      <section class="page" id="options">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Options</p>
+          <h1>European Option Pricing</h1>
+          <p>Use manual volatility or interpolate from the packaged sample volatility surface.</p>
+        </div>
 
-      <section class="tab-panel active" id="options" role="tabpanel" aria-labelledby="tab-options">
         <div class="module-grid">
-          <form class="input-panel" id="option-form">
-            <h3>European Option</h3>
-            <label>
-              Option type
+          <form class="form-grid" id="option-form">
+            <div class="form-group full-width">
+              <label for="option-data-mode">Volatility input mode</label>
+              <select id="option-data-mode">
+                <option value="surface">Sample volatility surface</option>
+                <option value="manual">Manual volatility</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="option-type">Option type</label>
               <select id="option-type">
                 <option value="call">Call</option>
                 <option value="put">Put</option>
               </select>
-            </label>
-            <label>Spot price <input id="spot" type="number" value="100" step="1"></label>
-            <label>Strike price <input id="strike" type="number" value="100" step="1"></label>
-            <label>Risk-free rate (%) <input id="rate" type="number" value="5" step="0.1"></label>
-            <label>Volatility (%) <input id="volatility" type="number" value="20" step="0.5"></label>
-            <label>Maturity (years) <input id="maturity" type="number" value="1" step="0.25"></label>
+            </div>
+            <div class="form-group">
+              <label for="spot">Spot price</label>
+              <input id="spot" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="strike">Strike price</label>
+              <input id="strike" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="rate">Risk-free rate (%)</label>
+              <input id="rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="volatility">Manual volatility (%)</label>
+              <input id="volatility" type="number" value="20.5" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="maturity">Maturity (years)</label>
+              <input id="maturity" type="number" value="1" step="0.25">
+            </div>
+            <div class="form-group full-width market-readout">
+              <span>Interpolated surface volatility</span>
+              <strong id="surface-vol-readout">20.50%</strong>
+              <small id="market-data-asof">Sample market data as of 2026-06-11</small>
+            </div>
           </form>
+
           <div class="output-panel">
             <div class="result-card highlight">
               <span>Black-Scholes demo price</span>
@@ -130,10 +147,10 @@
             <div class="result-grid">
               <div><span>Delta</span><strong id="delta">0.6368</strong></div>
               <div><span>Gamma</span><strong id="gamma">0.0188</strong></div>
-              <div><span>Vega</span><strong id="vega">37.5240</strong></div>
-              <div><span>Theta</span><strong id="theta">-6.4140</strong></div>
-              <div><span>Rho</span><strong id="rho">53.2325</strong></div>
-              <div><span>Input moneyness</span><strong id="moneyness">100.0%</strong></div>
+              <div><span>Vega</span><strong id="vega">0.3752</strong></div>
+              <div><span>Theta / day</span><strong id="theta">-0.0176</strong></div>
+              <div><span>Rho</span><strong id="rho">0.5323</strong></div>
+              <div><span>Moneyness</span><strong id="moneyness">100.0%</strong></div>
             </div>
             <div class="chart-card">
               <div class="chart-heading">
@@ -146,57 +163,118 @@
         </div>
       </section>
 
-      <section class="tab-panel" id="bonds" role="tabpanel" aria-labelledby="tab-bonds">
+      <section class="page" id="bonds">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Fixed Income</p>
+          <h1>Fixed-Rate Bond Analytics</h1>
+          <p>Use a manual yield or interpolate from the packaged sample yield curve.</p>
+        </div>
+
         <div class="module-grid">
-          <form class="input-panel" id="bond-form">
-            <h3>Fixed-Rate Bond</h3>
-            <label>Face value <input id="bond-face" type="number" value="1000" step="100"></label>
-            <label>Coupon rate (%) <input id="coupon-rate" type="number" value="5" step="0.1"></label>
-            <label>Yield to maturity (%) <input id="ytm" type="number" value="4.5" step="0.1"></label>
-            <label>Maturity (years) <input id="bond-years" type="number" value="5" step="1"></label>
-            <label>Payments per year <input id="bond-frequency" type="number" value="2" step="1" min="1"></label>
+          <form class="form-grid" id="bond-form">
+            <div class="form-group full-width">
+              <label for="bond-rate-mode">Yield input mode</label>
+              <select id="bond-rate-mode">
+                <option value="curve">Sample yield curve</option>
+                <option value="manual">Manual YTM</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="bond-face">Face value</label>
+              <input id="bond-face" type="number" value="1000" step="100">
+            </div>
+            <div class="form-group">
+              <label for="coupon-rate">Coupon rate (%)</label>
+              <input id="coupon-rate" type="number" value="5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="ytm">Manual YTM (%)</label>
+              <input id="ytm" type="number" value="4.75" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="bond-years">Maturity (years)</label>
+              <input id="bond-years" type="number" value="5" step="1">
+            </div>
+            <div class="form-group full-width">
+              <label for="bond-frequency">Payments per year</label>
+              <input id="bond-frequency" type="number" value="2" step="1" min="1">
+            </div>
+            <div class="form-group full-width market-readout">
+              <span>Interpolated curve yield</span>
+              <strong id="curve-yield-readout">4.75%</strong>
+              <small>Static sample curve packaged with the demo.</small>
+            </div>
           </form>
+
           <div class="output-panel">
             <div class="result-card highlight">
               <span>Clean price approximation</span>
-              <strong id="bond-price">$1,021.71</strong>
+              <strong id="bond-price">$1,010.96</strong>
             </div>
             <div class="result-grid">
-              <div><span>Modified duration</span><strong id="bond-duration">4.38y</strong></div>
-              <div><span>Convexity</span><strong id="bond-convexity">23.12</strong></div>
-              <div><span>DV01</span><strong id="bond-dv01">$0.45</strong></div>
-              <div><span>Premium / discount</span><strong id="bond-premium">$21.71</strong></div>
+              <div><span>Modified duration</span><strong id="bond-duration">4.37y</strong></div>
+              <div><span>Convexity</span><strong id="bond-convexity">23.09</strong></div>
+              <div><span>DV01</span><strong id="bond-dv01">$0.44</strong></div>
+              <div><span>Premium / discount</span><strong id="bond-premium">$10.96</strong></div>
             </div>
             <div class="scenario-table">
               <div class="table-row table-head"><span>Yield shock</span><span>Price</span><span>P&L</span></div>
-              <div class="table-row"><span>-100 bps</span><span id="bond-price-down">$1,068.01</span><span id="bond-pnl-down">$46.30</span></div>
-              <div class="table-row"><span>Base</span><span id="bond-price-base">$1,021.71</span><span>$0.00</span></div>
-              <div class="table-row"><span>+100 bps</span><span id="bond-price-up">$978.02</span><span id="bond-pnl-up">-$43.69</span></div>
+              <div class="table-row"><span>-100 bps</span><span id="bond-price-down">$1,057.04</span><span id="bond-pnl-down">$46.08</span></div>
+              <div class="table-row"><span>Base</span><span id="bond-price-base">$1,010.96</span><span>$0.00</span></div>
+              <div class="table-row"><span>+100 bps</span><span id="bond-price-up">$967.55</span><span id="bond-pnl-up">-$43.41</span></div>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="tab-panel" id="forwards" role="tabpanel" aria-labelledby="tab-forwards">
+      <section class="page" id="forwards">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Futures and Forwards</p>
+          <h1>Forward Contract</h1>
+          <p>Cost-of-carry fair value using manual inputs or sample market data.</p>
+        </div>
+
         <div class="module-grid">
-          <form class="input-panel" id="forward-form">
-            <h3>Forward Contract</h3>
-            <label>Spot price <input id="forward-spot" type="number" value="100" step="1"></label>
-            <label>Risk-free rate (%) <input id="forward-rate" type="number" value="5" step="0.1"></label>
-            <label>Dividend / income yield (%) <input id="income-yield" type="number" value="2" step="0.1"></label>
-            <label>Storage / carry cost (%) <input id="carry-cost" type="number" value="0" step="0.1"></label>
-            <label>Maturity (years) <input id="forward-years" type="number" value="1" step="0.25"></label>
+          <form class="form-grid" id="forward-form">
+            <div class="form-group full-width">
+              <label for="forward-rate-mode">Rate input mode</label>
+              <select id="forward-rate-mode">
+                <option value="curve">Sample curve / market data</option>
+                <option value="manual">Manual inputs</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="forward-spot">Spot price</label>
+              <input id="forward-spot" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="forward-rate">Risk-free rate (%)</label>
+              <input id="forward-rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="income-yield">Dividend / income yield (%)</label>
+              <input id="income-yield" type="number" value="1.8" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="carry-cost">Storage / carry cost (%)</label>
+              <input id="carry-cost" type="number" value="0" step="0.1">
+            </div>
+            <div class="form-group full-width">
+              <label for="forward-years">Maturity (years)</label>
+              <input id="forward-years" type="number" value="1" step="0.25">
+            </div>
           </form>
+
           <div class="output-panel">
             <div class="result-card highlight">
               <span>Fair forward price</span>
-              <strong id="forward-price">$103.05</strong>
+              <strong id="forward-price">$102.74</strong>
             </div>
             <div class="result-grid">
-              <div><span>Cost of carry</span><strong id="net-carry">3.00%</strong></div>
-              <div><span>Long payoff at spot +10%</span><strong id="forward-up">$6.95</strong></div>
-              <div><span>Long payoff at spot -10%</span><strong id="forward-down">-$13.05</strong></div>
-              <div><span>Break-even spot</span><strong id="forward-breakeven">$103.05</strong></div>
+              <div><span>Cost of carry</span><strong id="net-carry">2.70%</strong></div>
+              <div><span>Long payoff at spot +10%</span><strong id="forward-up">$7.26</strong></div>
+              <div><span>Long payoff at spot -10%</span><strong id="forward-down">-$12.74</strong></div>
+              <div><span>Break-even spot</span><strong id="forward-breakeven">$102.74</strong></div>
             </div>
             <div class="chart-card">
               <div class="chart-heading">
@@ -209,17 +287,41 @@
         </div>
       </section>
 
-      <section class="tab-panel" id="swaps" role="tabpanel" aria-labelledby="tab-swaps">
+      <section class="page" id="swaps">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Interest Rate Derivatives</p>
+          <h1>Plain Vanilla Swap</h1>
+          <p>Simple receiver swap valuation using a par rate, discount rate, and annuity approximation.</p>
+        </div>
+
         <div class="module-grid">
-          <form class="input-panel" id="swap-form">
-            <h3>Plain Vanilla Swap</h3>
-            <label>Notional <input id="swap-notional" type="number" value="1000000" step="100000"></label>
-            <label>Fixed rate paid (%) <input id="fixed-rate" type="number" value="4.2" step="0.1"></label>
-            <label>Market par swap rate (%) <input id="par-rate" type="number" value="4.5" step="0.1"></label>
-            <label>Discount rate (%) <input id="discount-rate" type="number" value="4.4" step="0.1"></label>
-            <label>Maturity (years) <input id="swap-years" type="number" value="5" step="1"></label>
-            <label>Payments per year <input id="swap-frequency" type="number" value="2" step="1" min="1"></label>
+          <form class="form-grid" id="swap-form">
+            <div class="form-group">
+              <label for="swap-notional">Notional</label>
+              <input id="swap-notional" type="number" value="1000000" step="100000">
+            </div>
+            <div class="form-group">
+              <label for="fixed-rate">Fixed rate paid (%)</label>
+              <input id="fixed-rate" type="number" value="4.2" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="par-rate">Market par swap rate (%)</label>
+              <input id="par-rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="discount-rate">Discount rate (%)</label>
+              <input id="discount-rate" type="number" value="4.4" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="swap-years">Maturity (years)</label>
+              <input id="swap-years" type="number" value="5" step="1">
+            </div>
+            <div class="form-group">
+              <label for="swap-frequency">Payments per year</label>
+              <input id="swap-frequency" type="number" value="2" step="1" min="1">
+            </div>
           </form>
+
           <div class="output-panel">
             <div class="result-card highlight">
               <span>Receiver swap value approximation</span>
@@ -231,22 +333,38 @@
               <div><span>DV01 approximation</span><strong id="swap-dv01">$447</strong></div>
               <div><span>+100 bps P&L</span><strong id="swap-shock">-$44,692</strong></div>
             </div>
-            <p class="module-note">
-              This simplified view shows the product shape. The full platform uses richer curve and QuantLib-based workflows.
-            </p>
+            <p class="module-note">The full Flask app supports richer curve construction and QuantLib-style workflows.</p>
           </div>
         </div>
       </section>
 
-      <section class="tab-panel" id="portfolio" role="tabpanel" aria-labelledby="tab-portfolio">
+      <section class="page" id="portfolio">
+        <div class="page-title compact">
+          <p class="eyebrow">Risk Management</p>
+          <h1>Portfolio Stress</h1>
+          <p>Illustrative stress analysis using static sample portfolio sensitivities.</p>
+        </div>
+
         <div class="module-grid">
-          <form class="input-panel" id="portfolio-form">
-            <h3>Portfolio Stress</h3>
-            <label>Equity shock (%) <input id="equity-shock" type="number" value="-10" step="1"></label>
-            <label>Volatility shock (%) <input id="vol-shock" type="number" value="5" step="1"></label>
-            <label>Rate shock (bps) <input id="rate-shock" type="number" value="50" step="25"></label>
-            <label>Credit spread shock (bps) <input id="credit-shock" type="number" value="75" step="25"></label>
+          <form class="form-grid" id="portfolio-form">
+            <div class="form-group">
+              <label for="equity-shock">Equity shock (%)</label>
+              <input id="equity-shock" type="number" value="-10" step="1">
+            </div>
+            <div class="form-group">
+              <label for="vol-shock">Volatility shock (%)</label>
+              <input id="vol-shock" type="number" value="5" step="1">
+            </div>
+            <div class="form-group">
+              <label for="rate-shock">Rate shock (bps)</label>
+              <input id="rate-shock" type="number" value="50" step="25">
+            </div>
+            <div class="form-group">
+              <label for="credit-shock">Credit spread shock (bps)</label>
+              <input id="credit-shock" type="number" value="75" step="25">
+            </div>
           </form>
+
           <div class="output-panel">
             <div class="result-card highlight">
               <span>Demo portfolio P&L</span>
@@ -268,13 +386,33 @@
           </div>
         </div>
       </section>
-    </section>
-  </main>
 
-  <footer class="footer">
-    <strong>DerivaPro Lite</strong>
-    <span>Static browser demo. No backend. No package installation. No AI calls.</span>
-  </footer>
+      <section class="page" id="market-data">
+        <div class="page-title compact">
+          <p class="eyebrow">Static packaged data</p>
+          <h1>Sample Market Data</h1>
+          <p>These datasets are bundled with the GitHub Pages demo. They are illustrative and not live feeds.</p>
+        </div>
+
+        <div class="market-grid">
+          <div class="chart-card">
+            <div class="chart-heading">
+              <strong>Sample volatility smile</strong>
+              <span id="surface-slice-label">1Y maturity</span>
+            </div>
+            <svg id="vol-surface-chart" viewBox="0 0 640 220" role="img" aria-label="Sample volatility smile chart"></svg>
+          </div>
+          <div class="chart-card">
+            <div class="chart-heading">
+              <strong>Sample yield curve</strong>
+              <span id="curve-asof-label">Static curve</span>
+            </div>
+            <svg id="yield-curve-chart" viewBox="0 0 640 220" role="img" aria-label="Sample yield curve chart"></svg>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <script src="app.js"></script>
 </body>

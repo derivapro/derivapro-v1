@@ -1,12 +1,39 @@
 const $ = (id) => document.getElementById(id);
 
-const defaults = {
-  option: { type: "call", spot: 100, strike: 100, rate: 5, volatility: 20, maturity: 1 },
-  bond: { face: 1000, coupon: 5, ytm: 4.5, years: 5, frequency: 2 },
-  forward: { spot: 100, rate: 5, income: 2, carry: 0, years: 1 },
-  swap: { notional: 1000000, fixed: 4.2, par: 4.5, discount: 4.4, years: 5, frequency: 2 },
-  portfolio: { equity: -10, vol: 5, rate: 50, credit: 75 },
+const embeddedMarketData = {
+  as_of: "2026-06-11",
+  underlier: "DEMO",
+  description: "Static sample market data for the DerivaPro Lite browser demo. Values are illustrative and not live market data.",
+  spot: 100.0,
+  risk_free_rate: 0.045,
+  dividend_yield: 0.018,
+  vol_surface: {
+    maturities_years: [0.25, 0.5, 1.0, 2.0],
+    moneyness: [0.8, 0.9, 1.0, 1.1, 1.2],
+    volatility: [
+      [0.285, 0.255, 0.225, 0.215, 0.225],
+      [0.275, 0.245, 0.215, 0.205, 0.215],
+      [0.265, 0.235, 0.205, 0.198, 0.208],
+      [0.255, 0.228, 0.200, 0.195, 0.205],
+    ],
+  },
+  yield_curve: [
+    { tenor: "3M", years: 0.25, rate: 0.0430 },
+    { tenor: "6M", years: 0.50, rate: 0.0440 },
+    { tenor: "1Y", years: 1.00, rate: 0.0450 },
+    { tenor: "2Y", years: 2.00, rate: 0.0460 },
+    { tenor: "5Y", years: 5.00, rate: 0.0475 },
+    { tenor: "10Y", years: 10.00, rate: 0.0490 },
+    { tenor: "30Y", years: 30.00, rate: 0.0500 },
+  ],
+  portfolio: [
+    { book: "Equity Options", driver: "Delta / Vega", delta_notional: 185000, vega_notional: 1200 },
+    { book: "Rates", driver: "DV01", dv01: -134 },
+    { book: "Credit", driver: "CS01", cs01: -42.9 },
+  ],
 };
+
+let marketData = embeddedMarketData;
 
 function number(id) {
   return Number($(id).value || 0);
@@ -23,6 +50,56 @@ function currency(value, digits = 0) {
 
 function pct(value, digits = 2) {
   return `${value.toFixed(digits)}%`;
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function lerp(x, x0, x1, y0, y1) {
+  if (x1 === x0) return y0;
+  const w = (x - x0) / (x1 - x0);
+  return y0 + w * (y1 - y0);
+}
+
+function bracket(grid, value) {
+  if (value <= grid[0]) return [0, 0];
+  if (value >= grid[grid.length - 1]) return [grid.length - 1, grid.length - 1];
+  for (let i = 0; i < grid.length - 1; i += 1) {
+    if (value >= grid[i] && value <= grid[i + 1]) return [i, i + 1];
+  }
+  return [0, 0];
+}
+
+function interpolateYield(years) {
+  const curve = marketData.yield_curve;
+  if (years <= curve[0].years) return curve[0].rate;
+  if (years >= curve[curve.length - 1].years) return curve[curve.length - 1].rate;
+  for (let i = 0; i < curve.length - 1; i += 1) {
+    const a = curve[i];
+    const b = curve[i + 1];
+    if (years >= a.years && years <= b.years) {
+      return lerp(years, a.years, b.years, a.rate, b.rate);
+    }
+  }
+  return curve[0].rate;
+}
+
+function interpolateVol(maturity, moneyness) {
+  const surface = marketData.vol_surface;
+  const tGrid = surface.maturities_years;
+  const mGrid = surface.moneyness;
+  const m = clamp(moneyness, mGrid[0], mGrid[mGrid.length - 1]);
+  const t = clamp(maturity, tGrid[0], tGrid[tGrid.length - 1]);
+  const [t0, t1] = bracket(tGrid, t);
+  const [m0, m1] = bracket(mGrid, m);
+  const v00 = surface.volatility[t0][m0];
+  const v01 = surface.volatility[t0][m1];
+  const v10 = surface.volatility[t1][m0];
+  const v11 = surface.volatility[t1][m1];
+  const vt0 = lerp(m, mGrid[m0], mGrid[m1], v00, v01);
+  const vt1 = lerp(m, mGrid[m0], mGrid[m1], v10, v11);
+  return lerp(t, tGrid[t0], tGrid[t1], vt0, vt1);
 }
 
 function normalPdf(x) {
@@ -92,9 +169,9 @@ function drawLineChart(svg, points, options = {}) {
     <line class="grid-line" x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}"></line>
     <line class="grid-line" x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}"></line>
     <line class="axis" x1="${pad}" y1="${zeroY}" x2="${width - pad}" y2="${zeroY}"></line>
-    <path class="line" d="${path}"></path>
+    <path class="line ${options.alt ? "alt" : ""}" d="${path}"></path>
     <text class="chart-label" x="${pad}" y="${height - 8}">${options.leftLabel || minX.toFixed(0)}</text>
-    <text class="chart-label" x="${width - pad - 30}" y="${height - 8}">${options.rightLabel || maxX.toFixed(0)}</text>
+    <text class="chart-label" x="${width - pad - 52}" y="${height - 8}">${options.rightLabel || maxX.toFixed(0)}</text>
     <text class="chart-label" x="${pad}" y="18">${options.topLabel || currency(maxY, 0)}</text>
   `;
 }
@@ -119,19 +196,20 @@ function drawBarChart(svg, bars) {
       <text class="chart-label" x="${x}" y="${bar.value < 0 ? y + h + 18 : y - 8}">${currency(bar.value, 0)}</text>
     `;
   }).join("");
-  svg.innerHTML = `
-    <line class="axis" x1="${pad}" y1="${zero}" x2="${width - pad}" y2="${zero}"></line>
-    ${nodes}
-  `;
+  svg.innerHTML = `<line class="axis" x1="${pad}" y1="${zero}" x2="${width - pad}" y2="${zero}"></line>${nodes}`;
 }
 
 function updateOptions() {
   const type = $("option-type").value;
   const spot = number("spot");
   const strike = number("strike");
-  const rate = number("rate");
-  const vol = number("volatility");
   const maturity = number("maturity");
+  const moneyness = strike / spot;
+  const surfaceVol = interpolateVol(maturity, moneyness) * 100;
+  const rate = $("option-data-mode").value === "surface" ? interpolateYield(maturity) * 100 : number("rate");
+  const vol = $("option-data-mode").value === "surface" ? surfaceVol : number("volatility");
+  $("surface-vol-readout").textContent = pct(surfaceVol, 2);
+  $("market-data-asof").textContent = `Sample market data as of ${marketData.as_of}`;
   const result = blackScholes(type, spot, strike, rate, vol, maturity);
   $("option-price").textContent = currency(result.price, 2);
   $("delta").textContent = result.delta.toFixed(4);
@@ -140,12 +218,12 @@ function updateOptions() {
   $("theta").textContent = result.theta.toFixed(4);
   $("rho").textContent = result.rho.toFixed(4);
   $("moneyness").textContent = pct((spot / strike) * 100, 1);
-  $("hero-option-price").textContent = currency(result.price, 2);
 
   const points = [];
   for (let i = 0; i <= 16; i += 1) {
     const s = spot * (0.8 + i * 0.025);
-    points.push({ x: s, y: blackScholes(type, s, strike, rate, vol, maturity).price });
+    const localVol = $("option-data-mode").value === "surface" ? interpolateVol(maturity, strike / s) * 100 : vol;
+    points.push({ x: s, y: blackScholes(type, s, strike, rate, localVol, maturity).price });
   }
   drawLineChart($("option-chart"), points, {
     leftLabel: currency(spot * 0.8, 0),
@@ -177,9 +255,11 @@ function bondPrice(face, couponRate, ytm, years, frequency) {
 function updateBonds() {
   const face = number("bond-face");
   const coupon = number("coupon-rate");
-  const ytm = number("ytm");
   const years = number("bond-years");
   const frequency = Math.max(1, number("bond-frequency"));
+  const curveYield = interpolateYield(years) * 100;
+  const ytm = $("bond-rate-mode").value === "curve" ? curveYield : number("ytm");
+  $("curve-yield-readout").textContent = pct(curveYield, 2);
   const base = bondPrice(face, coupon, ytm, years, frequency);
   const down = bondPrice(face, coupon, ytm - 1, years, frequency);
   const up = bondPrice(face, coupon, ytm + 1, years, frequency);
@@ -193,23 +273,24 @@ function updateBonds() {
   $("bond-price-base").textContent = currency(base.price, 2);
   $("bond-price-up").textContent = currency(up.price, 2);
   $("bond-pnl-up").textContent = currency(up.price - base.price, 2);
-  $("hero-duration").textContent = `${base.modified.toFixed(2)}y`;
 }
 
 function updateForwards() {
   const spot = number("forward-spot");
-  const r = number("forward-rate") / 100;
-  const income = number("income-yield") / 100;
-  const carry = number("carry-cost") / 100;
   const years = number("forward-years");
+  const curveRate = interpolateYield(years) * 100;
+  const r = ($("forward-rate-mode").value === "curve" ? curveRate : number("forward-rate")) / 100;
+  const income = ($("forward-rate-mode").value === "curve" ? marketData.dividend_yield * 100 : number("income-yield")) / 100;
+  const carry = number("carry-cost") / 100;
   const net = r + carry - income;
   const fwd = spot * Math.exp(net * years);
+  $("forward-rate").value = $("forward-rate-mode").value === "curve" ? curveRate.toFixed(2) : $("forward-rate").value;
+  $("income-yield").value = $("forward-rate-mode").value === "curve" ? (marketData.dividend_yield * 100).toFixed(2) : $("income-yield").value;
   $("forward-price").textContent = currency(fwd, 2);
   $("net-carry").textContent = pct(net * 100, 2);
   $("forward-up").textContent = currency(spot * 1.1 - fwd, 2);
   $("forward-down").textContent = currency(spot * 0.9 - fwd, 2);
   $("forward-breakeven").textContent = currency(fwd, 2);
-  $("hero-forward").textContent = currency(fwd, 2);
 
   const points = [];
   for (let i = 0; i <= 16; i += 1) {
@@ -220,6 +301,7 @@ function updateForwards() {
     leftLabel: currency(spot * 0.75, 0),
     rightLabel: currency(spot * 1.39, 0),
     topLabel: "Payoff",
+    alt: true,
   });
 }
 
@@ -250,15 +332,17 @@ function updatePortfolio() {
   const volShock = number("vol-shock");
   const rateShock = number("rate-shock");
   const creditShock = number("credit-shock");
-  const equity = 1850 * equityShock + 1200 * volShock;
-  const rates = -134 * rateShock;
-  const credit = -42.9 * creditShock;
+  const equityBook = marketData.portfolio.find((p) => p.book === "Equity Options");
+  const ratesBook = marketData.portfolio.find((p) => p.book === "Rates");
+  const creditBook = marketData.portfolio.find((p) => p.book === "Credit");
+  const equity = equityBook.delta_notional * (equityShock / 100) + equityBook.vega_notional * volShock;
+  const rates = ratesBook.dv01 * rateShock;
+  const credit = creditBook.cs01 * creditShock;
   const total = equity + rates + credit;
   $("pnl-equity").textContent = currency(equity, 0);
   $("pnl-rates").textContent = currency(rates, 0);
   $("pnl-credit").textContent = currency(credit, 0);
   $("portfolio-pnl").textContent = currency(total, 0);
-  $("hero-stress-pnl").textContent = currency(total, 0);
   drawBarChart($("portfolio-chart"), [
     { label: "Equity", value: equity },
     { label: "Rates", value: rates },
@@ -266,50 +350,24 @@ function updatePortfolio() {
   ]);
 }
 
-function setTab(name) {
-  document.querySelectorAll(".tab").forEach((tab) => {
-    const active = tab.dataset.tab === name;
-    tab.classList.toggle("active", active);
-    tab.setAttribute("aria-selected", String(active));
+function updateMarketDataCharts() {
+  const surface = marketData.vol_surface;
+  const maturityIndex = surface.maturities_years.indexOf(1.0);
+  const vols = surface.moneyness.map((m, i) => ({ x: m * 100, y: surface.volatility[maturityIndex][i] * 100 }));
+  drawLineChart($("vol-surface-chart"), vols, {
+    leftLabel: "80%",
+    rightLabel: "120%",
+    topLabel: "Volatility",
+    alt: true,
   });
-  document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.id === name);
+
+  const curve = marketData.yield_curve.map((p) => ({ x: p.years, y: p.rate * 100 }));
+  drawLineChart($("yield-curve-chart"), curve, {
+    leftLabel: "3M",
+    rightLabel: "30Y",
+    topLabel: "Yield",
   });
-}
-
-function resetDemo() {
-  $("option-type").value = defaults.option.type;
-  $("spot").value = defaults.option.spot;
-  $("strike").value = defaults.option.strike;
-  $("rate").value = defaults.option.rate;
-  $("volatility").value = defaults.option.volatility;
-  $("maturity").value = defaults.option.maturity;
-
-  $("bond-face").value = defaults.bond.face;
-  $("coupon-rate").value = defaults.bond.coupon;
-  $("ytm").value = defaults.bond.ytm;
-  $("bond-years").value = defaults.bond.years;
-  $("bond-frequency").value = defaults.bond.frequency;
-
-  $("forward-spot").value = defaults.forward.spot;
-  $("forward-rate").value = defaults.forward.rate;
-  $("income-yield").value = defaults.forward.income;
-  $("carry-cost").value = defaults.forward.carry;
-  $("forward-years").value = defaults.forward.years;
-
-  $("swap-notional").value = defaults.swap.notional;
-  $("fixed-rate").value = defaults.swap.fixed;
-  $("par-rate").value = defaults.swap.par;
-  $("discount-rate").value = defaults.swap.discount;
-  $("swap-years").value = defaults.swap.years;
-  $("swap-frequency").value = defaults.swap.frequency;
-
-  $("equity-shock").value = defaults.portfolio.equity;
-  $("vol-shock").value = defaults.portfolio.vol;
-  $("rate-shock").value = defaults.portfolio.rate;
-  $("credit-shock").value = defaults.portfolio.credit;
-
-  updateAll();
+  $("curve-asof-label").textContent = `As of ${marketData.as_of}`;
 }
 
 function updateAll() {
@@ -318,24 +376,62 @@ function updateAll() {
   updateForwards();
   updateSwaps();
   updatePortfolio();
+  updateMarketDataCharts();
 }
 
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => setTab(tab.dataset.tab));
-});
+function setPage(name) {
+  document.querySelectorAll(".page").forEach((page) => page.classList.toggle("active", page.id === name));
+  document.querySelectorAll(".nav-link").forEach((link) => link.classList.toggle("selected", link.dataset.tab === name));
+  if (history.replaceState) {
+    history.replaceState(null, "", `#${name}`);
+  }
+}
 
-document.querySelectorAll("[data-jump]").forEach((button) => {
-  button.addEventListener("click", () => {
-    setTab(button.dataset.jump);
-    document.querySelector(".workspace").scrollIntoView({ behavior: "smooth", block: "start" });
+function setupNavigation() {
+  document.querySelectorAll("[data-tab]").forEach((element) => {
+    element.addEventListener("click", (event) => {
+      event.preventDefault();
+      setPage(element.dataset.tab);
+    });
   });
-});
 
-document.querySelectorAll("input, select").forEach((input) => {
-  input.addEventListener("input", updateAll);
-  input.addEventListener("change", updateAll);
-});
+  $("toggleMenu").addEventListener("click", () => {
+    $("navPanel").classList.toggle("hidden");
+    $("toggleMenu").textContent = $("navPanel").classList.contains("hidden") ? "Show Menu" : "Hide Menu";
+  });
 
-$("reset-demo").addEventListener("click", resetDemo);
+  const initial = window.location.hash ? window.location.hash.slice(1) : "overview";
+  if ($(initial)) setPage(initial);
+}
 
-updateAll();
+async function loadMarketData() {
+  try {
+    const response = await fetch("data/sample_market_data.json", { cache: "no-store" });
+    if (response.ok) {
+      marketData = await response.json();
+    }
+  } catch (error) {
+    marketData = embeddedMarketData;
+  }
+}
+
+function setupInputs() {
+  document.querySelectorAll("input, select").forEach((input) => {
+    input.addEventListener("input", updateAll);
+    input.addEventListener("change", updateAll);
+  });
+}
+
+async function boot() {
+  await loadMarketData();
+  setupNavigation();
+  setupInputs();
+  $("spot").value = marketData.spot.toFixed(0);
+  $("forward-spot").value = marketData.spot.toFixed(0);
+  $("rate").value = (marketData.risk_free_rate * 100).toFixed(2);
+  $("forward-rate").value = (marketData.risk_free_rate * 100).toFixed(2);
+  $("income-yield").value = (marketData.dividend_yield * 100).toFixed(2);
+  updateAll();
+}
+
+boot();

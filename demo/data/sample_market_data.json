@@ -1,0 +1,45 @@
+{
+  "as_of": "2026-06-11",
+  "underlier": "DEMO",
+  "description": "Static sample market data for the DerivaPro Lite browser demo. Values are illustrative and not live market data.",
+  "spot": 100.0,
+  "risk_free_rate": 0.045,
+  "dividend_yield": 0.018,
+  "vol_surface": {
+    "maturities_years": [0.25, 0.5, 1.0, 2.0],
+    "moneyness": [0.8, 0.9, 1.0, 1.1, 1.2],
+    "volatility": [
+      [0.285, 0.255, 0.225, 0.215, 0.225],
+      [0.275, 0.245, 0.215, 0.205, 0.215],
+      [0.265, 0.235, 0.205, 0.198, 0.208],
+      [0.255, 0.228, 0.200, 0.195, 0.205]
+    ]
+  },
+  "yield_curve": [
+    { "tenor": "3M", "years": 0.25, "rate": 0.0430 },
+    { "tenor": "6M", "years": 0.50, "rate": 0.0440 },
+    { "tenor": "1Y", "years": 1.00, "rate": 0.0450 },
+    { "tenor": "2Y", "years": 2.00, "rate": 0.0460 },
+    { "tenor": "5Y", "years": 5.00, "rate": 0.0475 },
+    { "tenor": "10Y", "years": 10.00, "rate": 0.0490 },
+    { "tenor": "30Y", "years": 30.00, "rate": 0.0500 }
+  ],
+  "portfolio": [
+    {
+      "book": "Equity Options",
+      "driver": "Delta / Vega",
+      "delta_notional": 185000,
+      "vega_notional": 1200
+    },
+    {
+      "book": "Rates",
+      "driver": "DV01",
+      "dv01": -134
+    },
+    {
+      "book": "Credit",
+      "driver": "CS01",
+      "cs01": -42.9
+    }
+  ]
+}
