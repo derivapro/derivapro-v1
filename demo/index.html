@@ -21,16 +21,37 @@
       <ul>
         <li><a href="#overview" class="nav-link selected" data-tab="overview">Overview</a></li>
         <li>
-          <a href="#">Products</a>
+          <a href="#">Equity / Exotic Derivatives</a>
           <ul>
             <li><a href="#options" class="nav-link" data-tab="options">European Options</a></li>
             <li><a href="#barrier" class="nav-link" data-tab="barrier">Barrier Options</a></li>
             <li><a href="#asian" class="nav-link" data-tab="asian">Asian Options</a></li>
+            <li><a href="#structured-autocallable" class="nav-link" data-tab="structured-autocallable">Structured Autocallable</a></li>
+            <li><a href="#vol-surface" class="nav-link" data-tab="vol-surface">Volatility Surface</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Fixed Income</a>
+          <ul>
             <li><a href="#bonds" class="nav-link" data-tab="bonds">Fixed-Rate Bonds</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Rates / Forwards</a>
+          <ul>
             <li><a href="#forwards" class="nav-link" data-tab="forwards">Forwards</a></li>
             <li><a href="#swaps" class="nav-link" data-tab="swaps">Swaps</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Credit</a>
+          <ul>
             <li><a href="#cds" class="nav-link" data-tab="cds">Credit Default Swap</a></li>
-            <li><a href="#vol-surface" class="nav-link" data-tab="vol-surface">Volatility Surface</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Risk & Reports</a>
+          <ul>
             <li><a href="#portfolio" class="nav-link" data-tab="portfolio">Portfolio Risk</a></li>
             <li><a href="#report" class="nav-link" data-tab="report">Demo Report</a></li>
           </ul>
@@ -89,18 +110,23 @@
             <strong>Asian Options</strong>
             <p>Average-price option approximation using adjusted volatility.</p>
           </button>
-          <button class="summary-card" data-tab="bonds" type="button">
+          <button class="summary-card" data-tab="structured-autocallable" type="button">
             <span>04</span>
+            <strong>Structured Autocallable</strong>
+            <p>Phoenix-style note with basket, memory coupon, autocall, coupon barrier, and protection terms.</p>
+          </button>
+          <button class="summary-card" data-tab="bonds" type="button">
+            <span>05</span>
             <strong>Fixed-Rate Bonds</strong>
             <p>Bond price, duration, convexity, DV01, and sample yield curve mode.</p>
           </button>
           <button class="summary-card" data-tab="cds" type="button">
-            <span>05</span>
+            <span>06</span>
             <strong>Credit Default Swap</strong>
             <p>Expected-loss and fair-spread style credit risk demo.</p>
           </button>
           <button class="summary-card" data-tab="portfolio" type="button">
-            <span>06</span>
+            <span>07</span>
             <strong>Portfolio Risk</strong>
             <p>Illustrative equity, rates, and credit stress contributions.</p>
           </button>
@@ -300,7 +326,100 @@
             </div>
           </div>
         </div>
+      </section>
 
+      <section class="page" id="structured-autocallable">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Structured Products</p>
+          <h1>Structured Autocallable Note</h1>
+          <p>Phoenix-style payoff preview with basket underlyings, observation dates, memory coupons, autocall, coupon barrier, and knock-in protection terms.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="structured-form">
+            <div class="form-group">
+              <label for="structured-mode">Underlying mode</label>
+              <select id="structured-mode">
+                <option value="basket">Worst-of basket</option>
+                <option value="single">Single underlying</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="structured-notional">Notional</label>
+              <input id="structured-notional" type="number" value="1000000" step="50000">
+            </div>
+            <div class="form-group full-width">
+              <label for="structured-spots">Spot levels (comma-separated)</label>
+              <input id="structured-spots" type="text" value="100, 95, 90">
+            </div>
+            <div class="form-group full-width">
+              <label for="structured-vols">Volatilities % (comma-separated)</label>
+              <input id="structured-vols" type="text" value="22, 24, 26">
+            </div>
+            <div class="form-group">
+              <label for="structured-correlation">Flat correlation</label>
+              <input id="structured-correlation" type="number" value="0.30" step="0.05">
+            </div>
+            <div class="form-group">
+              <label for="structured-maturity">Maturity (years)</label>
+              <input id="structured-maturity" type="number" value="1" step="0.25">
+            </div>
+            <div class="form-group">
+              <label for="structured-observations">Observation dates</label>
+              <input id="structured-observations" type="number" value="4" step="1" min="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-coupon">Coupon per observation (%)</label>
+              <input id="structured-coupon" type="number" value="2.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="structured-coupon-barrier">Coupon barrier (% initial)</label>
+              <input id="structured-coupon-barrier" type="number" value="70" step="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-autocall-barrier">Autocall barrier (% initial)</label>
+              <input id="structured-autocall-barrier" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-protection-barrier">Knock-in protection barrier (% initial)</label>
+              <input id="structured-protection-barrier" type="number" value="60" step="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-memory">Memory coupon</label>
+              <select id="structured-memory">
+                <option value="yes">Enabled</option>
+                <option value="no">Disabled</option>
+              </select>
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Estimated note PV</span>
+              <strong id="structured-price">$1,018,250</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Autocall probability</span><strong id="structured-autocall-prob">42.0%</strong></div>
+              <div><span>Protection breach probability</span><strong id="structured-breach-prob">8.5%</strong></div>
+              <div><span>Expected coupons</span><strong id="structured-coupons">2.4x</strong></div>
+              <div><span>Worst-of expected final</span><strong id="structured-worst-final">91.5%</strong></div>
+              <div><span>Basket penalty</span><strong id="structured-basket-penalty">6.0%</strong></div>
+              <div><span>Memory value estimate</span><strong id="structured-memory-value">$8,000</strong></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Payoff by worst-of final level</strong>
+                <span>Static approximation</span>
+              </div>
+              <svg id="structured-chart" viewBox="0 0 640 220" role="img" aria-label="Structured autocallable payoff chart"></svg>
+            </div>
+            <div class="method-card">
+              <h3>Method note</h3>
+              <p>This Lite module is a deterministic approximation of the Flask app's Monte Carlo structured autocallable workflow. It shows termsheet behavior and payoff intuition; the full app performs path simulation.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section class="page" id="bonds">
         <div class="page-title compact">
@@ -641,6 +760,7 @@
             <div><span>European option</span><strong id="report-option-price">$10.45</strong></div>
             <div><span>Barrier option</span><strong id="report-barrier-price">$9.14</strong></div>
             <div><span>Asian option</span><strong id="report-asian-price">$6.12</strong></div>
+            <div><span>Structured autocallable</span><strong id="report-structured-price">$1,018,250</strong></div>
             <div><span>Bond price</span><strong id="report-bond-price">$1,010.96</strong></div>
             <div><span>CDS value</span><strong id="report-cds-value">-$91,250</strong></div>
             <div><span>Portfolio P&L</span><strong id="report-portfolio-pnl">-$28,420</strong></div>

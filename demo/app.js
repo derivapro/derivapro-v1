@@ -102,6 +102,14 @@ function interpolateVol(maturity, moneyness) {
   return lerp(t, tGrid[t0], tGrid[t1], vt0, vt1);
 }
 
+function parseNumberList(value, fallback) {
+  const parsed = String(value || "")
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item));
+  return parsed.length ? parsed : fallback;
+}
+
 function normalPdf(x) {
   return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
 }
@@ -295,6 +303,62 @@ function bondPrice(face, couponRate, ytm, years, frequency) {
   return { price, modified, convexity: convex / price / Math.pow(1 + y, 2) };
 }
 
+function updateStructuredAutocallable() {
+  const mode = $("structured-mode").value;
+  const notional = number("structured-notional");
+  const maturity = Math.max(0.25, number("structured-maturity"));
+  const observations = Math.max(1, number("structured-observations"));
+  const coupon = number("structured-coupon") / 100;
+  const couponBarrier = number("structured-coupon-barrier") / 100;
+  const autocallBarrier = number("structured-autocall-barrier") / 100;
+  const protectionBarrier = number("structured-protection-barrier") / 100;
+  const memoryEnabled = $("structured-memory").value === "yes";
+  const correlation = clamp(number("structured-correlation"), -0.95, 0.95);
+  const allSpots = parseNumberList($("structured-spots").value, [100, 95, 90]);
+  const allVols = parseNumberList($("structured-vols").value, [22, 24, 26]);
+  const spots = mode === "single" ? [allSpots[0]] : allSpots;
+  const vols = mode === "single" ? [allVols[0]] : allVols;
+  const avgVol = (vols.reduce((a, b) => a + b, 0) / vols.length) / 100;
+  const basketPenalty = mode === "single" ? 0 : clamp((spots.length - 1) * 0.035 * (1 - correlation), 0, 0.22);
+  const riskVol = avgVol * Math.sqrt(maturity) * (1 + basketPenalty);
+  const expectedWorstFinal = clamp(1 - 0.18 * riskVol - basketPenalty, 0.45, 1.25);
+  const autocallDistance = autocallBarrier - 1;
+  const autocallProb = clamp(0.58 - 1.45 * autocallDistance - 0.75 * riskVol - basketPenalty, 0.03, 0.92);
+  const couponProb = clamp(0.97 - Math.max(couponBarrier - expectedWorstFinal, 0) * 1.8 - 0.25 * riskVol, 0.05, 0.99);
+  const breachProb = clamp(0.02 + Math.max(protectionBarrier - expectedWorstFinal, 0) * 1.9 + 0.42 * riskVol + basketPenalty * 0.65, 0.01, 0.75);
+  const expectedCoupons = observations * couponProb * (memoryEnabled ? 1.08 : 0.92);
+  const memoryValue = memoryEnabled ? notional * coupon * observations * 0.08 * (1 - couponProb) : 0;
+  const couponPv = notional * coupon * expectedCoupons * Math.exp(-marketData.risk_free_rate * maturity * 0.5);
+  const protectionLoss = notional * breachProb * Math.max(1 - expectedWorstFinal, 0.08);
+  const earlyRedemptionValue = notional * autocallProb * 0.012;
+  const price = notional + couponPv + memoryValue + earlyRedemptionValue - protectionLoss;
+
+  $("structured-price").textContent = currency(price, 0);
+  $("structured-autocall-prob").textContent = pct(autocallProb * 100, 1);
+  $("structured-breach-prob").textContent = pct(breachProb * 100, 1);
+  $("structured-coupons").textContent = `${expectedCoupons.toFixed(1)}x`;
+  $("structured-worst-final").textContent = pct(expectedWorstFinal * 100, 1);
+  $("structured-basket-penalty").textContent = pct(basketPenalty * 100, 1);
+  $("structured-memory-value").textContent = currency(memoryValue, 0);
+
+  const payoffPoints = [];
+  for (let i = 0; i <= 18; i += 1) {
+    const level = 0.4 + i * 0.05;
+    const protectedRedemption = level >= protectionBarrier ? notional : notional * level;
+    const couponCount = level >= couponBarrier ? observations : (memoryEnabled && level >= couponBarrier * 0.92 ? observations * 0.5 : 0);
+    const payoff = protectedRedemption + notional * coupon * couponCount;
+    payoffPoints.push({ x: level * 100, y: payoff });
+  }
+  drawLineChart($("structured-chart"), payoffPoints, {
+    leftLabel: "40%",
+    rightLabel: "130%",
+    topLabel: "Payoff",
+  });
+
+  const report = $("report-structured-price");
+  if (report) report.textContent = currency(price, 0);
+}
+
 function updateBonds() {
   const face = number("bond-face");
   const coupon = number("coupon-rate");
@@ -439,8 +503,10 @@ function updatePortfolio() {
 function updateReport() {
   const option = $("option-price");
   const bond = $("bond-price");
+  const structured = $("structured-price");
   const portfolio = $("portfolio-pnl");
   if ($("report-option-price") && option) $("report-option-price").textContent = option.textContent;
+  if ($("report-structured-price") && structured) $("report-structured-price").textContent = structured.textContent;
   if ($("report-bond-price") && bond) $("report-bond-price").textContent = bond.textContent;
   if ($("report-portfolio-pnl") && portfolio) $("report-portfolio-pnl").textContent = portfolio.textContent;
   if ($("report-asof")) $("report-asof").textContent = `Sample data as of ${marketData.as_of}`;
@@ -450,6 +516,7 @@ function updateAll() {
   updateOptions();
   updateBarrier();
   updateAsian();
+  updateStructuredAutocallable();
   updateBonds();
   updateForwards();
   updateSwaps();

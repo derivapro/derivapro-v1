@@ -43,6 +43,7 @@ It does not use live market data, yfinance, FRED, QuantLib, Azure/OpenAI, or the
 - European option pricing and Greeks
 - Barrier option approximation
 - Asian option approximation
+- Structured autocallable / Phoenix-style note approximation
 - Static volatility-surface lookup and interpolation
 - Fixed-rate bond pricing, duration, convexity, and DV01
 - Static yield-curve lookup and interpolation
