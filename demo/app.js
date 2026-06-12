@@ -436,26 +436,6 @@ function updatePortfolio() {
   ]);
 }
 
-function updateMarketDataCharts() {
-  const surface = marketData.vol_surface;
-  const maturityIndex = surface.maturities_years.indexOf(1.0);
-  const vols = surface.moneyness.map((m, i) => ({ x: m * 100, y: surface.volatility[maturityIndex][i] * 100 }));
-  drawLineChart($("vol-surface-chart"), vols, {
-    leftLabel: "80%",
-    rightLabel: "120%",
-    topLabel: "Volatility",
-    alt: true,
-  });
-
-  const curve = marketData.yield_curve.map((p) => ({ x: p.years, y: p.rate * 100 }));
-  drawLineChart($("yield-curve-chart"), curve, {
-    leftLabel: "3M",
-    rightLabel: "30Y",
-    topLabel: "Yield",
-  });
-  $("curve-asof-label").textContent = `As of ${marketData.as_of}`;
-}
-
 function updateReport() {
   const option = $("option-price");
   const bond = $("bond-price");
@@ -476,7 +456,6 @@ function updateAll() {
   updateCDS();
   updatePortfolio();
   updateSurfacePage();
-  updateMarketDataCharts();
   updateReport();
 }
 
