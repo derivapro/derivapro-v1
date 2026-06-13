@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DerivaPro Lite Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="top-bar">
+    <button id="toggleMenu" type="button">Hide Menu</button>
+    <div class="top-bar-title">DerivaPro Lite Demo</div>
+    <a class="public-link" href="https://derivapro.github.io/derivapro-v1/demo/">Public Demo Link</a>
+  </div>
+
+  <div class="content">
+    <nav id="navPanel" aria-label="DerivaPro Lite navigation">
+      <div class="logo-container">
+        <img src="../derivapro/static/logo.jpg" alt="DerivaPro logo" class="nav-logo">
+      </div>
+      <ul>
+        <li><a href="#overview" class="nav-link selected" data-tab="overview">Overview</a></li>
+        <li>
+          <a href="#">Equity / Exotic Derivatives</a>
+          <ul>
+            <li><a href="#options" class="nav-link" data-tab="options">European Options</a></li>
+            <li><a href="#barrier" class="nav-link" data-tab="barrier">Barrier Options</a></li>
+            <li><a href="#asian" class="nav-link" data-tab="asian">Asian Options</a></li>
+            <li><a href="#structured-autocallable" class="nav-link" data-tab="structured-autocallable">Structured Autocallable</a></li>
+            <li><a href="#vol-surface" class="nav-link" data-tab="vol-surface">Volatility Surface</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Fixed Income</a>
+          <ul>
+            <li><a href="#bonds" class="nav-link" data-tab="bonds">Fixed-Rate Bonds</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Rates / Forwards</a>
+          <ul>
+            <li><a href="#forwards" class="nav-link" data-tab="forwards">Forwards</a></li>
+            <li><a href="#swaps" class="nav-link" data-tab="swaps">Swaps</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Credit</a>
+          <ul>
+            <li><a href="#cds" class="nav-link" data-tab="cds">Credit Default Swap</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#">Risk & Reports</a>
+          <ul>
+            <li><a href="#portfolio" class="nav-link" data-tab="portfolio">Portfolio Risk</a></li>
+            <li><a href="#report" class="nav-link" data-tab="report">Demo Report</a></li>
+          </ul>
+        </li>
+      </ul>
+    </nav>
+
+    <main>
+      <section class="page active" id="overview">
+        <div class="page-title">
+          <p class="eyebrow">Browser-only product preview</p>
+          <h1>DerivaPro Lite</h1>
+          <p>
+            This static demo gives users a quick glance at DerivaPro's pricing and risk workflows
+            without installing Python, Flask, QuantLib, or market-data packages.
+          </p>
+        </div>
+
+        <div class="notice">
+          <strong>Demo data note:</strong>
+          This page uses static sample market data packaged with the demo and simplified browser-side formulas.
+          It does not connect to live market data, run QuantLib, or call the Flask app backend.
+        </div>
+
+        <div class="status-grid">
+          <div class="status-card">
+            <span class="status-label done">Done</span>
+            <h3>Instrument-level analytics</h3>
+            <p>Options, rates, credit, fixed income, volatility, forwards, and prepayment workflows exist in the full Flask app.</p>
+          </div>
+          <div class="status-card">
+            <span class="status-label active">Demo focus</span>
+            <h3>Level 2 static preview</h3>
+            <p>Uses packaged sample volatility surface, yield curve, and portfolio sensitivities to mimic market-data-driven workflows.</p>
+          </div>
+          <div class="status-card">
+            <span class="status-label planned">Planned</span>
+            <h3>Full platform deployment</h3>
+            <p>The production platform will use a backend for live data, model governance, persistence, reports, and portfolio risk.</p>
+          </div>
+        </div>
+
+        <div class="module-summary">
+          <button class="summary-card" data-tab="options" type="button">
+            <span>01</span>
+            <strong>European Options</strong>
+            <p>Black-Scholes price, Greeks, and static volatility-surface lookup.</p>
+          </button>
+          <button class="summary-card" data-tab="barrier" type="button">
+            <span>02</span>
+            <strong>Barrier Options</strong>
+            <p>Simplified knock-out pricing and barrier-distance sensitivity.</p>
+          </button>
+          <button class="summary-card" data-tab="asian" type="button">
+            <span>03</span>
+            <strong>Asian Options</strong>
+            <p>Average-price option approximation using adjusted volatility.</p>
+          </button>
+          <button class="summary-card" data-tab="structured-autocallable" type="button">
+            <span>04</span>
+            <strong>Structured Autocallable</strong>
+            <p>Phoenix-style note with basket, memory coupon, autocall, coupon barrier, and protection terms.</p>
+          </button>
+          <button class="summary-card" data-tab="bonds" type="button">
+            <span>05</span>
+            <strong>Fixed-Rate Bonds</strong>
+            <p>Bond price, duration, convexity, DV01, and sample yield curve mode.</p>
+          </button>
+          <button class="summary-card" data-tab="cds" type="button">
+            <span>06</span>
+            <strong>Credit Default Swap</strong>
+            <p>Expected-loss and fair-spread style credit risk demo.</p>
+          </button>
+          <button class="summary-card" data-tab="portfolio" type="button">
+            <span>07</span>
+            <strong>Portfolio Risk</strong>
+            <p>Illustrative equity, rates, and credit stress contributions.</p>
+          </button>
+        </div>
+      </section>
+
+      <section class="page" id="options">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Options</p>
+          <h1>European Option Pricing</h1>
+          <p>Use manual volatility or interpolate from the packaged sample volatility surface.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="option-form">
+            <div class="form-group full-width">
+              <label for="option-data-mode">Volatility input mode</label>
+              <select id="option-data-mode">
+                <option value="surface">Sample volatility surface</option>
+                <option value="manual">Manual volatility</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="option-type">Option type</label>
+              <select id="option-type">
+                <option value="call">Call</option>
+                <option value="put">Put</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="spot">Spot price</label>
+              <input id="spot" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="strike">Strike price</label>
+              <input id="strike" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="rate">Risk-free rate (%)</label>
+              <input id="rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="volatility">Manual volatility (%)</label>
+              <input id="volatility" type="number" value="20.5" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="maturity">Maturity (years)</label>
+              <input id="maturity" type="number" value="1" step="0.25">
+            </div>
+            <div class="form-group full-width market-readout">
+              <span>Interpolated surface volatility</span>
+              <strong id="surface-vol-readout">20.50%</strong>
+              <small id="market-data-asof">Sample market data as of 2026-06-11</small>
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Black-Scholes demo price</span>
+              <strong id="option-price">$10.45</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Delta</span><strong id="delta">0.6368</strong></div>
+              <div><span>Gamma</span><strong id="gamma">0.0188</strong></div>
+              <div><span>Vega</span><strong id="vega">0.3752</strong></div>
+              <div><span>Theta / day</span><strong id="theta">-0.0176</strong></div>
+              <div><span>Rho</span><strong id="rho">0.5323</strong></div>
+              <div><span>Moneyness</span><strong id="moneyness">100.0%</strong></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Price sensitivity to spot</strong>
+                <span>80% to 120% of spot</span>
+              </div>
+              <svg id="option-chart" viewBox="0 0 640 220" role="img" aria-label="Option price sensitivity chart"></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="barrier">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Exotic Options</p>
+          <h1>Barrier Option Demo</h1>
+          <p>Simplified down-and-out / up-and-out option view using the same static volatility surface as the European option page.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="barrier-form">
+            <div class="form-group">
+              <label for="barrier-type">Barrier style</label>
+              <select id="barrier-type">
+                <option value="down-out">Down-and-out call</option>
+                <option value="up-out">Up-and-out call</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="barrier-spot">Spot price</label>
+              <input id="barrier-spot" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="barrier-strike">Strike price</label>
+              <input id="barrier-strike" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="barrier-level">Barrier level</label>
+              <input id="barrier-level" type="number" value="80" step="1">
+            </div>
+            <div class="form-group">
+              <label for="barrier-rate">Risk-free rate (%)</label>
+              <input id="barrier-rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="barrier-maturity">Maturity (years)</label>
+              <input id="barrier-maturity" type="number" value="1" step="0.25">
+            </div>
+            <div class="form-group full-width market-readout">
+              <span>Surface volatility used</span>
+              <strong id="barrier-vol-readout">20.50%</strong>
+              <small>Approximation for demo experience; full platform uses richer exotic-option engines.</small>
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Simplified barrier option value</span>
+              <strong id="barrier-price">$9.14</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Vanilla reference</span><strong id="barrier-vanilla">$10.45</strong></div>
+              <div><span>Survival factor</span><strong id="barrier-survival">87.5%</strong></div>
+              <div><span>Distance to barrier</span><strong id="barrier-distance">20.0%</strong></div>
+            </div>
+            <div class="method-card">
+              <h3>Method note</h3>
+              <p>This static page applies a simple barrier survival adjustment to a Black-Scholes call. It is useful for UI demonstration, not production exotic-option valuation.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="asian">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Exotic Options</p>
+          <h1>Asian Option Demo</h1>
+          <p>Average-price option approximation using adjusted volatility and packaged sample market data.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="asian-form">
+            <div class="form-group">
+              <label for="asian-type">Option type</label>
+              <select id="asian-type">
+                <option value="call">Average-price call</option>
+                <option value="put">Average-price put</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="asian-spot">Spot price</label>
+              <input id="asian-spot" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="asian-strike">Strike price</label>
+              <input id="asian-strike" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="asian-rate">Risk-free rate (%)</label>
+              <input id="asian-rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="asian-volatility">Manual volatility (%)</label>
+              <input id="asian-volatility" type="number" value="20.5" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="asian-maturity">Maturity (years)</label>
+              <input id="asian-maturity" type="number" value="1" step="0.25">
+            </div>
+            <div class="form-group full-width">
+              <label for="asian-observations">Averaging observations</label>
+              <input id="asian-observations" type="number" value="12" step="1" min="1">
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Asian option approximation</span>
+              <strong id="asian-price">$6.12</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Adjusted volatility</span><strong id="asian-adj-vol">11.84%</strong></div>
+              <div><span>European reference</span><strong id="asian-euro-ref">$10.45</strong></div>
+              <div><span>Averaging discount</span><strong id="asian-discount">41.4%</strong></div>
+            </div>
+            <div class="method-card">
+              <h3>Method note</h3>
+              <p>The demo uses a volatility reduction heuristic for average-price payoff behavior. The full app contains a QuantLib-backed Asian option workflow.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="structured-autocallable">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Structured Products</p>
+          <h1>Structured Autocallable Note</h1>
+          <p>Phoenix-style payoff preview with basket underlyings, observation dates, memory coupons, autocall, coupon barrier, and knock-in protection terms.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="structured-form">
+            <div class="form-group">
+              <label for="structured-mode">Underlying mode</label>
+              <select id="structured-mode">
+                <option value="basket">Worst-of basket</option>
+                <option value="single">Single underlying</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="structured-notional">Notional</label>
+              <input id="structured-notional" type="number" value="1000000" step="50000">
+            </div>
+            <div class="form-group full-width">
+              <label for="structured-spots">Spot levels (comma-separated)</label>
+              <input id="structured-spots" type="text" value="100, 95, 90">
+            </div>
+            <div class="form-group full-width">
+              <label for="structured-vols">Volatilities % (comma-separated)</label>
+              <input id="structured-vols" type="text" value="22, 24, 26">
+            </div>
+            <div class="form-group">
+              <label for="structured-correlation">Flat correlation</label>
+              <input id="structured-correlation" type="number" value="0.30" step="0.05">
+            </div>
+            <div class="form-group">
+              <label for="structured-maturity">Maturity (years)</label>
+              <input id="structured-maturity" type="number" value="1" step="0.25">
+            </div>
+            <div class="form-group">
+              <label for="structured-observations">Observation dates</label>
+              <input id="structured-observations" type="number" value="4" step="1" min="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-coupon">Coupon per observation (%)</label>
+              <input id="structured-coupon" type="number" value="2.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="structured-coupon-barrier">Coupon barrier (% initial)</label>
+              <input id="structured-coupon-barrier" type="number" value="70" step="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-autocall-barrier">Autocall barrier (% initial)</label>
+              <input id="structured-autocall-barrier" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-protection-barrier">Knock-in protection barrier (% initial)</label>
+              <input id="structured-protection-barrier" type="number" value="60" step="1">
+            </div>
+            <div class="form-group">
+              <label for="structured-memory">Memory coupon</label>
+              <select id="structured-memory">
+                <option value="yes">Enabled</option>
+                <option value="no">Disabled</option>
+              </select>
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Estimated note PV</span>
+              <strong id="structured-price">$1,018,250</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Autocall probability</span><strong id="structured-autocall-prob">42.0%</strong></div>
+              <div><span>Protection breach probability</span><strong id="structured-breach-prob">8.5%</strong></div>
+              <div><span>Expected coupons</span><strong id="structured-coupons">2.4x</strong></div>
+              <div><span>Worst-of expected final</span><strong id="structured-worst-final">91.5%</strong></div>
+              <div><span>Basket penalty</span><strong id="structured-basket-penalty">6.0%</strong></div>
+              <div><span>Memory value estimate</span><strong id="structured-memory-value">$8,000</strong></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Payoff by worst-of final level</strong>
+                <span>Static approximation</span>
+              </div>
+              <svg id="structured-chart" viewBox="0 0 640 220" role="img" aria-label="Structured autocallable payoff chart"></svg>
+            </div>
+            <div class="method-card">
+              <h3>Method note</h3>
+              <p>This Lite module is a deterministic approximation of the Flask app's Monte Carlo structured autocallable workflow. It shows termsheet behavior and payoff intuition; the full app performs path simulation.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="bonds">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Fixed Income</p>
+          <h1>Fixed-Rate Bond Analytics</h1>
+          <p>Use a manual yield or interpolate from the packaged sample yield curve.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="bond-form">
+            <div class="form-group full-width">
+              <label for="bond-rate-mode">Yield input mode</label>
+              <select id="bond-rate-mode">
+                <option value="curve">Sample yield curve</option>
+                <option value="manual">Manual YTM</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="bond-face">Face value</label>
+              <input id="bond-face" type="number" value="1000" step="100">
+            </div>
+            <div class="form-group">
+              <label for="coupon-rate">Coupon rate (%)</label>
+              <input id="coupon-rate" type="number" value="5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="ytm">Manual YTM (%)</label>
+              <input id="ytm" type="number" value="4.75" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="bond-years">Maturity (years)</label>
+              <input id="bond-years" type="number" value="5" step="1">
+            </div>
+            <div class="form-group full-width">
+              <label for="bond-frequency">Payments per year</label>
+              <input id="bond-frequency" type="number" value="2" step="1" min="1">
+            </div>
+            <div class="form-group full-width market-readout">
+              <span>Interpolated curve yield</span>
+              <strong id="curve-yield-readout">4.75%</strong>
+              <small>Static sample curve packaged with the demo.</small>
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Clean price approximation</span>
+              <strong id="bond-price">$1,010.96</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Modified duration</span><strong id="bond-duration">4.37y</strong></div>
+              <div><span>Convexity</span><strong id="bond-convexity">23.09</strong></div>
+              <div><span>DV01</span><strong id="bond-dv01">$0.44</strong></div>
+              <div><span>Premium / discount</span><strong id="bond-premium">$10.96</strong></div>
+            </div>
+            <div class="scenario-table">
+              <div class="table-row table-head"><span>Yield shock</span><span>Price</span><span>P&L</span></div>
+              <div class="table-row"><span>-100 bps</span><span id="bond-price-down">$1,057.04</span><span id="bond-pnl-down">$46.08</span></div>
+              <div class="table-row"><span>Base</span><span id="bond-price-base">$1,010.96</span><span>$0.00</span></div>
+              <div class="table-row"><span>+100 bps</span><span id="bond-price-up">$967.55</span><span id="bond-pnl-up">-$43.41</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="forwards">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Futures and Forwards</p>
+          <h1>Forward Contract</h1>
+          <p>Cost-of-carry fair value using manual inputs or sample market data.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="forward-form">
+            <div class="form-group full-width">
+              <label for="forward-rate-mode">Rate input mode</label>
+              <select id="forward-rate-mode">
+                <option value="curve">Sample curve / market data</option>
+                <option value="manual">Manual inputs</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="forward-spot">Spot price</label>
+              <input id="forward-spot" type="number" value="100" step="1">
+            </div>
+            <div class="form-group">
+              <label for="forward-rate">Risk-free rate (%)</label>
+              <input id="forward-rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="income-yield">Dividend / income yield (%)</label>
+              <input id="income-yield" type="number" value="1.8" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="carry-cost">Storage / carry cost (%)</label>
+              <input id="carry-cost" type="number" value="0" step="0.1">
+            </div>
+            <div class="form-group full-width">
+              <label for="forward-years">Maturity (years)</label>
+              <input id="forward-years" type="number" value="1" step="0.25">
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Fair forward price</span>
+              <strong id="forward-price">$102.74</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Cost of carry</span><strong id="net-carry">2.70%</strong></div>
+              <div><span>Long payoff at spot +10%</span><strong id="forward-up">$7.26</strong></div>
+              <div><span>Long payoff at spot -10%</span><strong id="forward-down">-$12.74</strong></div>
+              <div><span>Break-even spot</span><strong id="forward-breakeven">$102.74</strong></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Long forward payoff</strong>
+                <span>Terminal spot range</span>
+              </div>
+              <svg id="forward-chart" viewBox="0 0 640 220" role="img" aria-label="Forward payoff chart"></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="swaps">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Interest Rate Derivatives</p>
+          <h1>Plain Vanilla Swap</h1>
+          <p>Simple receiver swap valuation using a par rate, discount rate, and annuity approximation.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="swap-form">
+            <div class="form-group">
+              <label for="swap-notional">Notional</label>
+              <input id="swap-notional" type="number" value="1000000" step="100000">
+            </div>
+            <div class="form-group">
+              <label for="fixed-rate">Fixed rate paid (%)</label>
+              <input id="fixed-rate" type="number" value="4.2" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="par-rate">Market par swap rate (%)</label>
+              <input id="par-rate" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="discount-rate">Discount rate (%)</label>
+              <input id="discount-rate" type="number" value="4.4" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="swap-years">Maturity (years)</label>
+              <input id="swap-years" type="number" value="5" step="1">
+            </div>
+            <div class="form-group">
+              <label for="swap-frequency">Payments per year</label>
+              <input id="swap-frequency" type="number" value="2" step="1" min="1">
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Receiver swap value approximation</span>
+              <strong id="swap-value">$13,407</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Swap annuity</span><strong id="swap-annuity">4.469</strong></div>
+              <div><span>Rate spread</span><strong id="swap-spread">0.30%</strong></div>
+              <div><span>DV01 approximation</span><strong id="swap-dv01">$447</strong></div>
+              <div><span>+100 bps P&L</span><strong id="swap-shock">-$44,692</strong></div>
+            </div>
+            <p class="module-note">The full Flask app supports richer curve construction and QuantLib-style workflows.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="cds">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Credit Derivatives</p>
+          <h1>Credit Default Swap Demo</h1>
+          <p>Illustrative CDS expected-loss and fair-spread calculation using simplified hazard-rate assumptions.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="cds-form">
+            <div class="form-group">
+              <label for="cds-notional">Notional</label>
+              <input id="cds-notional" type="number" value="10000000" step="500000">
+            </div>
+            <div class="form-group">
+              <label for="cds-spread">Quoted spread (bps)</label>
+              <input id="cds-spread" type="number" value="150" step="5">
+            </div>
+            <div class="form-group">
+              <label for="cds-hazard">Hazard rate (%)</label>
+              <input id="cds-hazard" type="number" value="2.25" step="0.05">
+            </div>
+            <div class="form-group">
+              <label for="cds-recovery">Recovery rate (%)</label>
+              <input id="cds-recovery" type="number" value="40" step="1">
+            </div>
+            <div class="form-group">
+              <label for="cds-discount">Discount rate (%)</label>
+              <input id="cds-discount" type="number" value="4.5" step="0.1">
+            </div>
+            <div class="form-group">
+              <label for="cds-maturity">Maturity (years)</label>
+              <input id="cds-maturity" type="number" value="5" step="1">
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>CDS value to protection buyer</span>
+              <strong id="cds-value">-$91,250</strong>
+            </div>
+            <div class="result-grid">
+              <div><span>Expected loss PV</span><strong id="cds-el">$612,000</strong></div>
+              <div><span>Premium leg PV</span><strong id="cds-premium">$703,250</strong></div>
+              <div><span>Fair spread</span><strong id="cds-fair-spread">129 bps</strong></div>
+            </div>
+            <div class="method-card">
+              <h3>Method note</h3>
+              <p>This page demonstrates the shape of a CDS workflow. The full platform includes richer QuantLib-style credit derivative analytics.</p>
+            </div>
+          </div>
+        </div>
+
+
+      <section class="page" id="portfolio">
+        <div class="page-title compact">
+          <p class="eyebrow">Risk Management</p>
+          <h1>Portfolio Stress</h1>
+          <p>Illustrative stress analysis using static sample portfolio sensitivities.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="portfolio-form">
+            <div class="form-group">
+              <label for="equity-shock">Equity shock (%)</label>
+              <input id="equity-shock" type="number" value="-10" step="1">
+            </div>
+            <div class="form-group">
+              <label for="vol-shock">Volatility shock (%)</label>
+              <input id="vol-shock" type="number" value="5" step="1">
+            </div>
+            <div class="form-group">
+              <label for="rate-shock">Rate shock (bps)</label>
+              <input id="rate-shock" type="number" value="50" step="25">
+            </div>
+            <div class="form-group">
+              <label for="credit-shock">Credit spread shock (bps)</label>
+              <input id="credit-shock" type="number" value="75" step="25">
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="result-card highlight">
+              <span>Demo portfolio P&L</span>
+              <strong id="portfolio-pnl">-$28,420</strong>
+            </div>
+            <div class="scenario-table">
+              <div class="table-row table-head"><span>Book</span><span>Exposure driver</span><span>P&L</span></div>
+              <div class="table-row"><span>Equity Options</span><span>Delta / Vega</span><span id="pnl-equity">-$18,500</span></div>
+              <div class="table-row"><span>Rates</span><span>DV01</span><span id="pnl-rates">-$6,700</span></div>
+              <div class="table-row"><span>Credit</span><span>CS01</span><span id="pnl-credit">-$3,220</span></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Risk contribution</strong>
+                <span>Illustrative desk breakdown</span>
+              </div>
+              <svg id="portfolio-chart" viewBox="0 0 640 220" role="img" aria-label="Portfolio risk contribution chart"></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="vol-surface">
+        <div class="page-title compact">
+          <p class="eyebrow">Products / Volatility Products</p>
+          <h1>Volatility Surface</h1>
+          <p>Explore the packaged sample volatility surface used by the option modules.</p>
+        </div>
+
+        <div class="module-grid">
+          <form class="form-grid" id="surface-form">
+            <div class="form-group full-width">
+              <label for="surface-maturity">Maturity slice (years)</label>
+              <select id="surface-maturity">
+                <option value="0.25">0.25</option>
+                <option value="0.5">0.50</option>
+                <option value="1" selected>1.00</option>
+                <option value="2">2.00</option>
+              </select>
+            </div>
+            <div class="form-group full-width market-readout">
+              <span>At-the-money volatility</span>
+              <strong id="surface-atm-vol">20.50%</strong>
+              <small>Static data only; no live option-chain extraction in this demo.</small>
+            </div>
+          </form>
+
+          <div class="output-panel">
+            <div class="chart-card">
+              <div class="chart-heading">
+                <strong>Volatility smile by moneyness</strong>
+                <span id="surface-page-label">1Y maturity</span>
+              </div>
+              <svg id="surface-page-chart" viewBox="0 0 640 220" role="img" aria-label="Volatility surface maturity slice chart"></svg>
+            </div>
+            <div class="scenario-table">
+              <div class="table-row table-head"><span>Moneyness</span><span>Volatility</span><span>Use case</span></div>
+              <div class="table-row"><span>80%</span><span id="surface-vol-80">26.50%</span><span>Downside skew</span></div>
+              <div class="table-row"><span>100%</span><span id="surface-vol-100">20.50%</span><span>ATM pricing</span></div>
+              <div class="table-row"><span>120%</span><span id="surface-vol-120">20.80%</span><span>Upside wing</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" id="report">
+        <div class="page-title compact">
+          <p class="eyebrow">Reports</p>
+          <h1>Demo Report Snapshot</h1>
+          <p>A lightweight report-style view that summarizes selected demo outputs. Use browser print for a quick PDF.</p>
+        </div>
+
+        <div class="report-panel" id="report-panel">
+          <div class="report-header">
+            <div>
+              <h2>DerivaPro Lite Pricing & Risk Snapshot</h2>
+              <p id="report-asof">Sample data as of 2026-06-11</p>
+            </div>
+            <button class="action-button" id="print-report" type="button">Print / Save PDF</button>
+          </div>
+          <div class="report-grid">
+            <div><span>European option</span><strong id="report-option-price">$10.45</strong></div>
+            <div><span>Barrier option</span><strong id="report-barrier-price">$9.14</strong></div>
+            <div><span>Asian option</span><strong id="report-asian-price">$6.12</strong></div>
+            <div><span>Structured autocallable</span><strong id="report-structured-price">$1,018,250</strong></div>
+            <div><span>Bond price</span><strong id="report-bond-price">$1,010.96</strong></div>
+            <div><span>CDS value</span><strong id="report-cds-value">-$91,250</strong></div>
+            <div><span>Portfolio P&L</span><strong id="report-portfolio-pnl">-$28,420</strong></div>
+          </div>
+          <div class="method-card">
+            <h3>Report scope</h3>
+            <p>This is a static demo report. It is intended to communicate product direction and workflow shape. The full Flask platform remains the target for production reports, governance, persistence, and auditability.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

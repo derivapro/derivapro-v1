@@ -1,242 +1,249 @@
 <p align="center">
-<img src="https://github.com/user-attachments/assets/54dd4b1b-a332-4109-a768-ca1c4e695fe6" alt="DerivaPro logo_final" width="300">
+  <img src="https://github.com/user-attachments/assets/54dd4b1b-a332-4109-a768-ca1c4e695fe6" alt="DerivaPro logo" width="300">
 </p>
 
-# DerivaPro
+<h1 align="center">DerivaPro</h1>
 
-DerivaPro is a Flask-based quantitative analytics application for derivative pricing, risk analysis, market data extraction, and model-validation style reporting. The platform exposes multiple pricing and analytics workflows through modular Flask blueprints, with supporting pricing engines implemented under the `derivapro/models` package.
+<p align="center">
+  <strong>Financial Instruments Pricing, Evaluation, and Risk Management Platform</strong>
+</p>
 
-The application combines:
-- pricing workflows for vanilla, exotic, credit, rates, and volatility products
-- sensitivity, scenario, convergence, and risk-based P&L style analyses
-- market data retrieval and derived analytics
-- Markdown-backed explanatory content for model documentation and user guidance
-- optional AI-assisted narrative assessments through Azure OpenAI configuration supplied via environment variables
-
----
-
-## Core Capabilities
-
-### Product and analytics coverage
-
-The current codebase includes routes, templates, and model support for:
-- **Vanilla options**
-  - European option pricing
-  - American option pricing
-  - sensitivity analysis
-  - convergence analysis
-  - scenario analysis
-  - reporting and model governance views
-- **Exotic options**
-  - barrier options
-  - Asian options
-  - autocallable-related workflows
-- **Futures and forwards**
-  - pricing and sensitivity analysis
-- **Credit derivatives**
-  - credit default swaps
-  - synthetic CDO analytics
-  - credit-linked notes
-- **Rates and term structure**
-  - swaps and swaptions
-  - term structure extraction and analytics
-  - rates-related API utilities
-- **Volatility products**
-  - volatility surface construction
-  - variance and volatility swap analytics
-- **Prepayment analytics**
-  - a simpler calculator-style workflow
-  - a separate v2 data-driven workflow
-- **Bond analytics**
-  - non-call fixed and floating bond variants, including amortizing structures
-
-### Cross-cutting features
-
-Across many of the above workflows, the platform supports:
-- option Greeks and related sensitivities
-- plot generation and rendering in the Flask UI
-- session-backed workflow state
-- Markdown-based supporting documentation
-- AI-generated assessments where configured
-- export/report style pages and generated narrative views
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.x-blue">
+  <img alt="Flask" src="https://img.shields.io/badge/Flask-Web%20App-black">
+  <img alt="QuantLib" src="https://img.shields.io/badge/QuantLib-Pricing%20Engines-green">
+  <img alt="Status" src="https://img.shields.io/badge/Status-Active%20Development-orange">
+  <img alt="Scope" src="https://img.shields.io/badge/Scope-Multi--Asset%20Analytics-purple">
+</p>
 
 ---
 
-## Architecture Overview
+## 📌 Overview
 
-DerivaPro uses a standard Flask application-factory structure.
+**DerivaPro** is a browser-based quantitative finance application for pricing, evaluating, and risk-managing financial instruments. It combines Flask-based workflows, pricing engines, market data extraction, model documentation, scenario analysis, sensitivity analysis, and report-style outputs into one extensible platform.
 
-### Application entry points
+The current version is a working analytical application with broad instrument coverage. The next development stages focus on turning it into a production-quality platform with stronger security, persistent storage, user-scoped workflows, automated testing, portfolio-level risk management, and professional reporting.
 
-- `run.py` provides the local application entry point.
-- `derivapro/__init__.py` initializes the Flask app and registers blueprints.
-- `derivapro/config.py` contains application configuration.
+### Recent Platform Update
 
-### Main package layout
-
-- `derivapro/routes/` contains Flask blueprints and page handlers.
-- `derivapro/models/` contains pricing engines, data helpers, and analytics logic.
-- `derivapro/templates/` contains Jinja templates for all user-facing pages.
-- `derivapro/static/` contains CSS, generated artifacts, and saved plots.
-- `derivapro/legacy/` contains retired or archived implementation files retained for reference.
-
-### Content model
-
-Many pages are backed by Markdown files stored alongside route modules. These are rendered into templates to provide:
-- conceptual soundness notes
-- workflow instructions
-- model governance content
-- end-user educational context
+DerivaPro now includes a first structured-products expansion for **Phoenix-style autocallable notes** in the Flask application. The new workflow supports single-underlying or worst-of basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional/maturity inputs, static volatility assumptions, and flat basket correlation. It reuses the newer Monte Carlo path engine and applies structured-note payoff logic on top of the simulated paths.
 
 ---
 
-## Repository Structure
+## ⚡ DerivaPro Lite Demo
 
-A simplified high-level view of the repository:
-- `README.md` - project overview and setup notes
-- `requirements.txt` - Python dependencies
-- `setup.py` - package setup metadata
-- `run.py` - local runtime entry point
-- `derivapro/`
-  - `__init__.py`
-  - `config.py`
-  - `routes/`
-  - `models/`
-  - `templates/`
-  - `static/`
-  - `legacy/`
+A no-install static demo is available on GitHub Pages:
 
-Key route modules include:
-- `routes/vanilla_options.py`
-- `routes/exotic_options.py`
-- `routes/futures_forwards.py`
-- `routes/credit_derivatives.py`
-- `routes/swaps.py`
-- `routes/swaptions.py`
-- `routes/term_structure.py`
-- `routes/volatility_surface.py`
-- `routes/variance_swaps.py`
-- `routes/prepayment.py`
-- `routes/prepayment_v2.py`
-- `routes/bonds.py`
-
-Key model modules include:
-- `models/market_data.py`
-- `models/mdls_vanilla_options.py`
-- `models/mdls_monte_carlo_v2.py`
-- `models/mdls_binomial_tree.py`
-- `models/mdls_lattice_trees.py`
-- `models/mdls_asian_options.py`
-- `models/mdls_autocallables.py`
-- `models/mdls_credit.py`
-- `models/mdls_futures_forwards.py`
-- `models/mdls_term_structure.py`
-- `models/mdls_variance_volatility_swaps.py`
-- `models/mdls_prepayment.py`
-- `models/mdls_prepayment_v2.py`
-
-Legacy / archived modules may also exist under:
-- `derivapro/legacy/`
-
----
-
-## Pricing Engine Notes
-
-### Vanilla options
-
-The vanilla options workflow is the most feature-rich area of the application.
-
-It combines multiple pricing approaches, including:
-- Black-Scholes style pricing and Greeks from `mdls_vanilla_options.py`
-- lattice-based pricing through `mdls_lattice_trees.py`
-- Monte Carlo support through the v2 engine in `mdls_monte_carlo_v2.py`
-- American binomial pricing through `models/mdls_binomial_tree.py`
-
-### Binomial tree implementation
-
-The current active American binomial tree implementation is:
-- `derivapro/models/mdls_binomial_tree.py`
-
-This module provides `BinomialTreeEngineCRR`, which is used by the American vanilla options workflow. It supports:
-- CRR-style binomial pricing
-- variable internal step handling
-- discrete dividend handling
-- Greeks by finite differences
-- exercise-boundary style output helpers
-
-Older binomial development artifacts have been moved out of the active runtime path and retained under:
-- `derivapro/legacy/`
-
-### Monte Carlo implementation
-
-The active Monte Carlo implementation is:
-- `derivapro/models/mdls_monte_carlo_v2.py`
-
-This module provides the current engine-based Monte Carlo support used by the application for active pricing workflows, including vanilla and exotic option use cases.
-
-The older Monte Carlo implementation has been retired from the active runtime path and moved to:
-- `derivapro/legacy/`
-
-### Prepayment implementation
-
-Two separate prepayment tracks exist today:
-- `mdls_prepayment.py` supporting the simpler calculator-style workflow
-- `mdls_prepayment_v2.py` supporting a more data-oriented v2 workflow
-
-These are not currently interchangeable and should be treated as separate product paths unless explicitly consolidated.
-
----
-
-## Web UI and User Workflow
-
-The front end is rendered with Jinja templates under `derivapro/templates/`.
-
-Notable UI characteristics:
-- a shared navigation structure through `base.html`
-- form-driven analytics pages per asset class or product type
-- conditional UI logic for model-specific parameters
-- embedded explanatory Markdown content
-- session-driven display of analysis results and generated plots
-
-The American options UI currently uses the user-facing label:
-- `Binomial Tree`
-
-Generated plots are written to the static area and rendered in templates. Recent updates introduced unique plot filenames for active plot-generation paths to reduce concurrent-user overwrite collisions for filesystem-backed images.
-
----
-
-## Environment Variables
-
-Several externalized settings are read from environment variables. The following names are currently used by parts of the application and should be preserved as-is unless the code is intentionally updated everywhere:
-- `OpenAI_API_Key`
-- `Base_URL`
-- `Model`
-- `API_Version`
-- `Auth_headers`
-- `FRED_API_Key`
-
-These values are expected to be supplied through a local `.env` file or equivalent environment configuration.
-
-### Example `.env`
-
-```env .env
-OpenAI_API_Key=your_openai_or_azure_key
-Base_URL=your_azure_openai_endpoint
-Model=your_model_name
-API_Version=your_api_version
-Auth_headers=api-key
-FRED_API_Key=your_fred_api_key
+```text
+https://derivapro.github.io/derivapro-v1/demo/
 ```
 
-> Note: `.env` should remain excluded from version control.
+The demo source lives under [`demo/`](demo/). It runs entirely in the browser with plain HTML, CSS, and JavaScript.
+
+You can also open the local file directly after cloning the repository:
+
+```text
+demo/index.html
+```
+
+The Lite demo includes simplified interactive modules for European options, barrier options, Asian options, structured autocallable notes, fixed-rate bonds, forwards, swaps, CDS, volatility surface views, portfolio stress, a report snapshot, and packaged sample market data. It is designed for a quick glance and basic user operation only. It does not run the Flask backend, QuantLib, live market data feeds, AI assessment, user persistence, or production report generation.
+
+The full Flask application remains the source for production analytics, market data workflows, model-governance features, and future portfolio-level risk management.
 
 ---
 
-## Setup and Local Development
+## 🎯 Platform Vision
+
+DerivaPro is being developed toward a full browser-launched platform where users can:
+
+| Workflow | Platform Goal |
+|---|---|
+| Price instruments | Run analytical, lattice, Monte Carlo, and QuantLib-backed valuation workflows. |
+| Evaluate models | Review Greeks, sensitivities, convergence behavior, scenarios, and model assumptions. |
+| Manage risk | Move from instrument-level analytics to portfolio-level exposure, stress testing, VaR, and risk ladders. |
+| Document methodology | Maintain model notes, governance content, monitoring pages, and validation-style documentation. |
+| Generate reports | Produce professional outputs for pricing review, model validation, and risk communication. |
+
+---
+
+## ✅ Current Capabilities
+
+DerivaPro already includes active workflows across several major financial product areas.
+
+| Category | Current Coverage |
+|---|---|
+| **Equity Options** | European and American options, Black-Scholes, binomial/lattice models, Monte Carlo workflows, Greeks, convergence, sensitivity, and scenario analysis. |
+| **Exotic Options / Structured Products** | Barrier options, Asian options, basic autocallable workflows, and Phoenix-style structured autocallable notes with basket, memory coupon, autocall, coupon barrier, and protection barrier terms. |
+| **Fixed Income** | Non-callable fixed-rate bonds, fixed-rate amortizing bonds, floating-rate bonds, and floating-rate amortizing bonds. |
+| **Interest Rate Derivatives** | Swaps, swaptions, term structure analytics, market-rate extraction, and rates API utilities. |
+| **Credit Derivatives** | Credit default swaps, synthetic CDO analytics, and credit-linked notes. |
+| **Volatility Products** | Volatility surface construction, variance swaps, and volatility swaps. |
+| **Futures and Forwards** | Pricing, sensitivity analysis, and scenario-style analysis. |
+| **Prepayment Analytics** | Simple calculator-style workflow and v2 data-driven modeling workflow. |
+| **AI-Assisted Assessment** | Optional Azure/OpenAI-compatible narrative assessment workflows through environment configuration. |
+
+---
+
+## 🚦 Development Status
+
+| Area | Status | Notes |
+|---|---:|---|
+| Flask application factory and blueprint architecture | ✅ Done | Modular route registration through `derivapro/routes`. |
+| Product-level pricing workflows | ✅ Done / active | Current workflows span options, structured autocallables, rates, credit, fixed income, volatility, forwards, and prepayment. |
+| Markdown-backed model documentation | ✅ Done / active | Route-level Markdown content supports explanations, governance notes, and user guidance. |
+| Environment-based secrets/configuration | 🟡 In progress | `.env.example` exists; configuration should continue moving away from hardcoded values. |
+| Structured logging | 🟡 In progress | `logging_config.py` exists; remaining ad hoc logging should be normalized. |
+| Monte Carlo modernization | 🟡 In progress | Both legacy and v2 Monte Carlo modules exist; the new structured autocallable workflow now reuses the v2 path engine for payoff simulation. |
+| Prepayment modeling workflow | 🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries. |
+| Report generation | 🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned. |
+| Structured product payoff coverage | 🟡 In progress | Phoenix-style autocallable note support has started; broader payoff-builder components remain a roadmap item. |
+| Portfolio-level risk | 🔵 Planned | Current workflows are mostly instrument-level; portfolio aggregation is the next major product step. |
+| Database persistence and user identity | 🔵 Planned | Current state is mostly session/file based. |
+| Automated tests and CI | 🔵 Planned | Pricing regression tests and route tests are needed before production use. |
+
+---
+
+## 🧭 Development Roadmap
+
+The roadmap follows the development plan for turning DerivaPro from an analytical prototype into a production-grade platform.
+
+### Phase 0: Security and Stability
+
+- Keep credentials and secrets out of source code.
+- Use environment-driven configuration for API keys, Flask secrets, debug mode, and logging level.
+- Continue replacing ad hoc `print()` calls with structured logging.
+- Reduce fixed-name static plot artifacts to avoid concurrent-user collisions.
+- Review browser forms for CSRF protection.
+
+### Phase 1: Deployment Foundation
+
+- Add a production WSGI path, such as Gunicorn.
+- Add Docker and Docker Compose for reproducible local launch.
+- Lock dependencies with a reproducible dependency process.
+- Add basic CI for linting and future test execution.
+
+### Phase 2: Persistence and User Workflows
+
+- Add database persistence for users, instruments, pricing results, analysis results, plots, and reports.
+- Add authentication and user-scoped sessions.
+- Move result passing away from browser session storage and toward database-backed result IDs.
+
+### Phase 3: Maintainability and Service Layer
+
+- Split large route handlers into smaller action-specific functions.
+- Introduce a service layer for pricing, analysis, market data, and AI assessment.
+- Cache repeated market data calls.
+- Consolidate legacy/v2 modules where practical.
+- Add type hints to the model layer.
+
+### Phase 4: Testing and Model Regression
+
+- Add unit tests for Black-Scholes, lattice, Monte Carlo, bond, swap, and credit models.
+- Add Flask route integration tests.
+- Add benchmark pricing tests, convergence checks, and put-call-parity tests.
+- Use CI to prevent accidental pricing regressions.
+
+### Phase 5: Portfolio-Level Risk Management
+
+- Add portfolios and positions.
+- Aggregate Greeks and exposures across positions.
+- Add portfolio stress testing.
+- Add historical, parametric, and Monte Carlo VaR/CVaR.
+- Add DV01 and tenor risk ladders for rate-sensitive books.
+
+### Phase 6: Reporting and Model Governance
+
+- Build production-quality report generation.
+- Store generated reports with pricing and analysis metadata.
+- Expand model governance workflows.
+- Complete prepayment model validation and monitoring.
+
+### Phase 7: Performance and User Experience
+
+- Move long-running analytics to background tasks.
+- Add task progress/status tracking for heavy simulations and model training.
+- Improve UI consistency and responsive layout.
+- Add stronger client-side validation and clearer error states.
+
+---
+
+## 🧩 Planned Instrument Extensions
+
+The following additions align with the long-term multi-asset platform vision.
+
+| Priority | Category | Candidate Additions | Why It Fits |
+|---:|---|---|---|
+| 1 | **FX** | FX forwards, FX vanilla options, FX barrier options, cross-currency swaps | Reuses existing forwards, options, and swaps patterns. |
+| 2 | **Interest Rate Options** | Caps, floors, collars, CMS products, OIS/SOFR swaps | Builds on term structure and swaption infrastructure. |
+| 3 | **Fixed Income Extensions** | Callable bonds, putable bonds, TIPS/inflation-linked bonds, convertible bonds | Extends current bond analytics into more realistic desk workflows. |
+| 4 | **Structured Products** | Reverse convertibles, principal-protected notes, CPPI structures | Combines option, credit, and fixed-income components already present. |
+| 5 | **Additional Exotics** | Digital/binary options, lookback options, Bermuda options, spread options, quanto options | Expands derivatives coverage after core engines are tested. |
+| 6 | **XVA** | CVA, DVA, FVA, MVA | Adds OTC valuation adjustment and counterparty risk capabilities. |
+| 7 | **Securitized Products** | MBS, ABS, CLO-style workflows | Longer-term extension connected to the prepayment modeling work. |
+| 8 | **Commodities** | Commodity forwards, futures options, energy derivatives | Extends the platform toward broader multi-asset coverage. |
+
+---
+
+## 🏗️ Architecture
+
+DerivaPro uses a conventional Flask application structure with a clear separation between routes, models, templates, and static assets.
+
+```text
+derivapro-v1/
+|-- README.md
+|-- requirements.txt
+|-- setup.py
+|-- run.py
+`-- derivapro/
+    |-- __init__.py
+    |-- config.py
+    |-- logging_config.py
+    |-- secret_key_utils.py
+    |-- routes/
+    |-- models/
+    |-- templates/
+    |-- static/
+    `-- legacy/
+```
+
+### Main application areas
+
+| Path | Purpose |
+|---|---|
+| `derivapro/routes/` | Flask blueprints, page handlers, and workflow endpoints. |
+| `derivapro/models/` | Pricing engines, market data helpers, analytics logic, and model utilities. |
+| `derivapro/templates/` | Jinja templates for browser-facing pages. |
+| `derivapro/static/` | CSS, images, generated plots, and generated artifacts. |
+| `derivapro/legacy/` | Retired implementation artifacts retained for reference. |
+
+### Key model modules
+
+| Module | Focus |
+|---|---|
+| `market_data.py` | Market data helpers. |
+| `mdls_vanilla_options.py` | Black-Scholes style pricing and Greeks. |
+| `mdls_lattice_trees.py` / `mdls_binomial_tree.py` | Lattice and binomial option models. |
+| `mdls_monte_carlo.py` / `mdls_monte_carlo_v2.py` | Monte Carlo pricing and simulation engines. |
+| `mdls_bonds.py` | Fixed-income analytics. |
+| `mdls_credit.py` | Credit derivatives analytics. |
+| `mdls_swaps.py` / `swaps.py` / `swaptions.py` | Rates and swap analytics. |
+| `mdls_term_structure.py` | Yield curve and term structure modeling. |
+| `mdls_prepayment.py` / `mdls_prepayment_v2.py` | Prepayment workflows. |
+
+---
+
+## ⚙️ Setup and Local Development
 
 ### 1. Create and activate a virtual environment
 
-On Windows PowerShell:
+macOS / Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Windows PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -245,64 +252,90 @@ python -m venv .venv
 
 ### 2. Install dependencies
 
-```powershell
+```bash
 pip install -r requirements.txt
 ```
 
 ### 3. Configure environment variables
 
-Create a local `.env` file in the project root and populate the required variables.
+Create a local `.env` file in the project root. Do not commit `.env`.
 
-### 4. Run the application
+Use `.env.example` as the starting point:
 
-```powershell
+```env
+OpenAI_API_Key="xxx"
+Base_URL="https://your-azure-openai-endpoint"
+Model="your-model-name"
+API_Version="2025-04-01-preview"
+Auth_headers="your-subscription-key-header"
+FRED_API_Key="xxx"
+SECRET_KEY="replace_with_a_secure_random_value"
+FLASK_ENV=development
+FLASK_DEBUG=true
+LOG_LEVEL=INFO
+```
+
+To generate a local secret key:
+
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 4. Run the app
+
+```bash
 python run.py
 ```
 
-The Flask app should then be available locally based on the configured runtime settings.
+Then open the local Flask URL shown in the terminal, typically:
+
+```text
+http://127.0.0.1:5000
+```
 
 ---
 
-## Dependencies and External Services
+## 🔌 External Services
 
-The project depends on a mix of web, quantitative, and data libraries. Based on the codebase, important dependencies include:
-- Flask
-- NumPy
-- SciPy
-- Matplotlib
-- pandas / market-data related dependencies where applicable
-- QuantLib
-- Markdown rendering utilities
-- dotenv support
-- OpenAI / Azure OpenAI client libraries
-- Yahoo Finance-backed market data access through the application’s market data helpers
+DerivaPro can use external services for market data and AI-assisted assessments:
 
-Please refer to `requirements.txt` for the exact pinned dependency list in the repository.
+| Service | Usage |
+|---|---|
+| Yahoo Finance / `yfinance` | Equity and option-market data workflows. |
+| FRED / Treasury / SOFR data | Rates and term-structure workflows. |
+| Azure/OpenAI-compatible APIs | Optional narrative assessments and model commentary. |
+
+External service availability, credentials, quotas, and network access can affect runtime behavior.
 
 ---
 
-## Reporting and Model Validation Style Features
+## 🛡️ Operational Notes
 
-The platform includes reporting and model-risk-style supporting pages in several areas, especially under the vanilla options workflow. These include pages and handlers for:
-- model performance
-- model governance
-- ongoing monitoring
-- conceptual soundness
-- report rendering and download generation
+This repository is actively evolving. Before treating it as production-ready, complete at least the following:
 
-These features are oriented toward explanatory analytics and internal validation-style workflows rather than being a standalone enterprise reporting framework.
+- Verify no credentials or secrets are committed.
+- Add CSRF protection for browser forms.
+- Add persistent storage and user-level isolation.
+- Add automated pricing regression tests.
+- Replace development-server deployment with a WSGI deployment path.
+- Review generated static artifacts and cleanup rules.
+
+---
+
+## 🤝 Contributing Notes
+
+For low-risk development:
+
+- Make one focused change at a time.
+- Preserve existing pricing behavior unless intentionally changing it.
+- Update routes, models, templates, and documentation together when renaming workflows.
+- Treat `legacy/` and active pricing modules carefully before deleting older code.
+- Add tests when changing pricing logic, market data logic, or model assumptions.
 
 ---
 
-## Operational and Security Notes
+## 🧠 Product Direction
 
-This repository has undergone partial hardening, but some operational/security cleanup items may still remain depending on the current branch state. Typical examples include:
-- debug-mode cleanup
-- stronger secret-key handling
-- removal of non-essential sensitive logging
-- further normalization of legacy import patterns
-- remaining concurrent-user artifact safety review in selected flows
+The long-term goal is a multi-asset pricing and risk platform that users can launch in a browser, configure through forms, save instruments and portfolios, run analyses, and produce professional model/risk reports.
 
-Accordingly, this repository should be treated as an actively evolving application rather than a fully hardened production deployment artifact without further review.
-
----
+The next major milestone is to move from instrument-level analytics to persistent, user-scoped, portfolio-level risk management.

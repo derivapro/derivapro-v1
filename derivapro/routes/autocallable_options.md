@@ -20,6 +20,21 @@ where $S_T$ is the value of the underlying asset at excerise $T$ and $K$ is the 
 Auto-Callable options provides the holder an opportunity for an early exit with a guaranteed return (the fixed payout), but if the option is not triggered early, 
 the payoff behaves like a regular option based on the strike price and the final underlying asset price.
 
+**Structured Note / Phoenix Extension:**
+This page also includes a richer structured autocallable note workflow designed to look more like a real-world termsheet. It supports:
+
+* single-underlying or worst-of basket underlyings
+* autocall observation dates
+* coupon barrier
+* autocall barrier
+* knock-in protection barrier
+* memory coupon toggle
+* notional and maturity
+* static/user-supplied volatility assumptions
+* flat basket correlation assumption
+
+The structured note workflow prices the payoff using Monte Carlo paths from the newer DerivaPro Monte Carlo engine, then applies the structured payoff logic on top of those simulated paths. For basket notes, the payoff is evaluated on the worst-performing underlying relative to its initial level.
+
 For the full model documentation on Exotic Auto-Callable Options, please refer to the [documentation](/exotic-options) here.
 
 **Instructions:**
