@@ -84,15 +84,6 @@
     </div>
 
     <div class="form-group">
-        <label for="simulation_engine">Simulation Engine:</label>
-        <select id="simulation_engine" name="simulation_engine" required>
-            <option value="original" {% if form_data.simulation_engine=='original' %}selected{% endif %}>Original
-            </option>
-            <option value="new_MC" {% if form_data.simulation_engine=='new_MC' %}selected{% endif %}>New MC</option>
-        </select>
-    </div>
-
-    <div class="form-group">
         <label for="discretization">Discretization Method:</label>
         <select id="discretization" name="discretization" required>
             <option value="euler" {% if form_data.discretization=='euler' %}selected{% endif %}>Euler</option>
@@ -367,8 +358,8 @@
         </form>
 
         <div id="convergence-results" class="sens-results">
-            {% if convergence_results %}
-            <img src="{{ url_for('static', filename=session.get('barrier_convergence_plot', 'barrier_convergence_plot.png')) }}"
+            {% if convergence_results and session.get('barrier_convergence_results', {}).get('plot_filename') %}
+            <img src="{{ url_for('static', filename=session['barrier_convergence_results']['plot_filename']) }}"
                 alt="Convergence Analysis Plot">
             {% endif %}
         </div>

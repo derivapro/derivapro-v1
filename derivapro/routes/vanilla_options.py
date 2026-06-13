@@ -4,7 +4,9 @@ from ..models.mdls_lattice_trees import (
     LatticeModel,
     AmericanOptionSmoothnessTest,
     lattice_convergence_test,
+    plot_convergence,
 )
+
 from flask import (
     Blueprint,
     render_template,
@@ -26,7 +28,6 @@ from datetime import datetime
 from openai import OpenAI  # kept to preserve existing imports
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from ..models.mdls_monte_carlo import convergence_test, MonteCarlo, plot_convergence
 from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
 from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 from openai import AzureOpenAI

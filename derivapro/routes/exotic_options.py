@@ -2,51 +2,28 @@
 
 from datetime import datetime
 from flask import Blueprint, render_template, request, session
-from ..models.mdls_monte_carlo import MonteCarlo
-from ..models.mdls_monte_carlo import convergence_test
-from ..models.mdls_monte_carlo import plot_convergence as mc_plot_convergence
-from ..models import mdls_monte_carlo_v2 as monte_carlo_New_module
+from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 from ..models.mdls_asian_options import (
     AsianOption,
     AsianOptionSmoothnessTest,
     lattice_convergence_test,
     plot_convergence as asian_plot_convergence,
 )
-from ..models.mdls_monte_carlo import MonteCarloSmoothnessTest
 from ..models.mdls_autocallables import (
     AutoMonteCarlo,
     AutocallableSmoothnessTest,
     auto_convergence_test,
 )
 
-
-import sys
 import os
 import numpy as np
-import uuid
-import matplotlib.pyplot as plt
 import markdown
 from openai import AzureOpenAI
 from dotenv import load_dotenv
+from ..models.market_data import StockData
 import logging
 
 logger = logging.getLogger(__name__)
-
-# Import the New Monte Carlo module
-# monte_carlo_newMC_path = os.path.join(
-#     os.path.dirname(__file__), "..", "models", "mdls_monte_carlo_NEW.py"
-# )
-# spec = importlib.util.spec_from_file_location(
-#     "monte_carlo_New_module", monte_carlo_newMC_path
-# )
-# if spec is not None:
-#     monte_carlo_New_module = importlib.util.module_from_spec(spec)
-#     if spec.loader is not None:
-#         spec.loader.exec_module(monte_carlo_New_module)
-# else:
-#     raise ImportError(
-#         f"Could not load NEw Monte Carlo module from {monte_carlo_newMC_path}"
-#     )
 
 exotic_options_bp = Blueprint("exotic_options", __name__)
 
@@ -125,7 +102,6 @@ def autocallable_options():
             "barrier_levels": request.form["barrier_levels"],
             "coupon_rates": request.form["coupon_rates"],
             "discretization": request.form["discretization"],
-            "simulation_engine": request.form.get("simulation_engine", "original"),
             "option_type": request.form.get("option_type", "call"),
         }
 
@@ -150,7 +126,6 @@ def autocallable_options():
             else 0.0
         )
         discretization = form_data["discretization"]
-        simulation_engine = form_data.get("simulation_engine", "original")
         option_type = form_data.get("option_type", "call")
 
         if action == "sensitivity":
@@ -305,13 +280,14 @@ def autocallable_options():
                     pricer_params=pricer_params,
                 )
 
-                plot_path = mc_plot_convergence(results, mode)
-                session["autocallable_convergence_plot"] = (
-                    os.path.basename(plot_path)
-                    if plot_path
-                    else "autocallable_convergence_plot.png"
-                )
+                plot_path = monte_carlo_module.plot_convergence(results, mode)
+                serialized_results = [(int(x), float(y)) for x, y in results]
 
+                session["autocallable_convergence_results"] = {
+                    "results": serialized_results,
+                    "mode": mode,
+                    "plot_filename": os.path.basename(plot_path) if plot_path else None,
+                }
                 convergence_results = True
 
                 return render_template(
@@ -376,48 +352,31 @@ def autocallable_options():
                     md_content=md_content,
                 )
 
-        if simulation_engine == "new_MC":
-            try:
-                from ..models.market_data import StockData
-
-                stock_data = StockData(ticker)
-                S0 = float(stock_data.get_current_price())
-                mc_engine = monte_carlo_New_module.create_monte_carlo_engine(
-                    S0=S0,
-                    r=r,
-                    sigma=sigma,
-                    T=T,
-                    num_paths=M,
-                    num_steps=N,
-                    random_type="sobol",
-                )
-                option_price = mc_engine.price_autocallable_option(
-                    strike_price=K,
-                    barrier_levels=barrier_levels,
-                    coupon_rates=coupon_rates,
-                    T=T,
-                    option_type=option_type,
-                    discretization=discretization,
-                    dividend_yield=q,
-                )
-                option_price = "${:,.4f}".format(option_price)
-            except Exception:
-                logger.exception("Error using new MC engine for autocallable pricing")
-                option = AutoMonteCarlo(ticker, K, r, sigma, T, q, N, M)
-                option_price = option.price_autocallable_option(
-                    discretization=discretization,
-                    barrier_levels=barrier_levels,
-                    coupon_rates=coupon_rates,
-                )
-                option_price = "${:,.4f}".format(option_price)
-        else:
-            option = AutoMonteCarlo(ticker, K, r, sigma, T, q, N, M)
-            option_price = option.price_autocallable_option(
-                discretization=discretization,
+        try:
+            stock_data = StockData(ticker)
+            S0 = float(stock_data.get_current_price())
+            mc_engine = monte_carlo_module.create_monte_carlo_engine(
+                S0=S0,
+                r=r,
+                sigma=sigma,
+                T=T,
+                num_paths=M,
+                num_steps=N,
+                random_type="sobol",
+            )
+            option_price = mc_engine.price_autocallable_option(
+                strike_price=K,
                 barrier_levels=barrier_levels,
                 coupon_rates=coupon_rates,
+                T=T,
+                option_type=option_type,
+                discretization=discretization,
+                dividend_yield=q,
             )
             option_price = "${:,.4f}".format(option_price)
+        except Exception:
+            logger.exception("Error using v2 MC engine for autocallable pricing")
+            option_price = None
 
     return render_template(
         "autocallables.html",
@@ -457,7 +416,6 @@ def asian_options():
             "averaging_dates": request.form["averaging_dates"],
             "num_paths": request.form["num_paths"],
             "option_type": request.form["option_type"],
-            "simulation_engine": request.form.get("simulation_engine", "original"),
         }
 
         ticker = form_data["ticker"]
@@ -480,7 +438,6 @@ def asian_options():
             else 0
         )
         option_type = form_data["option_type"]
-        simulation_engine = form_data.get("simulation_engine", "original")
 
         if action == "sensitivity":
             try:
@@ -613,6 +570,7 @@ def asian_options():
             try:
                 mode = request.form.get("mode", "steps")
                 max_steps = int(request.form.get("max_steps", 100))
+                max_sims = int(request.form.get("max_sims", num_paths))
                 obs = int(request.form.get("obs", 10))
 
                 pricer_params = {
@@ -629,7 +587,7 @@ def asian_options():
 
                 results = lattice_convergence_test(
                     max_steps=max_steps,
-                    max_sims=0,
+                    max_sims=max_sims,
                     obs=obs,
                     pricer_class=AsianOption,
                     pricer_params=pricer_params,
@@ -638,7 +596,13 @@ def asian_options():
 
                 plot_path = asian_plot_convergence(results, mode)
                 plot_filename = os.path.basename(plot_path)
-                session["asian_convergence_plot"] = plot_filename
+                serialized_results = [(int(x), float(y)) for x, y in results]
+
+                session["asian_convergence_results"] = {
+                    "results": serialized_results,
+                    "mode": mode,
+                    "plot_filename": plot_filename,
+                }
                 convergence_results = True
 
                 return render_template(
@@ -694,44 +658,35 @@ def asian_options():
                 logger.exception("An error occurred during Asian RBPL analysis")
                 risk_pl_results = None
 
-        if simulation_engine == "new_MC":
-            try:
-                from ..models.market_data import StockData
+        try:
+            stock_data = StockData(ticker)
+            S0 = float(stock_data.get_current_price())
+            averaging_dates_sorted = sorted(averaging_dates)
+            num_steps = len(averaging_dates_sorted) - 1
+            T_years = (
+                averaging_dates_sorted[-1] - averaging_dates_sorted[0]
+            ).days / 365.25
 
-                stock_data = StockData(ticker)
-                S0 = float(stock_data.get_current_price())
-                averaging_dates_sorted = sorted(averaging_dates)
-                num_steps = len(averaging_dates_sorted) - 1
-                T_years = (
-                    averaging_dates_sorted[-1] - averaging_dates_sorted[0]
-                ).days / 365.25
-
-                mc_engine = monte_carlo_New_module.create_monte_carlo_engine(
-                    S0=S0,
-                    r=r,
-                    sigma=sigma,
-                    T=T_years,
-                    num_paths=num_paths,
-                    num_steps=num_steps,
-                    random_type="sobol",
-                )
-
-                option_price = mc_engine.price_asian_option(
-                    strike_price=K,
-                    averaging_dates=averaging_dates_sorted,
-                    option_type=option_type,
-                    dividend_yield=q,
-                )
-                option_price = "${:,.4f}".format(option_price)
-            except Exception as e:
-                logger.exception("Error using new MC engine for Asian pricing")
-                option_price = f"New MC error: {e}"
-        else:
-            option = AsianOption(
-                ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths
+            mc_engine = monte_carlo_module.create_monte_carlo_engine(
+                S0=S0,
+                r=r,
+                sigma=sigma,
+                T=T_years,
+                num_paths=num_paths,
+                num_steps=num_steps,
+                random_type="sobol",
             )
-            option_price = option.price()
+
+            option_price = mc_engine.price_asian_option(
+                strike_price=K,
+                averaging_dates=averaging_dates_sorted,
+                option_type=option_type,
+                dividend_yield=q,
+            )
             option_price = "${:,.4f}".format(option_price)
+        except Exception:
+            logger.exception("Error using v2 MC engine for Asian pricing")
+            option_price = "Pricing error"
 
     return render_template(
         "asian_options.html",
@@ -786,7 +741,6 @@ def barrier_options():
             "option_type": request.form["option_type"],
             "barrier_type": request.form["barrier_type"],
             "discretization": request.form["discretization"],
-            "simulation_engine": request.form.get("simulation_engine", "original"),
         }
 
         if action == "sensitivity":
@@ -803,35 +757,29 @@ def barrier_options():
                 variable = form_data["variable"]
                 target_variable = form_data["target_variable"]
 
-                tester = MonteCarloSmoothnessTest(**form_data)
+                tester = monte_carlo_module.MonteCarloBarrierSmoothnessTest(**form_data)
 
                 values, greek_values = tester.calculate_greeks_over_range(
                     variable, num_steps, step_range, target_variable
                 )
-                tester.plot_single_greek(
+
+                plot_path = tester.plot_single_greek(
                     values, greek_values, target_variable, variable
                 )
-
-                logger.debug("Starting barrier sensitivity plot generation")
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                static_dir = os.path.join(base_dir, "..", "static")
-                os.makedirs(static_dir, exist_ok=True)
-                plot_filename = f"barrier_{target_variable}-{variable}_sensitivity_plot_{uuid.uuid4().hex}.png"
-                plot_path = os.path.join(static_dir, plot_filename)
-
-                logger.debug("Saving barrier sensitivity plot to: %s", plot_path)
-                plt.savefig(plot_path)
+                plot_filename = os.path.basename(plot_path)
+                logger.debug("Barrier sensitivity plot saved to: %s", plot_path)
 
                 session["sensitivity_results"] = {
                     "variable": variable,
-                    "values": values.tolist(),
+                    "values": values.tolist()
+                    if hasattr(values, "tolist")
+                    else list(values),
                     "greek_values": greek_values,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
                 }
 
                 sensitivity_results = True
-                plt.close()
 
             except Exception:
                 logger.exception(
@@ -850,19 +798,21 @@ def barrier_options():
             max_sims = form_data["max_sims"]
             obs = form_data["obs"]
 
-            barrier_step_results = convergence_test(
-                max_steps, max_sims, obs, MonteCarlo, form_data, mode
+            barrier_step_results = monte_carlo_module.barrier_convergence_test(
+                max_steps=max_steps,
+                max_sims=max_sims,
+                obs=obs,
+                form_data=form_data,
+                mode=mode,
             )
 
-            mc_plot_convergence(barrier_step_results, mode)
-
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            static_dir = os.path.join(base_dir, "..", "static")
-            os.makedirs(static_dir, exist_ok=True)
-            plot_filename = f"barrier_convergence_plot_{uuid.uuid4().hex}.png"
-            plot_path = os.path.join(static_dir, plot_filename)
-            plt.savefig(plot_path)
-            session["barrier_convergence_plot"] = plot_filename
+            plot_path = monte_carlo_module.plot_convergence(barrier_step_results, mode)
+            plot_filename = os.path.basename(plot_path)
+            session["barrier_convergence_results"] = {
+                "results": barrier_step_results,
+                "mode": mode,
+                "plot_filename": plot_filename,
+            }
             convergence_results = True
 
         elif action == "scenario":
@@ -893,9 +843,41 @@ def barrier_options():
                     else 0.0
                 )
 
-                option = MonteCarlo(**form_data)
-                baseline_price = option.price_barrier_option()
-                baseline_greeks = option.calculate_greeks()
+                stock_data = StockData(
+                    form_data["ticker"],
+                    form_data["start_date"],
+                    form_data["end_date"],
+                )
+                S0 = float(stock_data.get_closing_price())
+                T = stock_data.get_years_difference()
+
+                baseline_engine = monte_carlo_module.create_monte_carlo_engine(
+                    S0=S0,
+                    r=form_data["r"],
+                    sigma=form_data["sigma"],
+                    T=T,
+                    num_paths=form_data["M"],
+                    num_steps=form_data["N"],
+                    random_type="sobol",
+                )
+
+                baseline_price = baseline_engine.price_barrier_option(
+                    strike_price=form_data["K"],
+                    barrier_level=form_data["barrier"],
+                    option_type=form_data["option_type"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
+                baseline_greeks = baseline_engine.calculate_greeks_finite_difference(
+                    strike_price=form_data["K"],
+                    option_type=form_data["option_type"],
+                    option_style="barrier",
+                    barrier_level=form_data["barrier"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
                 baseline_price = "{:.4f}".format(baseline_price)
                 baseline_delta = "{:.4f}".format(baseline_greeks["Delta"])
                 baseline_gamma = "{:.4f}".format(baseline_greeks["Gamma"])
@@ -907,24 +889,33 @@ def barrier_options():
                 stressed_vol = volatility + vol_change
                 stressed_rate = risk_free_rate + rate_change
 
-                stressed_input = {
-                    "ticker": form_data["ticker"],
-                    "start_date": form_data["start_date"],
-                    "end_date": form_data["end_date"],
-                    "r": stressed_rate,
-                    "sigma": stressed_vol,
-                    "N": form_data["N"],
-                    "M": form_data["M"],
-                    "K": stressed_spot,
-                    "q": form_data["q"],
-                    "barrier": form_data["barrier"],
-                    "option_type": form_data["option_type"],
-                    "barrier_type": form_data["barrier_type"],
-                }
+                stressed_engine = monte_carlo_module.create_monte_carlo_engine(
+                    S0=stressed_spot,
+                    r=stressed_rate,
+                    sigma=stressed_vol,
+                    T=T,
+                    num_paths=form_data["M"],
+                    num_steps=form_data["N"],
+                    random_type="sobol",
+                )
 
-                stressed_option = MonteCarlo(**stressed_input)
-                stressed_price = stressed_option.price_barrier_option()
-                stressed_greeks = stressed_option.calculate_greeks()
+                stressed_price = stressed_engine.price_barrier_option(
+                    strike_price=form_data["K"],
+                    barrier_level=form_data["barrier"],
+                    option_type=form_data["option_type"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
+                stressed_greeks = stressed_engine.calculate_greeks_finite_difference(
+                    strike_price=form_data["K"],
+                    option_type=form_data["option_type"],
+                    option_style="barrier",
+                    barrier_level=form_data["barrier"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
                 stressed_price = "{:.4f}".format(stressed_price)
                 stressed_delta = "{:.4f}".format(stressed_greeks["Delta"])
                 stressed_gamma = "{:.4f}".format(stressed_greeks["Gamma"])
@@ -1007,12 +998,77 @@ def barrier_options():
                 price_change = form_data["price_change"]
                 vol_change = form_data["vol_change"]
 
-                option = MonteCarlo(**form_data)
-                risk_pl_results = option.risk_pl_analysis(
-                    price_change, vol_change, discretization=form_data["discretization"]
+                stock_data = StockData(
+                    form_data["ticker"],
+                    form_data["start_date"],
+                    form_data["end_date"],
+                )
+                S0 = float(stock_data.get_closing_price())
+                T = stock_data.get_years_difference()
+
+                base_engine = monte_carlo_module.create_monte_carlo_engine(
+                    S0=S0,
+                    r=form_data["r"],
+                    sigma=form_data["sigma"],
+                    T=T,
+                    num_paths=form_data["M"],
+                    num_steps=form_data["N"],
+                    random_type="sobol",
                 )
 
+                base_price = base_engine.price_barrier_option(
+                    strike_price=form_data["K"],
+                    barrier_level=form_data["barrier"],
+                    option_type=form_data["option_type"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
+                bumped_engine = monte_carlo_module.create_monte_carlo_engine(
+                    S0=S0 * (1 + price_change),
+                    r=form_data["r"],
+                    sigma=form_data["sigma"] * (1 + vol_change),
+                    T=T,
+                    num_paths=form_data["M"],
+                    num_steps=form_data["N"],
+                    random_type="sobol",
+                )
+
+                bumped_price = bumped_engine.price_barrier_option(
+                    strike_price=form_data["K"],
+                    barrier_level=form_data["barrier"],
+                    option_type=form_data["option_type"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
+                base_greeks = base_engine.calculate_greeks_finite_difference(
+                    strike_price=form_data["K"],
+                    option_type=form_data["option_type"],
+                    option_style="barrier",
+                    barrier_level=form_data["barrier"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
+                delta_pl = base_greeks["Delta"] * (1 + price_change)
+                gamma_pl = base_greeks["Gamma"] * 0.5 * (1 + price_change)
+                vega_pl = base_greeks["Vega"] * (1 + vol_change)
+
+                risk_pl_results = {
+                    "Initial Price": base_price,
+                    "Bumped Price": bumped_price,
+                    "Actual P&L": bumped_price - base_price,
+                    "Delta P&L": delta_pl,
+                    "Vega P&L": vega_pl,
+                    "Gamma P&L": gamma_pl,
+                    "Greek P&L Sum": (delta_pl + vega_pl + gamma_pl),
+                    "Difference": (bumped_price - base_price)
+                    - (delta_pl + vega_pl + gamma_pl),
+                }
+
                 logger.debug("Barrier risk-based P&L results: %s", risk_pl_results)
+                session["risk_pl_results"] = risk_pl_results
 
             except Exception:
                 logger.exception(
@@ -1021,48 +1077,36 @@ def barrier_options():
                 risk_pl_results = None
 
         else:
-            simulation_engine = request.form.get("simulation_engine", "original")
+            try:
+                stock_data = StockData(
+                    form_data["ticker"],
+                    form_data["start_date"],
+                    form_data["end_date"],
+                )
+                S0 = float(stock_data.get_closing_price())
+                T = stock_data.get_years_difference()
 
-            if simulation_engine == "new_MC":
-                try:
-                    from ..models.market_data import StockData
+                mc_engine = monte_carlo_module.create_monte_carlo_engine(
+                    S0=S0,
+                    r=form_data["r"],
+                    sigma=form_data["sigma"],
+                    T=T,
+                    num_paths=form_data["M"],
+                    num_steps=form_data["N"],
+                    random_type="sobol",
+                )
 
-                    stock_data = StockData(
-                        form_data["ticker"],
-                        form_data["start_date"],
-                        form_data["end_date"],
-                    )
-                    S0 = float(stock_data.get_closing_price())
-                    T = stock_data.get_years_difference()
-
-                    mc_engine = monte_carlo_New_module.create_monte_carlo_engine(
-                        S0=S0,
-                        r=form_data["r"],
-                        sigma=form_data["sigma"],
-                        T=T,
-                        num_paths=form_data["M"],
-                        num_steps=form_data["N"],
-                        random_type="sobol",
-                    )
-
-                    option_price = mc_engine.price_barrier_option(
-                        strike_price=form_data["K"],
-                        barrier_level=form_data["barrier"],
-                        option_type=form_data["option_type"],
-                        barrier_type=form_data["barrier_type"],
-                        dividend_yield=form_data["q"],
-                    )
-                    option_price = "${:,.4f}".format(option_price)
-
-                except Exception:
-                    logger.exception("Error using new MC engine for barrier pricing")
-                    option = MonteCarlo(**form_data)
-                    option_price = option.price_barrier_option()
-                    option_price = "${:,.4f}".format(option_price)
-            else:
-                option = MonteCarlo(**form_data)
-                option_price = option.price_barrier_option()
+                option_price = mc_engine.price_barrier_option(
+                    strike_price=form_data["K"],
+                    barrier_level=form_data["barrier"],
+                    option_type=form_data["option_type"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
                 option_price = "${:,.4f}".format(option_price)
+            except Exception:
+                logger.exception("Error using v2 MC engine for barrier pricing")
+                option_price = None
 
     return render_template(
         "barrier_options.html",
