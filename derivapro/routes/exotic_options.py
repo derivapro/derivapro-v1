@@ -9,7 +9,6 @@ from ..models.mdls_asian_options import (
     lattice_convergence_test,
     plot_convergence as asian_plot_convergence,
 )
-from ..models.mdls_monte_carlo import MonteCarloSmoothnessTest
 from ..models.mdls_autocallables import (
     AutoMonteCarlo,
     AutocallableSmoothnessTest,
