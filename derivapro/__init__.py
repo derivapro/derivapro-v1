@@ -10,6 +10,7 @@ import os
 from flask import Flask
 
 from .config import config_by_name
+from .extensions import bcrypt, db, login_manager, migrate
 from .logging_config import configure_logging
 from .routes import register_routes
 
@@ -22,6 +23,13 @@ def create_app():
     flask_env = os.getenv("FLASK_ENV", "development").strip().lower()
     config_class = config_by_name.get(flask_env, config_by_name["development"])
     app.config.from_object(config_class)
+
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+    bcrypt.init_app(app)
+
+    from .models import db_models  # noqa: F401
 
     register_routes(app)
 

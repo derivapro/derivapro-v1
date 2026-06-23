@@ -40,6 +40,57 @@ body {
     margin-right: 50px;
 }
 
+.auth-links {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.auth-links a {
+    color: white;
+    text-decoration: none;
+    padding: 6px 25px;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+.auth-links a:hover {
+    background: #0055a5;
+}
+
+.auth-links span {
+    font-size: 0.6em;
+    white-space: nowrap;
+}
+
+.flashed-messages {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0;
+}
+
+.flashed-messages li {
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.flashed-messages .flash-success {
+    background-color: #d4edda;
+    color: #155724;
+    border-color: #c3e6cb;
+}
+
+.flashed-messages .flash-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-color: #f5c6cb;
+}
+
 .content {
     display: flex;
     flex: 1;

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Saved Results</h2>
+
+{% if results %}
+<table class="results-table">
+    <thead>
+        <tr>
+            <th>Saved At</th>
+            <th>Product Type</th>
+            <th>Ticker</th>
+            <th>Model</th>
+            <th>Price</th>
+            <th>Delta</th>
+            <th>Gamma</th>
+            <th>Vega</th>
+            <th>Theta</th>
+            <th>Rho</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for result in results %}
+        <tr>
+            <td>{{ result.created_at }}</td>
+            <td>{{ result.instrument.product_type if result.instrument else "" }}</td>
+            <td>{{ result.instrument.ticker if result.instrument else "" }}</td>
+            <td>{{ result.instrument.model_name if result.instrument else "" }}</td>
+            <td>{{ "%.4f"|format(result.price) if result.price is not none else "" }}</td>
+            <td>{{ "%.4f"|format(result.delta) if result.delta is not none else "" }}</td>
+            <td>{{ "%.4f"|format(result.gamma) if result.gamma is not none else "" }}</td>
+            <td>{{ "%.4f"|format(result.vega) if result.vega is not none else "" }}</td>
+            <td>{{ "%.4f"|format(result.theta) if result.theta is not none else "" }}</td>
+            <td>{{ "%.4f"|format(result.rho) if result.rho is not none else "" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="result">
+    <p>No saved results found.</p>
+</div>
+{% endif %}
+{% endblock %}

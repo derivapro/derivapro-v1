@@ -43,9 +43,21 @@ class BlackScholes:
         self.spot_price = float(
             StockData(ticker, start_date, end_date).get_closing_price()
         )
-        self.strike_price = strike_price
+        self.strike_price = float(strike_price)
         self.risk_free_rate = risk_free_rate
         self.volatility = volatility
+
+        # Validate inputs to prevent log errors
+        if self.spot_price <= 0:
+            raise ValueError(f"Spot price must be positive, got {self.spot_price}")
+        if self.strike_price <= 0:
+            raise ValueError(f"Strike price must be positive, got {self.strike_price}")
+        if self.volatility <= 0:
+            raise ValueError(f"Volatility must be positive, got {self.volatility}")
+        if self.time_to_expiry <= 0:
+            raise ValueError(
+                f"Time to expiry must be positive, got {self.time_to_expiry}"
+            )
 
     def d1(self):
         d1_numerator = (

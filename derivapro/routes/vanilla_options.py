@@ -16,6 +16,7 @@ from flask import (
     redirect,
     url_for,
 )
+from flask_login import current_user
 from flask import send_file
 
 from ..models.mdls_vanilla_options import BlackScholes, SmoothnessTest
@@ -28,6 +29,8 @@ from datetime import datetime
 from openai import OpenAI  # kept to preserve existing imports
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from ..extensions import db
+from ..models.db_models import AnalysisResult, Instrument, PricingResult
 from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
 from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 from openai import AzureOpenAI
@@ -206,6 +209,11 @@ def european_options():
 
                 num_steps = form_data["num_steps"]
                 step_range = form_data["step_range"]
+
+                if step_range > 1:
+                    step_range = step_range / 100.0
+                    form_data["step_range"] = step_range
+
                 variable = form_data["variable"]
                 target_variable = form_data["target_variable"]
 
@@ -248,14 +256,53 @@ def european_options():
 
                 logger.debug("European sensitivity plot saved to %s", plot_path)
 
-                session["sensitivity_results"] = {
+                serialized_values = (
+                    values.tolist() if hasattr(values, "tolist") else list(values)
+                )
+
+                sensitivity_results_data = {
                     "variable": variable,
-                    "values": values.tolist(),
+                    "values": serialized_values,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
                 }
 
-                sensitivity_results = True
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="european_option",
+                        ticker=form_data["ticker"],
+                        model_name=form_data.get("model_type", "black_scholes"),
+                        start_date=str(form_data["start_date"]),
+                        end_date=str(form_data["end_date"]),
+                        params_json={
+                            "strike_price": form_data["strike_price"],
+                            "risk_free_rate": form_data["risk_free_rate"],
+                            "volatility": form_data["volatility"],
+                            "option_type": form_data["option_type"],
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="sensitivity",
+                        result_json=sensitivity_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+                    # Don't store large data in session, only the ID
+                    session.pop("sensitivity_results", None)
+                else:
+                    # For unauthenticated users, store minimally
+                    session["sensitivity_results"] = sensitivity_results_data
+
+                sensitivity_results = sensitivity_results_data
 
             except Exception:
                 logger.exception(
@@ -368,7 +415,63 @@ def european_options():
                 theta = "{:.4f}".format(greeks["Theta"])
                 rho = "{:.4f}".format(greeks["Rho"])
 
-            option_price = "${:,.4f}".format(option_price)
+            raw_option_price = float(option_price)
+            raw_delta = float(delta)
+            raw_gamma = float(gamma)
+            raw_vega = float(vega)
+            raw_theta = float(theta)
+            raw_rho = float(rho)
+
+            option_price = "${:,.4f}".format(raw_option_price)
+            delta = "{:.4f}".format(raw_delta)
+            gamma = "{:.4f}".format(raw_gamma)
+            vega = "{:.4f}".format(raw_vega)
+            theta = "{:.4f}".format(raw_theta)
+            rho = "{:.4f}".format(raw_rho)
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type="european_option",
+                    ticker=ticker,
+                    model_name=model_type,
+                    start_date=str(start_date),
+                    end_date=str(end_date),
+                    params_json={
+                        "strike_price": strike_price,
+                        "risk_free_rate": risk_free_rate,
+                        "volatility": volatility,
+                        "option_type": option_type,
+                        "model_type": model_type,
+                        "num_paths": form_data.get("num_paths"),
+                        "num_steps": form_data.get("num_steps"),
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=raw_option_price,
+                    delta=raw_delta,
+                    gamma=raw_gamma,
+                    vega=raw_vega,
+                    theta=raw_theta,
+                    rho=raw_rho,
+                    result_json={
+                        "option_price": raw_option_price,
+                        "delta": raw_delta,
+                        "gamma": raw_gamma,
+                        "vega": raw_vega,
+                        "theta": raw_theta,
+                        "rho": raw_rho,
+                    },
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
+
+                session["last_result_id"] = pricing_result.id
 
             session["option_price"] = option_price
             session["delta"] = delta
@@ -432,6 +535,11 @@ def model_performance():
 
                 num_steps = form_data["num_steps"]
                 step_range = form_data["step_range"]
+
+                if step_range > 1:
+                    step_range = step_range / 100.0
+                    form_data["step_range"] = step_range
+
                 variable = form_data["variable"]
                 target_variable = form_data["target_variable"]
 
@@ -465,13 +573,58 @@ def model_performance():
                 )
                 plt.savefig(plot_path)
 
-                session["sensitivity_results"] = {
+                serialized_values = (
+                    values.tolist() if hasattr(values, "tolist") else list(values)
+                )
+                serialized_greek_values = [
+                    float(v) if isinstance(v, (np.floating, np.integer)) else v
+                    for v in greek_values
+                ]
+
+                sensitivity_results_data = {
                     "variable": variable,
-                    "values": values.tolist(),
-                    "greek_values": greek_values,
+                    "values": serialized_values,
+                    "greek_values": serialized_greek_values,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="european_option",
+                        ticker=form_data["ticker"],
+                        model_name=form_data.get("model_type", "black_scholes"),
+                        start_date=str(form_data["start_date"]),
+                        end_date=str(form_data["end_date"]),
+                        params_json={
+                            "strike_price": form_data["strike_price"],
+                            "risk_free_rate": form_data["risk_free_rate"],
+                            "volatility": form_data["volatility"],
+                            "option_type": form_data["option_type"],
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="sensitivity",
+                        result_json=sensitivity_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+                    session["sensitivity_results"] = {
+                        "plot_filename": plot_filename,
+                        "variable": variable,
+                        "target_variable": target_variable,
+                    }
+                else:
+                    session["sensitivity_results"] = sensitivity_results_data
 
                 sensitivity_results = True
                 plt.close()

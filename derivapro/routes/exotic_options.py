@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from flask import Blueprint, render_template, request, session
+from flask_login import current_user
 from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 from ..models.mdls_asian_options import (
     AsianOption,
@@ -24,6 +25,8 @@ import numpy as np
 import markdown
 from openai import AzureOpenAI
 from dotenv import load_dotenv
+from ..extensions import db
+from ..models.db_models import Instrument, PricingResult
 from ..models.market_data import StockData
 import logging
 
@@ -137,10 +140,18 @@ def autocallable_options():
                     maturity=float(request.form.get("structured_maturity", 1.0)),
                     observation_times=observation_times,
                     notional=float(request.form.get("structured_notional", 1000000)),
-                    coupon_rate=float(request.form.get("structured_coupon_rate", 0.025)),
-                    coupon_barrier=float(request.form.get("structured_coupon_barrier", 0.70)),
-                    autocall_barrier=float(request.form.get("structured_autocall_barrier", 1.00)),
-                    protection_barrier=float(request.form.get("structured_protection_barrier", 0.60)),
+                    coupon_rate=float(
+                        request.form.get("structured_coupon_rate", 0.025)
+                    ),
+                    coupon_barrier=float(
+                        request.form.get("structured_coupon_barrier", 0.70)
+                    ),
+                    autocall_barrier=float(
+                        request.form.get("structured_autocall_barrier", 1.00)
+                    ),
+                    protection_barrier=float(
+                        request.form.get("structured_protection_barrier", 0.60)
+                    ),
                     memory_coupon=request.form.get("structured_memory_coupon") == "on",
                     correlation=float(request.form.get("structured_correlation", 0.30)),
                     num_paths=int(request.form.get("structured_num_paths", 10000)),
@@ -152,7 +163,9 @@ def autocallable_options():
                 structured_results = {
                     "price": _format_currency(raw_results["price"]),
                     "standard_error": _format_currency(raw_results["standard_error"]),
-                    "autocall_probability": _format_percent(raw_results["autocall_probability"]),
+                    "autocall_probability": _format_percent(
+                        raw_results["autocall_probability"]
+                    ),
                     "protection_breach_probability": _format_percent(
                         raw_results["protection_breach_probability"]
                     ),
@@ -1199,14 +1212,71 @@ def barrier_options():
                     random_type="sobol",
                 )
 
-                option_price = mc_engine.price_barrier_option(
+                raw_option_price = mc_engine.price_barrier_option(
                     strike_price=form_data["K"],
                     barrier_level=form_data["barrier"],
                     option_type=form_data["option_type"],
                     barrier_type=form_data["barrier_type"],
                     dividend_yield=form_data["q"],
                 )
-                option_price = "${:,.4f}".format(option_price)
+
+                greeks = mc_engine.calculate_greeks_finite_difference(
+                    strike_price=form_data["K"],
+                    option_type=form_data["option_type"],
+                    option_style="barrier",
+                    barrier_level=form_data["barrier"],
+                    barrier_type=form_data["barrier_type"],
+                    dividend_yield=form_data["q"],
+                )
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="barrier_option",
+                        ticker=form_data["ticker"],
+                        model_name="monte_carlo_v2",
+                        start_date=str(form_data["start_date"]),
+                        end_date=str(form_data["end_date"]),
+                        params_json={
+                            "strike_price": form_data["K"],
+                            "risk_free_rate": form_data["r"],
+                            "volatility": form_data["sigma"],
+                            "dividend_yield": form_data["q"],
+                            "num_steps": form_data["N"],
+                            "num_paths": form_data["M"],
+                            "barrier_level": form_data["barrier"],
+                            "option_type": form_data["option_type"],
+                            "barrier_type": form_data["barrier_type"],
+                            "discretization": form_data["discretization"],
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    pricing_result = PricingResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        price=float(raw_option_price),
+                        delta=float(greeks["Delta"]),
+                        gamma=float(greeks["Gamma"]),
+                        vega=float(greeks["Vega"]),
+                        theta=float(greeks["Theta"]),
+                        rho=float(greeks["Rho"]),
+                        result_json={
+                            "option_price": float(raw_option_price),
+                            "delta": float(greeks["Delta"]),
+                            "gamma": float(greeks["Gamma"]),
+                            "vega": float(greeks["Vega"]),
+                            "theta": float(greeks["Theta"]),
+                            "rho": float(greeks["Rho"]),
+                        },
+                    )
+                    db.session.add(pricing_result)
+                    db.session.commit()
+
+                    session["last_result_id"] = pricing_result.id
+
+                option_price = "${:,.4f}".format(raw_option_price)
             except Exception:
                 logger.exception("Error using v2 MC engine for barrier pricing")
                 option_price = None

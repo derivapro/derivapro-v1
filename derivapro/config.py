@@ -29,12 +29,12 @@ def _get_secret_key() -> str:
         "SECRET_KEY is not set. Configure it in the environment for non-development environments."
     )
 
-
 class Config:
     SECRET_KEY = _get_secret_key()
     TESTING = False
     DEBUG = False
-
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///derivapro.db")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 class DevelopmentConfig(Config):
     DEBUG = _env_flag("FLASK_DEBUG", "true")

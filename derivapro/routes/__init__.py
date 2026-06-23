@@ -1,5 +1,5 @@
-
 def register_routes(app):
+    from .auth import auth_bp
     from .index import index_bp
     from .vanilla_options import vanilla_options_bp
     from .exotic_options import exotic_options_bp
@@ -19,24 +19,31 @@ def register_routes(app):
     from .swap_swaptions import swap_swaptions_bp
     from .extract_market_data import extract_market_data_bp
     from .reports import reports_generated_bp
-    app.register_blueprint(index_bp, url_prefix='/')
-    app.register_blueprint(vanilla_options_bp, url_prefix='/vanilla-options')
-    app.register_blueprint(exotic_options_bp, url_prefix='/exotic-options')
-    app.register_blueprint(futures_forwards_bp, url_prefix='/futures-forwards')
-    app.register_blueprint(swaps_bp, url_prefix='/swaps')
-    app.register_blueprint(swaptions_bp, url_prefix='/swaptions')
-    app.register_blueprint(volatility_derivatives_bp, url_prefix='/volatility-derivatives')
-    app.register_blueprint(credit_derivatives_bp, url_prefix='/credit-derivatives')
-    app.register_blueprint(equity_derivatives_bp, url_prefix='/equity-derivatives')
-    app.register_blueprint(nc_bonds_bp, url_prefix='/noncallable-bonds')
+    from .saved_results import saved_results_bp
+    from .analysis_history import analysis_history_bp
+
+    app.register_blueprint(saved_results_bp, url_prefix="/saved-results")
+    app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(index_bp, url_prefix="/")
+    app.register_blueprint(vanilla_options_bp, url_prefix="/vanilla-options")
+    app.register_blueprint(exotic_options_bp, url_prefix="/exotic-options")
+    app.register_blueprint(futures_forwards_bp, url_prefix="/futures-forwards")
+    app.register_blueprint(swaps_bp, url_prefix="/swaps")
+    app.register_blueprint(swaptions_bp, url_prefix="/swaptions")
+    app.register_blueprint(
+        volatility_derivatives_bp, url_prefix="/volatility-derivatives"
+    )
+    app.register_blueprint(credit_derivatives_bp, url_prefix="/credit-derivatives")
+    app.register_blueprint(equity_derivatives_bp, url_prefix="/equity-derivatives")
+    app.register_blueprint(nc_bonds_bp, url_prefix="/noncallable-bonds")
     # Register the volatility surface blueprint
     app.register_blueprint(volatility_surface_bp, url_prefix="/volatility_surface")
     app.register_blueprint(prepayment_bp, url_prefix="/prepayment")
     app.register_blueprint(term_structure_bp, url_prefix="/term-structure")
     app.register_blueprint(prepayment_v2_bp, url_prefix="/prepayment-v2")
-    app.register_blueprint(rates_bp)        # /rates/swap, /rates/swaption
-    app.register_blueprint(rates_api_bp)    # /api/rates/...
+    app.register_blueprint(rates_bp)  # /rates/swap, /rates/swaption
+    app.register_blueprint(rates_api_bp)  # /api/rates/...
     app.register_blueprint(swap_swaptions_bp, url_prefix="/swap_swaptions")
     app.register_blueprint(extract_market_data_bp, url_prefix="/extract-market-data")
-    app.register_blueprint(reports_generated_bp, url_prefix = "/reports-generated")
-
+    app.register_blueprint(reports_generated_bp, url_prefix="/reports-generated")
+    app.register_blueprint(analysis_history_bp, url_prefix="/analysis-history")
