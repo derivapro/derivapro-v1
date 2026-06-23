@@ -26,7 +26,7 @@ import markdown
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 from ..extensions import db
-from ..models.db_models import Instrument, PricingResult
+from ..models.db_models import AnalysisResult, Instrument, PricingResult
 from ..models.market_data import StockData
 import logging
 
@@ -109,6 +109,7 @@ def autocallable_options():
     ) = None
     structured_results = None
     form_data = {}
+    structured_form_data = {}
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -196,6 +197,7 @@ def autocallable_options():
                 option_price=option_price,
                 form_data=form_data,
                 structured_form_data=structured_form_data,
+                sp_form=structured_form_data,
                 structured_results=structured_results,
                 sensitivity_results=sensitivity_results,
                 convergence_results=convergence_results,
@@ -271,15 +273,66 @@ def autocallable_options():
                 )
                 plot_filename = os.path.basename(plot_path)
 
-                session["sensitivity_results"] = {
+                serialized_values = (
+                    values.tolist() if hasattr(values, "tolist") else list(values)
+                )
+                serialized_outputs = [
+                    float(v) if isinstance(v, (np.floating, np.integer)) else v
+                    for v in outputs
+                ]
+
+                sensitivity_results_data = {
                     "variable": variable,
-                    "values": values.tolist()
-                    if hasattr(values, "tolist")
-                    else list(values),
-                    "greek_values": outputs,
+                    "values": serialized_values,
+                    "greek_values": serialized_outputs,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="autocallable_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=None,
+                        end_date=None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "time_to_expiry": T,
+                            "dividend_yield": q,
+                            "num_steps": N,
+                            "num_paths": M,
+                            "barrier_levels": barrier_levels,
+                            "coupon_rates": coupon_rates,
+                            "option_type": option_type,
+                            "discretization": discretization,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="autocallable_sensitivity",
+                        result_json=sensitivity_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+                    session["sensitivity_results"] = {
+                        "plot_filename": plot_filename,
+                        "variable": variable,
+                        "target_variable": target_variable,
+                    }
+                else:
+                    session["sensitivity_results"] = sensitivity_results_data
+
                 sensitivity_results = True
 
             except Exception:
@@ -328,7 +381,7 @@ def autocallable_options():
                 stressed_theta = "{:.4f}".format(stressed_greeks["theta"])
                 stressed_rho = "{:.4f}".format(stressed_greeks["rho"])
 
-                session["scenario_results"] = {
+                scenario_results_data = {
                     "baseline_scenario_table": {
                         "baseline_price": baseline_price,
                         "baseline_delta": baseline_delta,
@@ -347,7 +400,50 @@ def autocallable_options():
                     },
                     "gpt_scenario_assessment": "No assessment yet.",
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="autocallable_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=None,
+                        end_date=None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "time_to_expiry": T,
+                            "dividend_yield": q,
+                            "num_steps": N,
+                            "num_paths": M,
+                            "barrier_levels": barrier_levels,
+                            "coupon_rates": coupon_rates,
+                            "option_type": option_type,
+                            "discretization": discretization,
+                            "spot_scenario": spot_change,
+                            "vol_scenario": vol_change,
+                            "rate_scenario": rate_change,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="autocallable_scenario",
+                        result_json=scenario_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
+                session["scenario_results"] = scenario_results_data
                 scenario_results = True
+
                 return render_template(
                     "autocallables.html",
                     option_price=None,
@@ -356,6 +452,9 @@ def autocallable_options():
                     convergence_results=convergence_results,
                     scenario_results=scenario_results,
                     risk_pl_results=risk_pl_results,
+                    structured_results=structured_results,
+                    structured_form_data=structured_form_data,
+                    sp_form=structured_form_data,
                     md_content=md_content,
                 )
             except Exception:
@@ -397,11 +496,54 @@ def autocallable_options():
                 plot_path = monte_carlo_module.plot_convergence(results, mode)
                 serialized_results = [(int(x), float(y)) for x, y in results]
 
-                session["autocallable_convergence_results"] = {
+                convergence_results_data = {
                     "results": serialized_results,
                     "mode": mode,
                     "plot_filename": os.path.basename(plot_path) if plot_path else None,
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="autocallable_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=None,
+                        end_date=None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "time_to_expiry": T,
+                            "dividend_yield": q,
+                            "num_steps": N,
+                            "num_paths": M,
+                            "barrier_levels": barrier_levels,
+                            "coupon_rates": coupon_rates,
+                            "option_type": option_type,
+                            "discretization": discretization,
+                            "mode": mode,
+                            "max_steps": num_steps_max,
+                            "max_sims": max_sims,
+                            "obs": obs,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="autocallable_convergence",
+                        result_json=convergence_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
+                session["autocallable_convergence_results"] = convergence_results_data
                 convergence_results = True
 
                 return render_template(
@@ -412,6 +554,9 @@ def autocallable_options():
                     convergence_results=convergence_results,
                     scenario_results=scenario_results,
                     risk_pl_results=risk_pl_results,
+                    structured_results=structured_results,
+                    structured_form_data=structured_form_data,
+                    sp_form=structured_form_data,
                     md_content=md_content,
                 )
 
@@ -438,6 +583,45 @@ def autocallable_options():
                     vol_change=vol_change,
                 )
 
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="autocallable_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=None,
+                        end_date=None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "time_to_expiry": T,
+                            "dividend_yield": q,
+                            "num_steps": N,
+                            "num_paths": M,
+                            "barrier_levels": barrier_levels,
+                            "coupon_rates": coupon_rates,
+                            "option_type": option_type,
+                            "discretization": discretization,
+                            "price_change": price_change,
+                            "vol_change": vol_change,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="autocallable_risk_pl",
+                        result_json=risk_pl_results,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
                 session["risk_pl_results"] = risk_pl_results
 
                 return render_template(
@@ -448,6 +632,9 @@ def autocallable_options():
                     convergence_results=convergence_results,
                     scenario_results=scenario_results,
                     risk_pl_results=risk_pl_results,
+                    structured_results=structured_results,
+                    structured_form_data=structured_form_data,
+                    sp_form=structured_form_data,
                     md_content=md_content,
                 )
 
@@ -463,6 +650,9 @@ def autocallable_options():
                     convergence_results=convergence_results,
                     scenario_results=scenario_results,
                     risk_pl_results=risk_pl_results,
+                    structured_results=structured_results,
+                    structured_form_data=structured_form_data,
+                    sp_form=structured_form_data,
                     md_content=md_content,
                 )
 
@@ -478,7 +668,8 @@ def autocallable_options():
                 num_steps=N,
                 random_type="sobol",
             )
-            option_price = mc_engine.price_autocallable_option(
+
+            raw_option_price = mc_engine.price_autocallable_option(
                 strike_price=K,
                 barrier_levels=barrier_levels,
                 coupon_rates=coupon_rates,
@@ -487,7 +678,51 @@ def autocallable_options():
                 discretization=discretization,
                 dividend_yield=q,
             )
-            option_price = "${:,.4f}".format(option_price)
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type="autocallable_option",
+                    ticker=ticker,
+                    model_name="monte_carlo_v2",
+                    start_date=None,
+                    end_date=None,
+                    params_json={
+                        "strike_price": K,
+                        "risk_free_rate": r,
+                        "volatility": sigma,
+                        "time_to_expiry": T,
+                        "dividend_yield": q,
+                        "num_steps": N,
+                        "num_paths": M,
+                        "barrier_levels": barrier_levels,
+                        "coupon_rates": coupon_rates,
+                        "option_type": option_type,
+                        "discretization": discretization,
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=float(raw_option_price),
+                    delta=None,
+                    gamma=None,
+                    vega=None,
+                    theta=None,
+                    rho=None,
+                    result_json={
+                        "option_price": float(raw_option_price),
+                    },
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
+
+                session["last_result_id"] = pricing_result.id
+
+            option_price = "${:,.4f}".format(raw_option_price)
         except Exception:
             logger.exception("Error using v2 MC engine for autocallable pricing")
             option_price = None
@@ -501,7 +736,8 @@ def autocallable_options():
         scenario_results=scenario_results,
         risk_pl_results=risk_pl_results,
         structured_results=structured_results,
-        structured_form_data={},
+        structured_form_data=structured_form_data,
+        sp_form=structured_form_data,
         md_content=md_content,
     )
 
@@ -576,15 +812,66 @@ def asian_options():
                 )
                 plot_filename = os.path.basename(plot_path)
 
-                session["sensitivity_results"] = {
+                serialized_values = (
+                    values.tolist() if hasattr(values, "tolist") else list(values)
+                )
+                serialized_outputs = [
+                    float(v) if isinstance(v, (np.floating, np.integer)) else v
+                    for v in outputs
+                ]
+
+                sensitivity_results_data = {
                     "variable": variable,
-                    "values": values.tolist()
-                    if hasattr(values, "tolist")
-                    else list(values),
-                    "greek_values": outputs,
+                    "values": serialized_values,
+                    "greek_values": serialized_outputs,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="asian_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=str(T_str),
+                        end_date=str(averaging_dates[-1].date())
+                        if averaging_dates
+                        else None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "dividend_yield": q,
+                            "averaging_dates": [
+                                d.strftime("%Y-%m-%d") for d in averaging_dates
+                            ],
+                            "num_paths": num_paths,
+                            "option_type": option_type,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="asian_sensitivity",
+                        result_json=sensitivity_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+                    session["sensitivity_results"] = {
+                        "plot_filename": plot_filename,
+                        "variable": variable,
+                        "target_variable": target_variable,
+                    }
+                else:
+                    session["sensitivity_results"] = sensitivity_results_data
+
                 sensitivity_results = True
 
                 return render_template(
@@ -646,7 +933,7 @@ def asian_options():
                 stressed_theta = "{:.4f}".format(stressed_greeks["Theta"])
                 stressed_rho = "{:.4f}".format(stressed_greeks["Rho"])
 
-                session["scenario_results"] = {
+                scenario_results_data = {
                     "baseline_scenario_table": {
                         "baseline_price": baseline_price,
                         "baseline_delta": baseline_delta,
@@ -665,6 +952,48 @@ def asian_options():
                     },
                     "gpt_scenario_assessment": "No assessment yet.",
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="asian_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=str(T_str),
+                        end_date=str(averaging_dates[-1].date())
+                        if averaging_dates
+                        else None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "dividend_yield": q,
+                            "averaging_dates": [
+                                d.strftime("%Y-%m-%d") for d in averaging_dates
+                            ],
+                            "num_paths": num_paths,
+                            "option_type": option_type,
+                            "spot_scenario": spot_change,
+                            "vol_scenario": vol_change,
+                            "rate_scenario": rate_change,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="asian_scenario",
+                        result_json=scenario_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
+                session["scenario_results"] = scenario_results_data
                 scenario_results = True
 
                 return render_template(
@@ -677,7 +1006,6 @@ def asian_options():
                     form_data=form_data,
                     md_content=md_content,
                 )
-
             except Exception:
                 logger.exception("An error occurred during Asian scenario analysis")
                 scenario_results = None
@@ -714,11 +1042,54 @@ def asian_options():
                 plot_filename = os.path.basename(plot_path)
                 serialized_results = [(int(x), float(y)) for x, y in results]
 
-                session["asian_convergence_results"] = {
+                convergence_results_data = {
                     "results": serialized_results,
                     "mode": mode,
                     "plot_filename": plot_filename,
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="asian_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=str(T_str),
+                        end_date=str(averaging_dates[-1].date())
+                        if averaging_dates
+                        else None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "dividend_yield": q,
+                            "averaging_dates": [
+                                d.strftime("%Y-%m-%d") for d in averaging_dates
+                            ],
+                            "num_paths": num_paths,
+                            "option_type": option_type,
+                            "mode": mode,
+                            "max_steps": max_steps,
+                            "max_sims": max_sims,
+                            "obs": obs,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="asian_convergence",
+                        result_json=convergence_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
+                session["asian_convergence_results"] = convergence_results_data
                 convergence_results = True
 
                 return render_template(
@@ -755,9 +1126,51 @@ def asian_options():
                 option = AsianOption(
                     ticker, K, sigma, r, q, T, averaging_dates, option_type, num_paths
                 )
+
                 risk_pl_results = option.risk_pl_analysis(
                     price_change=price_change, vol_change=vol_change
                 )
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="asian_option",
+                        ticker=ticker,
+                        model_name="monte_carlo_v2",
+                        start_date=str(T_str),
+                        end_date=str(averaging_dates[-1].date())
+                        if averaging_dates
+                        else None,
+                        params_json={
+                            "strike_price": K,
+                            "risk_free_rate": r,
+                            "volatility": sigma,
+                            "dividend_yield": q,
+                            "averaging_dates": [
+                                d.strftime("%Y-%m-%d") for d in averaging_dates
+                            ],
+                            "num_paths": num_paths,
+                            "option_type": option_type,
+                            "price_change": price_change,
+                            "vol_change": vol_change,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="asian_risk_pl",
+                        result_json=risk_pl_results,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
+                session["risk_pl_results"] = risk_pl_results
 
                 return render_template(
                     "asian_options.html",
@@ -793,13 +1206,68 @@ def asian_options():
                 random_type="sobol",
             )
 
-            option_price = mc_engine.price_asian_option(
+            raw_option_price = mc_engine.price_asian_option(
                 strike_price=K,
                 averaging_dates=averaging_dates_sorted,
                 option_type=option_type,
                 dividend_yield=q,
             )
-            option_price = "${:,.4f}".format(option_price)
+
+            greeks = mc_engine.calculate_greeks_finite_difference(
+                strike_price=K,
+                option_type=option_type,
+                option_style="asian",
+                averaging_dates=averaging_dates_sorted,
+                dividend_yield=q,
+            )
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type="asian_option",
+                    ticker=ticker,
+                    model_name="monte_carlo_v2",
+                    start_date=str(T_str),
+                    end_date=str(averaging_dates_sorted[-1].date()),
+                    params_json={
+                        "strike_price": K,
+                        "risk_free_rate": r,
+                        "volatility": sigma,
+                        "dividend_yield": q,
+                        "averaging_dates": [
+                            d.strftime("%Y-%m-%d") for d in averaging_dates_sorted
+                        ],
+                        "num_paths": num_paths,
+                        "option_type": option_type,
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=float(raw_option_price),
+                    delta=float(greeks["Delta"]),
+                    gamma=float(greeks["Gamma"]),
+                    vega=float(greeks["Vega"]),
+                    theta=float(greeks["Theta"]),
+                    rho=float(greeks["Rho"]),
+                    result_json={
+                        "option_price": float(raw_option_price),
+                        "delta": float(greeks["Delta"]),
+                        "gamma": float(greeks["Gamma"]),
+                        "vega": float(greeks["Vega"]),
+                        "theta": float(greeks["Theta"]),
+                        "rho": float(greeks["Rho"]),
+                    },
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
+
+                session["last_result_id"] = pricing_result.id
+
+            option_price = "${:,.4f}".format(raw_option_price)
         except Exception:
             logger.exception("Error using v2 MC engine for Asian pricing")
             option_price = "Pricing error"
@@ -885,15 +1353,64 @@ def barrier_options():
                 plot_filename = os.path.basename(plot_path)
                 logger.debug("Barrier sensitivity plot saved to: %s", plot_path)
 
-                session["sensitivity_results"] = {
+                serialized_values = (
+                    values.tolist() if hasattr(values, "tolist") else list(values)
+                )
+                serialized_greek_values = [
+                    float(v) if isinstance(v, (np.floating, np.integer)) else v
+                    for v in greek_values
+                ]
+
+                sensitivity_results_data = {
                     "variable": variable,
-                    "values": values.tolist()
-                    if hasattr(values, "tolist")
-                    else list(values),
-                    "greek_values": greek_values,
+                    "values": serialized_values,
+                    "greek_values": serialized_greek_values,
                     "target_variable": target_variable,
                     "plot_filename": plot_filename,
                 }
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="barrier_option",
+                        ticker=form_data["ticker"],
+                        model_name="monte_carlo_v2",
+                        start_date=str(form_data["start_date"]),
+                        end_date=str(form_data["end_date"]),
+                        params_json={
+                            "strike_price": form_data["K"],
+                            "risk_free_rate": form_data["r"],
+                            "volatility": form_data["sigma"],
+                            "dividend_yield": form_data["q"],
+                            "num_steps": form_data["N"],
+                            "num_paths": form_data["M"],
+                            "barrier_level": form_data["barrier"],
+                            "option_type": form_data["option_type"],
+                            "barrier_type": form_data["barrier_type"],
+                            "discretization": form_data["discretization"],
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="barrier_sensitivity",
+                        result_json=sensitivity_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+                    session["sensitivity_results"] = {
+                        "plot_filename": plot_filename,
+                        "variable": variable,
+                        "target_variable": target_variable,
+                    }
+                else:
+                    session["sensitivity_results"] = sensitivity_results_data
 
                 sensitivity_results = True
 
@@ -924,11 +1441,55 @@ def barrier_options():
 
             plot_path = monte_carlo_module.plot_convergence(barrier_step_results, mode)
             plot_filename = os.path.basename(plot_path)
-            session["barrier_convergence_results"] = {
-                "results": barrier_step_results,
+            serialized_results = [(int(x), float(y)) for x, y in barrier_step_results]
+
+            convergence_results_data = {
+                "results": serialized_results,
                 "mode": mode,
                 "plot_filename": plot_filename,
             }
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type="barrier_option",
+                    ticker=form_data["ticker"],
+                    model_name="monte_carlo_v2",
+                    start_date=str(form_data["start_date"]),
+                    end_date=str(form_data["end_date"]),
+                    params_json={
+                        "strike_price": form_data["K"],
+                        "risk_free_rate": form_data["r"],
+                        "volatility": form_data["sigma"],
+                        "dividend_yield": form_data["q"],
+                        "num_steps": form_data["N"],
+                        "num_paths": form_data["M"],
+                        "barrier_level": form_data["barrier"],
+                        "option_type": form_data["option_type"],
+                        "barrier_type": form_data["barrier_type"],
+                        "discretization": form_data["discretization"],
+                        "mode": mode,
+                        "max_steps": max_steps,
+                        "max_sims": max_sims,
+                        "obs": obs,
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                analysis_result = AnalysisResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    pricing_result_id=None,
+                    analysis_type="barrier_convergence",
+                    result_json=convergence_results_data,
+                )
+                db.session.add(analysis_result)
+                db.session.commit()
+
+                session["last_analysis_result_id"] = analysis_result.id
+
+            session["barrier_convergence_results"] = convergence_results_data
             convergence_results = True
 
         elif action == "scenario":
@@ -1066,12 +1627,52 @@ def barrier_options():
                     "Barrier stressed scenario table: %s", stressed_scenario_table
                 )
 
-                session["scenario_results"] = {
+                scenario_results_data = {
                     "baseline_scenario_table": baseline_scenario_table,
                     "stressed_scenario_table": stressed_scenario_table,
                     "gpt_scenario_assessment": "No assessment yet.",
                 }
 
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="barrier_option",
+                        ticker=form_data["ticker"],
+                        model_name="monte_carlo_v2",
+                        start_date=str(form_data["start_date"]),
+                        end_date=str(form_data["end_date"]),
+                        params_json={
+                            "strike_price": form_data["K"],
+                            "risk_free_rate": form_data["r"],
+                            "volatility": form_data["sigma"],
+                            "dividend_yield": form_data["q"],
+                            "num_steps": form_data["N"],
+                            "num_paths": form_data["M"],
+                            "barrier_level": form_data["barrier"],
+                            "option_type": form_data["option_type"],
+                            "barrier_type": form_data["barrier_type"],
+                            "discretization": form_data["discretization"],
+                            "spot_scenario": spot_change,
+                            "vol_scenario": vol_change,
+                            "rate_scenario": rate_change,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="barrier_scenario",
+                        result_json=scenario_results_data,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
+                session["scenario_results"] = scenario_results_data
                 scenario_results = True
 
             except Exception:
@@ -1184,6 +1785,45 @@ def barrier_options():
                 }
 
                 logger.debug("Barrier risk-based P&L results: %s", risk_pl_results)
+
+                if current_user.is_authenticated:
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="barrier_option",
+                        ticker=form_data["ticker"],
+                        model_name="monte_carlo_v2",
+                        start_date=str(form_data["start_date"]),
+                        end_date=str(form_data["end_date"]),
+                        params_json={
+                            "strike_price": form_data["K"],
+                            "risk_free_rate": form_data["r"],
+                            "volatility": form_data["sigma"],
+                            "dividend_yield": form_data["q"],
+                            "num_steps": form_data["N"],
+                            "num_paths": form_data["M"],
+                            "barrier_level": form_data["barrier"],
+                            "option_type": form_data["option_type"],
+                            "barrier_type": form_data["barrier_type"],
+                            "discretization": form_data["discretization"],
+                            "price_change": price_change,
+                            "vol_change": vol_change,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    analysis_result = AnalysisResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        pricing_result_id=None,
+                        analysis_type="barrier_risk_pl",
+                        result_json=risk_pl_results,
+                    )
+                    db.session.add(analysis_result)
+                    db.session.commit()
+
+                    session["last_analysis_result_id"] = analysis_result.id
+
                 session["risk_pl_results"] = risk_pl_results
 
             except Exception:

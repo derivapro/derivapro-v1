@@ -169,12 +169,15 @@
             </div>
         </form>
     </div>
+
     <div id="sensitivity-results" class="sens-results">
         {% if sensitivity_results %}
-        <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}"
+        {% set sensitivity_session = session.get('sensitivity_results', {}) %}
+        {% if sensitivity_session.get('plot_filename') %}
+        <img src="{{ url_for('static', filename=sensitivity_session['plot_filename']) }}"
             alt="Sensitivity Analysis Plot">
+        {% endif %}
         <form id="ai-assessment-form" method="post">
-            <!-- AI Assessment Form Fields -->
             <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
             <input type="hidden" name="sensitivity_results" value="{{ sensitivity_results }}">
             <div class="form-group full-width">

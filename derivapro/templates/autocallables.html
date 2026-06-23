@@ -26,99 +26,101 @@
     <div class="form-group">
         <label for="structured_spot_prices">Spot Prices (comma-separated):</label>
         <input type="text" id="structured_spot_prices" name="structured_spot_prices"
-               value="{{ sp_form.get('structured_spot_prices', '100, 95, 90') }}" required>
+            value="{{ sp_form.get('structured_spot_prices', '100, 95, 90') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_volatilities">Volatilities (comma-separated decimals):</label>
         <input type="text" id="structured_volatilities" name="structured_volatilities"
-               value="{{ sp_form.get('structured_volatilities', '0.22, 0.24, 0.26') }}" required>
+            value="{{ sp_form.get('structured_volatilities', '0.22, 0.24, 0.26') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_correlation">Flat Basket Correlation:</label>
         <input type="number" step="0.01" id="structured_correlation" name="structured_correlation"
-               value="{{ sp_form.get('structured_correlation', '0.30') }}" required>
+            value="{{ sp_form.get('structured_correlation', '0.30') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_notional">Notional:</label>
         <input type="number" step="10000" id="structured_notional" name="structured_notional"
-               value="{{ sp_form.get('structured_notional', '1000000') }}" required>
+            value="{{ sp_form.get('structured_notional', '1000000') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_maturity">Maturity (years):</label>
         <input type="number" step="0.25" id="structured_maturity" name="structured_maturity"
-               value="{{ sp_form.get('structured_maturity', '1.0') }}" required>
+            value="{{ sp_form.get('structured_maturity', '1.0') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_observation_times">Autocall Observation Times (years):</label>
         <input type="text" id="structured_observation_times" name="structured_observation_times"
-               value="{{ sp_form.get('structured_observation_times', '0.25, 0.50, 0.75, 1.00') }}" required>
+            value="{{ sp_form.get('structured_observation_times', '0.25, 0.50, 0.75, 1.00') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_coupon_rate">Coupon per Observation (decimal):</label>
         <input type="number" step="0.001" id="structured_coupon_rate" name="structured_coupon_rate"
-               value="{{ sp_form.get('structured_coupon_rate', '0.025') }}" required>
+            value="{{ sp_form.get('structured_coupon_rate', '0.025') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_coupon_barrier">Coupon Barrier (% initial, decimal):</label>
         <input type="number" step="0.01" id="structured_coupon_barrier" name="structured_coupon_barrier"
-               value="{{ sp_form.get('structured_coupon_barrier', '0.70') }}" required>
+            value="{{ sp_form.get('structured_coupon_barrier', '0.70') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_autocall_barrier">Autocall Barrier (% initial, decimal):</label>
         <input type="number" step="0.01" id="structured_autocall_barrier" name="structured_autocall_barrier"
-               value="{{ sp_form.get('structured_autocall_barrier', '1.00') }}" required>
+            value="{{ sp_form.get('structured_autocall_barrier', '1.00') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_protection_barrier">Knock-in Protection Barrier (% initial, decimal):</label>
         <input type="number" step="0.01" id="structured_protection_barrier" name="structured_protection_barrier"
-               value="{{ sp_form.get('structured_protection_barrier', '0.60') }}" required>
+            value="{{ sp_form.get('structured_protection_barrier', '0.60') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_r">Risk-Free Rate (decimal):</label>
         <input type="number" step="0.001" id="structured_r" name="structured_r"
-               value="{{ sp_form.get('structured_r', '0.045') }}" required>
+            value="{{ sp_form.get('structured_r', '0.045') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_q">Dividend Yield (decimal):</label>
         <input type="number" step="0.001" id="structured_q" name="structured_q"
-               value="{{ sp_form.get('structured_q', '0.000') }}" required>
+            value="{{ sp_form.get('structured_q', '0.000') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_num_paths">Number of Paths:</label>
         <input type="number" id="structured_num_paths" name="structured_num_paths"
-               value="{{ sp_form.get('structured_num_paths', '10000') }}" required>
+            value="{{ sp_form.get('structured_num_paths', '10000') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_num_steps">Number of Time Steps:</label>
         <input type="number" id="structured_num_steps" name="structured_num_steps"
-               value="{{ sp_form.get('structured_num_steps', '252') }}" required>
+            value="{{ sp_form.get('structured_num_steps', '252') }}" required>
     </div>
 
     <div class="form-group">
         <label for="structured_random_type">Random Type:</label>
         <select id="structured_random_type" name="structured_random_type">
-            <option value="sobol" {% if sp_form.get('structured_random_type', 'sobol') == 'sobol' %}selected{% endif %}>Sobol</option>
-            <option value="pseudo" {% if sp_form.get('structured_random_type') == 'pseudo' %}selected{% endif %}>Pseudo-random</option>
+            <option value="sobol" {% if sp_form.get('structured_random_type', 'sobol' )=='sobol' %}selected{% endif %}>
+                Sobol</option>
+            <option value="pseudo" {% if sp_form.get('structured_random_type')=='pseudo' %}selected{% endif %}>
+                Pseudo-random</option>
         </select>
     </div>
 
     <div class="form-group">
         <label for="structured_memory_coupon">Memory Coupon:</label>
-        <input type="checkbox" id="structured_memory_coupon" name="structured_memory_coupon"
-               {% if sp_form.get('structured_memory_coupon', 'on') == 'on' %}checked{% endif %}>
+        <input type="checkbox" id="structured_memory_coupon" name="structured_memory_coupon" {% if
+            sp_form.get('structured_memory_coupon', 'on' )=='on' %}checked{% endif %}>
     </div>
 
     <div class="form-group full-width">
@@ -156,11 +158,13 @@
         </div>
         <div class="table-row">
             <div class="table-cell"><strong>Underlyings / Observation Dates</strong></div>
-            <div class="table-cell">{{ structured_results.underlying_count }} / {{ structured_results.observation_count }}</div>
+            <div class="table-cell">{{ structured_results.underlying_count }} / {{ structured_results.observation_count
+                }}</div>
         </div>
         <div class="table-row">
             <div class="table-cell"><strong>Worst-of Final Level (5% / 50% / 95%)</strong></div>
-            <div class="table-cell">{{ structured_results.worst_final_level_p05 }} / {{ structured_results.worst_final_level_p50 }} / {{ structured_results.worst_final_level_p95 }}</div>
+            <div class="table-cell">{{ structured_results.worst_final_level_p05 }} / {{
+                structured_results.worst_final_level_p50 }} / {{ structured_results.worst_final_level_p95 }}</div>
         </div>
     </div>
     {% endif %}
@@ -306,8 +310,11 @@
     </div>
     <div id="sensitivity-results" class="sens-results">
         {% if sensitivity_results %}
-        <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}"
+        {% set sensitivity_session = session.get('sensitivity_results', {}) %}
+        {% if sensitivity_session.get('plot_filename') %}
+        <img src="{{ url_for('static', filename=sensitivity_session['plot_filename']) }}"
             alt="Sensitivity Analysis Plot">
+        {% endif %}
         <form id="ai-assessment-form" method="post">
             <!-- AI Assessment Form Fields -->
             <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
