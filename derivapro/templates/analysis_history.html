@@ -4,32 +4,37 @@
 <h2>Analysis History</h2>
 
 {% if analyses %}
-<table class="results-table">
-    <thead>
-        <tr>
-            <th>Saved At</th>
-            <th>Analysis Type</th>
-            <th>Product Type</th>
-            <th>Ticker</th>
-            <th>Model</th>
-            <th>Details</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for analysis in analyses %}
-        <tr>
-            <td>{{ analysis.created_at }}</td>
-            <td>{{ analysis.analysis_type }}</td>
-            <td>{{ analysis.instrument.product_type if analysis.instrument else "" }}</td>
-            <td>{{ analysis.instrument.ticker if analysis.instrument else "" }}</td>
-            <td>{{ analysis.instrument.model_name if analysis.instrument else "" }}</td>
-            <td>
-                <pre style="white-space: pre-wrap;">{{ analysis.result_json }}</pre>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div style="overflow-x: auto;">
+    <table class="results-table" style="table-layout: auto; width: 100%;">
+        <thead>
+            <tr>
+                <th style="min-width: 140px;">Saved At</th>
+                <th style="min-width: 140px;">Analysis Type</th>
+                <th style="min-width: 120px;">Product Type</th>
+                <th style="min-width: 80px;">Ticker</th>
+                <th style="min-width: 120px;">Model</th>
+                <th style="min-width: 320px;">Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for analysis in analyses %}
+            <tr>
+                <td>{{ analysis.created_at }}</td>
+                <td>{{ analysis.analysis_type }}</td>
+                <td>{{ analysis.instrument.product_type if analysis.instrument else "" }}</td>
+                <td>{{ analysis.instrument.ticker if analysis.instrument else "" }}</td>
+                <td>{{ analysis.instrument.model_name if analysis.instrument else "" }}</td>
+                <td>
+                    <div
+                        style="max-height: 220px; overflow-y: auto; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px; text-align: left;">
+                        {{ analysis.result_json }}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% else %}
 <div class="result">
     <p>No saved analysis history found.</p>

@@ -26,7 +26,7 @@ import markdown
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 from ..extensions import db
-from ..models.db_models import AnalysisResult, Instrument, PricingResult
+from ..models.db_models import AnalysisResult, Instrument, Plot, PricingResult
 from ..models.market_data import StockData
 import logging
 
@@ -322,9 +322,21 @@ def autocallable_options():
                         result_json=sensitivity_results_data,
                     )
                     db.session.add(analysis_result)
+                    db.session.flush()
+
+                    plot = Plot(
+                        user_id=current_user.id,
+                        analysis_result_id=analysis_result.id,
+                        pricing_result_id=None,
+                        plot_type="autocallable_sensitivity",
+                        filename=plot_filename,
+                        filepath=os.path.join("derivapro", "static", plot_filename),
+                    )
+                    db.session.add(plot)
                     db.session.commit()
 
                     session["last_analysis_result_id"] = analysis_result.id
+
                     session["sensitivity_results"] = {
                         "plot_filename": plot_filename,
                         "variable": variable,
@@ -539,6 +551,21 @@ def autocallable_options():
                         result_json=convergence_results_data,
                     )
                     db.session.add(analysis_result)
+                    db.session.flush()
+
+                    plot = Plot(
+                        user_id=current_user.id,
+                        analysis_result_id=analysis_result.id,
+                        pricing_result_id=None,
+                        plot_type="autocallable_convergence",
+                        filename=convergence_results_data["plot_filename"],
+                        filepath=os.path.join(
+                            "derivapro",
+                            "static",
+                            convergence_results_data["plot_filename"],
+                        ),
+                    )
+                    db.session.add(plot)
                     db.session.commit()
 
                     session["last_analysis_result_id"] = analysis_result.id
@@ -861,9 +888,21 @@ def asian_options():
                         result_json=sensitivity_results_data,
                     )
                     db.session.add(analysis_result)
+                    db.session.flush()
+
+                    plot = Plot(
+                        user_id=current_user.id,
+                        analysis_result_id=analysis_result.id,
+                        pricing_result_id=None,
+                        plot_type="asian_sensitivity",
+                        filename=plot_filename,
+                        filepath=os.path.join("derivapro", "static", plot_filename),
+                    )
+                    db.session.add(plot)
                     db.session.commit()
 
                     session["last_analysis_result_id"] = analysis_result.id
+
                     session["sensitivity_results"] = {
                         "plot_filename": plot_filename,
                         "variable": variable,
@@ -1085,6 +1124,21 @@ def asian_options():
                         result_json=convergence_results_data,
                     )
                     db.session.add(analysis_result)
+                    db.session.flush()
+
+                    plot = Plot(
+                        user_id=current_user.id,
+                        analysis_result_id=analysis_result.id,
+                        pricing_result_id=None,
+                        plot_type="asian_convergence",
+                        filename=convergence_results_data["plot_filename"],
+                        filepath=os.path.join(
+                            "derivapro",
+                            "static",
+                            convergence_results_data["plot_filename"],
+                        ),
+                    )
+                    db.session.add(plot)
                     db.session.commit()
 
                     session["last_analysis_result_id"] = analysis_result.id
@@ -1401,9 +1455,21 @@ def barrier_options():
                         result_json=sensitivity_results_data,
                     )
                     db.session.add(analysis_result)
+                    db.session.flush()
+
+                    plot = Plot(
+                        user_id=current_user.id,
+                        analysis_result_id=analysis_result.id,
+                        pricing_result_id=None,
+                        plot_type="barrier_sensitivity",
+                        filename=plot_filename,
+                        filepath=os.path.join("derivapro", "static", plot_filename),
+                    )
+                    db.session.add(plot)
                     db.session.commit()
 
                     session["last_analysis_result_id"] = analysis_result.id
+
                     session["sensitivity_results"] = {
                         "plot_filename": plot_filename,
                         "variable": variable,
@@ -1485,6 +1551,19 @@ def barrier_options():
                     result_json=convergence_results_data,
                 )
                 db.session.add(analysis_result)
+                db.session.flush()
+
+                plot = Plot(
+                    user_id=current_user.id,
+                    analysis_result_id=analysis_result.id,
+                    pricing_result_id=None,
+                    plot_type="barrier_convergence",
+                    filename=convergence_results_data["plot_filename"],
+                    filepath=os.path.join(
+                        "derivapro", "static", convergence_results_data["plot_filename"]
+                    ),
+                )
+                db.session.add(plot)
                 db.session.commit()
 
                 session["last_analysis_result_id"] = analysis_result.id

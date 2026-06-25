@@ -95,6 +95,7 @@ body {
     display: flex;
     flex: 1;
     margin-top: 60px;
+    min-width: 0;
 }
 
 .horizontal-table {
@@ -152,6 +153,17 @@ nav {
     /* allows z-index to work */
     z-index: 1000;
     /* ensures it sits above main content */
+    width: 270px;
+    min-width: 270px;
+    flex: 0 0 270px;
+    box-sizing: border-box;
+}
+
+#navPanel {
+    width: 270px;
+    min-width: 270px;
+    flex: 0 0 270px;
+    overflow-y: auto;
 }
 
 nav ul {
@@ -242,6 +254,7 @@ nav ul li ul li {
 
 main {
     flex: 1;
+    min-width: 0;
     padding: 20px;
     background-color: white;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
@@ -250,6 +263,8 @@ main {
     /* keep it below nav dropdowns */
     z-index: 1;
     /* lower than nav dropdowns */
+    overflow-x: auto;
+    box-sizing: border-box;
 }
 
 .hidden {

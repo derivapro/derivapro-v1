@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template
 from flask_login import current_user, login_required
 
-from ..models.db_models import PricingResult
+from ..models.db_models import Portfolio, PricingResult
 
 saved_results_bp = Blueprint("saved_results", __name__)
 
@@ -15,4 +15,14 @@ def saved_results():
         .all()
     )
 
-    return render_template("saved_results.html", results=results)
+    portfolios = (
+        Portfolio.query.filter_by(user_id=current_user.id)
+        .order_by(Portfolio.created_at.desc())
+        .all()
+    )
+
+    return render_template(
+        "saved_results.html",
+        results=results,
+        portfolios=portfolios,
+    )

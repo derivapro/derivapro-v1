@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Portfolios</h2>
+
+<div class="result">
+    <h3>Create Portfolio</h3>
+    <form method="post" class="form-grid">
+        <div class="form-group">
+            <label for="name">Portfolio Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description:</label>
+            <input type="text" id="description" name="description">
+        </div>
+
+        <div class="form-group full-width">
+            <button type="submit">Create Portfolio</button>
+        </div>
+    </form>
+</div>
+
+{% if portfolios %}
+<table class="results-table">
+    <thead>
+        <tr>
+            <th>Created At</th>
+            <th>Name</th>
+            <th>Description</th>
+            <th>View</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for portfolio in portfolios %}
+        <tr>
+            <td>{{ portfolio.created_at }}</td>
+            <td>{{ portfolio.name }}</td>
+            <td>{{ portfolio.description or "" }}</td>
+            <td>
+                <a href="{{ url_for('portfolios.portfolio_detail', portfolio_id=portfolio.id) }}">
+                    Open
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="result">
+    <p>No portfolios created yet.</p>
+</div>
+{% endif %}
+{% endblock %}

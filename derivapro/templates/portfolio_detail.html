@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Portfolio: {{ portfolio.name }}</h2>
+
+<div class="result">
+    <p><strong>Description:</strong> {{ portfolio.description or "N/A" }}</p>
+    <p><strong>Created At:</strong> {{ portfolio.created_at }}</p>
+</div>
+
+{% if positions %}
+<table class="results-table">
+    <thead>
+        <tr>
+            <th>Added At</th>
+            <th>Product Type</th>
+            <th>Ticker</th>
+            <th>Model</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Notional</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for position in positions %}
+        <tr>
+            <td>{{ position.created_at }}</td>
+            <td>{{ position.instrument.product_type if position.instrument else "" }}</td>
+            <td>{{ position.instrument.ticker if position.instrument else "" }}</td>
+            <td>{{ position.instrument.model_name if position.instrument else "" }}</td>
+            <td>
+                {{ "%.4f"|format(position.pricing_result.price) if position.pricing_result and position.pricing_result.price is not none else "" }}
+            </td>
+            <td>{{ "%.4f"|format(position.quantity) if position.quantity is not none else "" }}</td>
+            <td>{{ "%.4f"|format(position.notional) if position.notional is not none else "" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="result">
+    <p>No positions in this portfolio yet.</p>
+</div>
+{% endif %}
+{% endblock %}

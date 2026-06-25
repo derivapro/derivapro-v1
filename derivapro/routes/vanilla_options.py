@@ -30,7 +30,7 @@ from openai import OpenAI  # kept to preserve existing imports
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from ..extensions import db
-from ..models.db_models import AnalysisResult, Instrument, PricingResult
+from ..models.db_models import AnalysisResult, Instrument, PricingResult, Report
 from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
 from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 from openai import AzureOpenAI
@@ -1939,9 +1939,11 @@ def reporting():
 @vanilla_options_bp.route("/download-report", methods=["GET"])
 def download_report():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    pdf_output_path = os.path.join(
-        base_dir, "..", "static", "model_validation_report.pdf"
-    )
+    static_dir = os.path.join(base_dir, "..", "static")
+    os.makedirs(static_dir, exist_ok=True)
+
+    report_filename = f"model_validation_report_{uuid.uuid4().hex}.pdf"
+    pdf_output_path = os.path.join(static_dir, report_filename)
 
     c = canvas.Canvas(pdf_output_path, pagesize=letter)
     width, height = letter
@@ -1957,8 +1959,23 @@ def download_report():
     c.showPage()
     c.save()
 
+    if current_user.is_authenticated:
+        report = Report(
+            user_id=current_user.id,
+            instrument_id=None,
+            pricing_result_id=session.get("last_result_id"),
+            analysis_result_id=session.get("last_analysis_result_id"),
+            report_type="model_validation_report",
+            filename=report_filename,
+            filepath=os.path.join("derivapro", "static", report_filename),
+        )
+        db.session.add(report)
+        db.session.commit()
+
     return send_file(
-        pdf_output_path, as_attachment=True, download_name="Model_Validation_Report.pdf"
+        pdf_output_path,
+        as_attachment=True,
+        download_name="Model_Validation_Report.pdf",
     )
 
 

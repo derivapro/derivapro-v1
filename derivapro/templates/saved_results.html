@@ -4,38 +4,65 @@
 <h2>Saved Results</h2>
 
 {% if results %}
-<table class="results-table">
-    <thead>
-        <tr>
-            <th>Saved At</th>
-            <th>Product Type</th>
-            <th>Ticker</th>
-            <th>Model</th>
-            <th>Price</th>
-            <th>Delta</th>
-            <th>Gamma</th>
-            <th>Vega</th>
-            <th>Theta</th>
-            <th>Rho</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for result in results %}
-        <tr>
-            <td>{{ result.created_at }}</td>
-            <td>{{ result.instrument.product_type if result.instrument else "" }}</td>
-            <td>{{ result.instrument.ticker if result.instrument else "" }}</td>
-            <td>{{ result.instrument.model_name if result.instrument else "" }}</td>
-            <td>{{ "%.4f"|format(result.price) if result.price is not none else "" }}</td>
-            <td>{{ "%.4f"|format(result.delta) if result.delta is not none else "" }}</td>
-            <td>{{ "%.4f"|format(result.gamma) if result.gamma is not none else "" }}</td>
-            <td>{{ "%.4f"|format(result.vega) if result.vega is not none else "" }}</td>
-            <td>{{ "%.4f"|format(result.theta) if result.theta is not none else "" }}</td>
-            <td>{{ "%.4f"|format(result.rho) if result.rho is not none else "" }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div style="overflow-x: auto;">
+    <table class="results-table" style="table-layout: auto; width: 100%;">
+        <thead>
+            <tr>
+                <th style="min-width: 140px;">Saved At</th>
+                <th style="min-width: 120px;">Product Type</th>
+                <th style="min-width: 80px;">Ticker</th>
+                <th style="min-width: 120px;">Model</th>
+                <th style="min-width: 80px;">Price</th>
+                <th style="min-width: 80px;">Delta</th>
+                <th style="min-width: 80px;">Gamma</th>
+                <th style="min-width: 80px;">Vega</th>
+                <th style="min-width: 80px;">Theta</th>
+                <th style="min-width: 80px;">Rho</th>
+                <th style="min-width: 180px;">Add to Portfolio</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for result in results %}
+            <tr>
+                <td>{{ result.created_at }}</td>
+                <td>{{ result.instrument.product_type if result.instrument else "" }}</td>
+                <td>{{ result.instrument.ticker if result.instrument else "" }}</td>
+                <td>{{ result.instrument.model_name if result.instrument else "" }}</td>
+                <td>{{ "%.4f"|format(result.price) if result.price is not none else "" }}</td>
+                <td>{{ "%.4f"|format(result.delta) if result.delta is not none else "" }}</td>
+                <td>{{ "%.4f"|format(result.gamma) if result.gamma is not none else "" }}</td>
+                <td>{{ "%.4f"|format(result.vega) if result.vega is not none else "" }}</td>
+                <td>{{ "%.4f"|format(result.theta) if result.theta is not none else "" }}</td>
+                <td>{{ "%.4f"|format(result.rho) if result.rho is not none else "" }}</td>
+                <td>
+                    {% if portfolios %}
+                    <form method="post" action="{{ url_for('portfolios.add_position') }}"
+                        style="display: flex; flex-direction: column; gap: 6px; min-width: 160px;">
+                        <input type="hidden" name="pricing_result_id" value="{{ result.id }}">
+
+                        <select name="portfolio_id" required style="width: 100%;">
+                            <option value="">Select Portfolio</option>
+                            {% for portfolio in portfolios %}
+                            <option value="{{ portfolio.id }}">{{ portfolio.name }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <input type="number" step="0.01" name="quantity" value="1.0" placeholder="Quantity" required
+                            style="width: 100%;">
+
+                        <input type="number" step="0.01" name="notional" placeholder="Notional" style="width: 100%;">
+
+                        <button type="submit" style="width: 100%;">Add</button>
+                    </form>
+                    {% else %}
+                    <span>Create a portfolio first</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% else %}
 <div class="result">
     <p>No saved results found.</p>
