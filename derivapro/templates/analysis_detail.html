@@ -1,28 +1,52 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Analysis Detail</h2>
-
-<div class="result">
-    <p><strong>Saved At:</strong> {{ analysis.created_at }}</p>
-    <p><strong>Analysis Type:</strong> {{ analysis.analysis_type }}</p>
-    <p><strong>Product Type:</strong> {{ analysis.instrument.product_type if analysis.instrument else "" }}</p>
-    <p><strong>Ticker:</strong> {{ analysis.instrument.ticker if analysis.instrument else "" }}</p>
-    <p><strong>Model:</strong> {{ analysis.instrument.model_name if analysis.instrument else "" }}</p>
+<div class="page-title compact">
+    <h1>Analysis Detail</h1>
+    <p>Review the saved analysis metadata, instrument configuration, and full analysis output.</p>
 </div>
 
-<div class="result">
+<div class="detail-back-row">
+    <a href="{{ url_for('analysis_history.analysis_history') }}" class="table-action-link detail-back-link">
+        Back to Analysis History
+    </a>
+</div>
+
+<div class="detail-summary-card">
+    <div class="detail-summary-grid">
+        <div class="detail-summary-item">
+            <span>Saved At</span>
+            <strong>{{ analysis.created_at }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Analysis Type</span>
+            <strong>{{ analysis.analysis_type }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Product Type</span>
+            <strong>{{ analysis.instrument.product_type if analysis.instrument else "" }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Ticker</span>
+            <strong>{{ analysis.instrument.ticker if analysis.instrument else "" }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Model</span>
+            <strong>{{ analysis.instrument.model_name if analysis.instrument else "" }}</strong>
+        </div>
+    </div>
+</div>
+
+<div class="detail-section-card">
     <h3>Instrument Parameters</h3>
-    <div
-        style="max-height: 300px; overflow-y: auto; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px;">
+    <div class="detail-code-block">
         {{ analysis.instrument.params_json if analysis.instrument else {} }}
     </div>
 </div>
 
-<div class="result">
+<div class="detail-section-card">
     <h3>Analysis Result JSON</h3>
-    <div
-        style="max-height: 400px; overflow-y: auto; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px;">
+    <div class="detail-code-block detail-code-block-large">
         {{ analysis.result_json }}
     </div>
 </div>

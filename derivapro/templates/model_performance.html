@@ -72,14 +72,14 @@
         </form>
         <div id="sensitivity-results" class="sens-results">
             {% if sensitivity_results %}
-            {% set sensitivity_session = session.get('sensitivity_results', {}) %}
-            {% if sensitivity_session.get('plot_filename') %}
-            <img src="{{ url_for('static', filename=sensitivity_session['plot_filename']) }}"
+            {% set sensitivity_plot = sensitivity_results.get('plot_filename') or sensitivity_results.get('plot_path')
+            %}
+            {% if sensitivity_plot %}
+            <img src="{{ url_for('static', filename=sensitivity_plot) }}?v={{ random() }}"
                 alt="Sensitivity Analysis Plot">
             {% endif %}
             <form id="ai-assessment-form" method="post">
                 <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
-                <input type="hidden" name="sensitivity_results" value="{{ sensitivity_results }}">
                 <div class="form-group full-width">
                     <button type="button"
                         onclick="submitForm('ai-assessment-form', '/vanilla-options/model-performance', 'gpt-assessment-section');">AI
@@ -88,6 +88,7 @@
             </form>
             {% endif %}
         </div>
+
         <div id="gpt-assessment-section" class="gpt-results">
             {% if gpt_assessment %}
             <h4>MRM Assessment:</h4>
@@ -203,8 +204,9 @@
             <button type="button" id="edit-scenario-assessment-btn"
                 onclick="editAssessment('gpt-scenario-assessment');">Edit</button>
             <button type="button" id="save-scenario-assessment-btn"
-                onclick="saveAssessment('gpt-scenario-assessment', '/vanilla-options/save-scenario-assessment');"
+                onclick="saveAssessment('gpt-scenario-assessment', '/vanilla-options/save-assessment');"
                 style="display: inline;">Save</button>
+
             {% endif %}
         </div>
     </div>
@@ -242,10 +244,34 @@
         </form>
         <div id="convergence-results" class="sens-results">
             {% if convergence_results %}
-            <img src="{{ url_for('static', filename=session.get('convergence_results', {}).get('plot_filename', 'vanilla_convergence_plot.png')) }}?v={{ random() }}"
+            {% set convergence_plot = convergence_results.get('plot_filename') %}
+            {% if convergence_plot %}
+            <img src="{{ url_for('static', filename=convergence_plot) }}?v={{ random() }}"
                 alt="Convergence Analysis Plot">
             {% endif %}
+            <form id="ai-convergence-assessment-form" method="post">
+                <input type="hidden" name="analysis_type" value="ai_convergence_assessment">
+                <div class="form-group full-width">
+                    <button type="button"
+                        onclick="submitForm('ai-convergence-assessment-form', '/vanilla-options/model-performance', 'gpt-convergence-assessment-section');">AI
+                        Assessment</button>
+                </div>
+            </form>
+            {% endif %}
         </div>
+        <div id="gpt-convergence-assessment-section" class="gpt-results">
+            {% if gpt_convergence_assessment %}
+            <h4>MRM Assessment:</h4>
+            <textarea id="gpt-convergence-assessment" class="assessment-textarea"
+                readonly>{{ gpt_convergence_assessment }}</textarea>
+            <button type="button" id="edit-gpt-convergence-assessment-btn"
+                onclick="editAssessment('gpt-convergence-assessment');">Edit</button>
+            <button type="button" id="save-gpt-convergence-assessment-btn"
+                onclick="saveAssessment('gpt-convergence-assessment', '/vanilla-options/save-assessment');"
+                style="display: inline;">Save</button>
+            {% endif %}
+        </div>
+
 
     </div>
 

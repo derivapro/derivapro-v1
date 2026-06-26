@@ -27,160 +27,184 @@
 </head>
 
 <body>
-    <div class="top-bar">
-        <button id="toggleMenu">Hide Menu</button>
-
-        <div class="auth-links">
-            {% if current_user.is_authenticated %}
-            <span>Signed in as {{ current_user.username }}</span>
-            <a href="{{ url_for('auth.logout') }}">Logout</a>
-            {% else %}
-            <a href="{{ url_for('auth.login') }}">Login</a>
-            <a href="{{ url_for('auth.register') }}">Register</a>
-            {% endif %}
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <button id="toggleMenu">Hide Menu</button>
         </div>
-    </div>
-    <div class="content">
-        <nav id="navPanel">
-            <div class="logo-container">
-                <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="nav-logo">
-            </div>
 
-            <ul>
-                <li><a href="{{ url_for('index.index') }}">Home</a></li>
-
-                <li>
-                    <a href="#">Products</a>
-                    <ul>
-                        <li>
-                            <a href="#">Options</a>
-                            <ul>
-                                <li>
-                                    <a href="{{ url_for('vanilla_options.vanilla_options') }}">Vanilla Options</a>
-                                    <ul>
-                                        <li><a href="{{ url_for('vanilla_options.european_options') }}">European</a>
-                                        </li>
-                                        <li><a href="{{ url_for('vanilla_options.american_options') }}">American</a>
-                                        </li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <a href="{{ url_for('exotic_options.exotic_options') }}">Exotic Options</a>
-                                    <ul>
-                                        <li><a href="{{ url_for('exotic_options.barrier_options') }}">Barrier</a></li>
-                                        <li><a href="{{ url_for('exotic_options.asian_options') }}">Asian</a></li>
-                                        <li><a
-                                                href="{{ url_for('exotic_options.autocallable_options') }}">Autocallable</a>
-                                        </li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </li>
-
-                        <li>
-                            <a href="#">Bonds / Fixed Income</a>
-                            <ul>
-                                <li>
-                                    <a href="{{ url_for('nc_bonds.nc_bonds') }}">Non-Callable Bonds</a>
-                                    <ul>
-                                        <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}">Fixed Rate</a></li>
-                                        <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Fixed Rate
-                                                Amortizing</a></li>
-                                        <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}">Floating Rate</a></li>
-                                        <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Floating Rate
-                                                Amortizing</a></li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </li>
-
-                        <li>
-                            <a href="#">Interest Rate Derivatives</a>
-                            <ul>
-                                <li>
-                                    <a href="{{ url_for('swap_swaptions.swap_swaptions') }}">Swaps / Swaptions</a>
-                                    <ul>
-                                        <li><a href="{{ url_for('rates.swap_page') }}">Swaps Analytical</a></li>
-                                        <li><a href="{{ url_for('swaps.swaps') }}">Swaps M2M</a></li>
-                                        <li><a href="{{ url_for('rates.swaption_page') }}">Swaptions Analytical</a></li>
-                                        <li><a href="{{ url_for('swaptions.swaptions') }}">Swaptions M2M</a></li>
-                                    </ul>
-                                </li>
-                                <li>
-                                    <a href="{{ url_for('futures_forwards.futures_forwards') }}">Futures / Forwards</a>
-                                    <ul>
-                                        <li><a href="{{ url_for('futures_forwards.forwards') }}">Forwards</a></li>
-                                        <li><a href="{{ url_for('futures_forwards.futures') }}">Futures</a></li>
-                                    </ul>
-                                </li>
-                            </ul>
-                        </li>
-
-                        <li>
-                            <a href="#">Credit Derivatives</a>
-                            <ul>
-                                <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">CDS (Credit Default
-                                        Swap)</a></li>
-                                <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}">Synthetic CDO</a></li>
-                                <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}">CLN (Credit-Linked
-                                        Note)</a></li>
-                            </ul>
-                        </li>
-
-                        <li>
-                            <a href="#">Volatility / Risk Products</a>
-                            <ul>
-                                <li>
-                                    <a href="{{ url_for('volatility_derivatives.volatility_derivatives') }}">Volatility
-                                        Derivatives</a>
-                                    <ul>
-                                        <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}">Variance
-                                                Swaps</a></li>
-                                    </ul>
-                                </li>
-                                <li><a href="{{ url_for('volatility_surface.volatility_surface') }}">Volatility
-                                        Surface</a></li>
-                            </ul>
-                        </li>
-
-                        <li><a href="{{ url_for('term_structure.calculate_term_structure') }}">Term Structure</a></li>
-
-                        <li>
-                            <a href="#">Prepayment Products</a>
-                            <ul>
-                                <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a>
-                                </li>
-                                <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}"
-                                        class="nav-link">Prepayment Model Validator</a></li>
-                            </ul>
-                        </li>
-                    </ul>
-                </li>
-
-                <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market Data</a>
-                </li>
-
+        <div class="top-bar-right">
+            <div class="auth-links">
                 {% if current_user.is_authenticated %}
-                <li><a href="{{ url_for('saved_results.saved_results') }}" class="nav-link">Saved Results</a></li>
-                <li><a href="{{ url_for('analysis_history.analysis_history') }}" class="nav-link">Analysis History</a>
-                </li>
-                <li><a href="{{ url_for('portfolios.portfolios') }}" class="nav-link">Portfolios</a></li>
+                <div class="auth-user-badge">
+                    <span class="auth-user-label">Signed in as</span>
+                    <span class="auth-user-name">{{ current_user.username }}</span>
+                </div>
+                <a href="{{ url_for('auth.change_password') }}" class="topbar-link">Change Password</a>
+                <a href="{{ url_for('auth.logout') }}" class="topbar-link topbar-link-danger">Logout</a>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}" class="topbar-link topbar-link-neutral">Login</a>
+                <a href="{{ url_for('auth.register') }}" class="topbar-link topbar-link-primary">Register</a>
                 {% endif %}
+            </div>
+        </div>
+    </header>
+    <div class="content app-shell">
+        <div class="nav-shell">
+            <nav id="navPanel">
+                <div class="logo-container">
+                    <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="nav-logo">
+                </div>
 
-                <li><a href="{{ url_for('reports_generated.reports_generated') }}" class="nav-link">Reports</a></li>
-            </ul>
-        </nav>
-        <main>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            <ul class="flashed-messages">
-                {% for category, message in messages %}
-                <li class="flash-{{ category }}">{{ message }}</li>
-                {% endfor %}
-            </ul>
-            {% endif %}
-            {% endwith %}
-            {% block content %}{% endblock %}
+                <ul>
+                    <li><a href="{{ url_for('index.index') }}">Home</a></li>
+
+                    <li>
+                        <a href="#">Products</a>
+                        <ul>
+                            <li>
+                                <a href="#">Options</a>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('vanilla_options.vanilla_options') }}">Vanilla Options</a>
+                                        <ul>
+                                            <li><a href="{{ url_for('vanilla_options.european_options') }}">European</a>
+                                            </li>
+                                            <li><a href="{{ url_for('vanilla_options.american_options') }}">American</a>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('exotic_options.exotic_options') }}">Exotic Options</a>
+                                        <ul>
+                                            <li><a href="{{ url_for('exotic_options.barrier_options') }}">Barrier</a>
+                                            </li>
+                                            <li><a href="{{ url_for('exotic_options.asian_options') }}">Asian</a></li>
+                                            <li><a
+                                                    href="{{ url_for('exotic_options.autocallable_options') }}">Autocallable</a>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+
+                            <li>
+                                <a href="#">Bonds / Fixed Income</a>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('nc_bonds.nc_bonds') }}">Non-Callable Bonds</a>
+                                        <ul>
+                                            <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}">Fixed Rate</a></li>
+                                            <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Fixed Rate
+                                                    Amortizing</a></li>
+                                            <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}">Floating Rate</a>
+                                            </li>
+                                            <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Floating
+                                                    Rate
+                                                    Amortizing</a></li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+
+                            <li>
+                                <a href="#">Interest Rate Derivatives</a>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('swap_swaptions.swap_swaptions') }}">Swaps / Swaptions</a>
+                                        <ul>
+                                            <li><a href="{{ url_for('rates.swap_page') }}">Swaps Analytical</a></li>
+                                            <li><a href="{{ url_for('swaps.swaps') }}">Swaps M2M</a></li>
+                                            <li><a href="{{ url_for('rates.swaption_page') }}">Swaptions Analytical</a>
+                                            </li>
+                                            <li><a href="{{ url_for('swaptions.swaptions') }}">Swaptions M2M</a></li>
+                                        </ul>
+                                    </li>
+                                    <li>
+                                        <a href="{{ url_for('futures_forwards.futures_forwards') }}">Futures /
+                                            Forwards</a>
+                                        <ul>
+                                            <li><a href="{{ url_for('futures_forwards.forwards') }}">Forwards</a></li>
+                                            <li><a href="{{ url_for('futures_forwards.futures') }}">Futures</a></li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+
+                            <li>
+                                <a href="#">Credit Derivatives</a>
+                                <ul>
+                                    <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">CDS (Credit
+                                            Default
+                                            Swap)</a></li>
+                                    <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}">Synthetic CDO</a>
+                                    </li>
+                                    <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}">CLN
+                                            (Credit-Linked
+                                            Note)</a></li>
+                                </ul>
+                            </li>
+
+                            <li>
+                                <a href="#">Volatility / Risk Products</a>
+                                <ul>
+                                    <li>
+                                        <a href="{{ url_for('volatility_derivatives.volatility_derivatives') }}">Volatility
+                                            Derivatives</a>
+                                        <ul>
+                                            <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}">Variance
+                                                    Swaps</a></li>
+                                        </ul>
+                                    </li>
+                                    <li><a href="{{ url_for('volatility_surface.volatility_surface') }}">Volatility
+                                            Surface</a></li>
+                                </ul>
+                            </li>
+
+                            <li><a href="{{ url_for('term_structure.calculate_term_structure') }}">Term Structure</a>
+                            </li>
+
+                            <li>
+                                <a href="#">Prepayment Products</a>
+                                <ul>
+                                    <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a>
+                                    </li>
+                                    <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}"
+                                            class="nav-link">Prepayment Model Validator</a></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market
+                            Data</a>
+                    </li>
+
+                    {% if current_user.is_authenticated %}
+                    <li><a href="{{ url_for('saved_results.saved_results') }}" class="nav-link">Saved Results</a></li>
+                    <li><a href="{{ url_for('analysis_history.analysis_history') }}" class="nav-link">Analysis
+                            History</a>
+                    </li>
+                    <li><a href="{{ url_for('portfolios.portfolios') }}" class="nav-link">Portfolios</a></li>
+                    {% endif %}
+
+                    <li><a href="{{ url_for('reports_generated.reports_generated') }}" class="nav-link">Reports</a></li>
+                </ul>
+            </nav>
+        </div>
+        <main class="app-main">
+
+            <div class="page-container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <ul class="flashed-messages">
+                    {% for category, message in messages %}
+                    <li class="flash-{{ category }}">{{ message }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% endwith %}
+                {% block content %}{% endblock %}
+            </div>
         </main>
     </div>
     <script>

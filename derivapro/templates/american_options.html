@@ -308,7 +308,7 @@
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
             <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-            <!-- <input type="hidden" name="model" value="{{ form_data.model }}"> -->
+            <!--<input type="hidden" name="model" value="{{ form_data.pricing_model }}"> -->
             <input type="hidden" name="model" value="{{ form_data.pricing_model }}">
             <input type="hidden" name="num_paths" value="{{ form_data.num_paths|default(10000) }}">
             <input type="hidden" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}">
@@ -353,9 +353,10 @@
         </form>
         <div id="sensitivity-results" class="sens-results">
 
-            {% if session.get('sensitivity_results') and session['sensitivity_results'].get('plot_filename') %}
-            <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}"
-                alt="Sensitivity Analysis Plot">
+            {% set sensitivity_plot = sensitivity_results.get('plot_filename') if sensitivity_results else
+            sensitivity_results.get('plot_path') if sensitivity_results else None %}
+            {% if sensitivity_plot %}
+            <img src="{{ url_for('static', filename=sensitivity_plot) }}" alt="Sensitivity Analysis Plot">
 
             <div class="assessment-section">
                 <h4>AI Assessment</h4>
@@ -369,7 +370,7 @@
                     <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
                     <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
                     <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-                    <input type="hidden" name="model" value="{{ form_data.model }}">
+                    <input type="hidden" name="model" value="{{ form_data.pricing_model }}">
                     <div class="form-group full-width">
                         <button type="button"
                             onclick="submitForm('ai-sensitivity-assessment-form', '/vanilla-options/american', 'sensitivity-assessment-section');"
@@ -384,14 +385,21 @@
             {% endif %}
         </div>
         <div id="sensitivity-assessment-section" class="assessment-section">
-            {% if session.get('sensitivity_results', {}).get('gpt_sensitivity_assessment') %}
+            {% if gpt_sensitivity_assessment %}
             <div class="assessment-container">
                 <textarea id="sensitivity-assessment" class="assessment-textarea"
-                    readonly>{{ session['sensitivity_results']['gpt_sensitivity_assessment'] }}</textarea>
+                    readonly>{{ gpt_sensitivity_assessment }}</textarea>
+
+
                 <div class="assessment-buttons">
-                    <button onclick="editAssessment('sensitivity-assessment')" class="edit-button">Edit</button>
-                    <button onclick="saveAssessment('sensitivity-assessment')" class="save-button"
-                        style="display: none;">Save</button>
+
+                    <button type="button"
+                        onclick="editAssessment('sensitivity-assessment', 'save-sensitivity-assessment-btn')"
+                        class="edit-button">Edit</button>
+                    <button type="button" id="save-sensitivity-assessment-btn"
+                        onclick="saveAssessment('sensitivity-assessment', '/vanilla-options/save-assessment', 'save-sensitivity-assessment-btn')"
+                        class="save-button" style="display: none;">Save</button>
+
                 </div>
             </div>
             {% endif %}
@@ -409,7 +417,7 @@
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
             <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-            <input type="hidden" name="model" value="{{ form_data.model }}">
+            <input type="hidden" name="model" value="{{ form_data.pricing_model }}">
             <input type="hidden" name="num_paths" value="{{ form_data.num_paths|default(10000) }}">
             <input type="hidden" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}">
             <div class="form-group">
@@ -473,21 +481,21 @@
                 <tbody>
                     <tr>
                         <td>Baseline</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_price'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_delta'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_gamma'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_vega'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_theta'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_rho'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_price'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_delta'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_gamma'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_vega'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_theta'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_rho'] }}</td>
                     </tr>
                     <tr>
                         <td>Stressed</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_price'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_delta'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_gamma'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_vega'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_theta'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_rho'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_price'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_delta'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_gamma'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_vega'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_theta'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_rho'] }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -501,7 +509,7 @@
                 <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
                 <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
                 <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-                <input type="hidden" name="model" value="{{ form_data.model }}">
+                <input type="hidden" name="model" value="{{ form_data.pricing_model }}">
                 <div class="form-group full-width">
                     <button type="button"
                         onclick="submitForm('ai-scenario-assessment-form', '/vanilla-options/american', 'gpt-scenario-assessment-section');">AI
@@ -511,17 +519,19 @@
             {% endif %}
         </div>
         <div id="gpt-scenario-assessment-section" class="gpt-results" style="margin-top: 20px;">
-            {% if session.get('scenario_results', {}).get('gpt_scenario_assessment') %}
+            {% if gpt_scenario_assessment %}
             <h4>MRM Assessment:</h4>
             <div class="assessment-container">
                 <textarea id="gpt-scenario-assessment" class="assessment-textarea"
-                    readonly>{{ session['scenario_results']['gpt_scenario_assessment'] }}</textarea>
+                    readonly>{{ gpt_scenario_assessment }}</textarea>
+
                 <div class="assessment-buttons">
                     <button type="button" id="edit-scenario-assessment-btn"
-                        onclick="editAssessment('gpt-scenario-assessment');">Edit</button>
+                        onclick="editAssessment('gpt-scenario-assessment', 'save-scenario-assessment-btn');">Edit</button>
                     <button type="button" id="save-scenario-assessment-btn"
-                        onclick="saveAssessment('gpt-scenario-assessment', '/vanilla-options/save-scenario-assessment');"
+                        onclick="saveAssessment('gpt-scenario-assessment', '/vanilla-options/save-assessment', 'save-scenario-assessment-btn');"
                         style="display: none;">Save</button>
+
                 </div>
             </div>
             {% endif %}
@@ -539,7 +549,7 @@
             <input type="hidden" name="r" value="{{ form_data.r }}">
             <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
             <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-            <!-- <input type="hidden" name="model" value="{{ form_data.model }}"> -->
+            <!--<input type="hidden" name="model" value="{{ form_data.pricing_model }}"> -->
             <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
 
             <!-- Monte Carlo parameter block (visible only as needed, controlled by JS) -->
@@ -594,9 +604,10 @@
         </form>
         <div id="convergence-results" class="sens-results">
             {% if convergence_results %}
-            {% set plot_file = session.get('convergence_results', {}).get('plot_filename',
-            'lattice_convergence_plot.png') %}
+            {% set plot_file = convergence_results.get('plot_filename') %}
             <img src="{{ url_for('static', filename=plot_file) }}" alt="Convergence Analysis Plot">
+
+
             <form id="ai-convergence-assessment-form" onsubmit="return false;" class="form-grid">
                 <input type="hidden" name="analysis_type" value="ai_convergence_assessment">
                 <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
@@ -607,7 +618,7 @@
                 <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
                 <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
                 <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-                <!-- <input type="hidden" name="model" value="{{ form_data.model }}"> -->
+                <!--<input type="hidden" name="model" value="{{ form_data.pricing_model }}"> -->
                 <div class="form-group full-width">
                     <button type="button"
                         onclick="submitForm('ai-convergence-assessment-form', '/vanilla-options/american', 'convergence-assessment-section');"
@@ -617,14 +628,19 @@
             {% endif %}
         </div>
         <div id="convergence-assessment-section">
-            {% if session.get('convergence_results', {}).get('gpt_convergence_assessment') %}
+            {% if gpt_convergence_assessment %}
             <div class="assessment-container">
                 <textarea id="convergence-assessment" class="assessment-textarea"
-                    readonly>{{ session['convergence_results']['gpt_convergence_assessment'] }}</textarea>
+                    readonly>{{ gpt_convergence_assessment }}</textarea>
+
+
                 <div class="assessment-buttons">
-                    <button onclick="editAssessment('convergence-assessment')" class="edit-button">Edit</button>
-                    <button onclick="saveAssessment('convergence-assessment')" class="save-button"
-                        style="display: none;">Save</button>
+                    <button type="button"
+                        onclick="editAssessment('convergence-assessment', 'save-convergence-assessment-btn')"
+                        class="edit-button">Edit</button>
+                    <button type="button" id="save-convergence-assessment-btn"
+                        onclick="saveAssessment('convergence-assessment', '/vanilla-options/save-assessment', 'save-convergence-assessment-btn')"
+                        class="save-button" style="display: none;">Save</button>
                 </div>
             </div>
             {% endif %}
@@ -642,7 +658,7 @@
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
             <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-            <input type="hidden" name="model" value="{{ form_data.model }}">
+            <input type="hidden" name="model" value="{{ form_data.pricing_model }}">
             <input type="hidden" name="num_paths" value="{{ form_data.num_paths|default(10000) }}">
             <input type="hidden" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}">
 
@@ -663,7 +679,8 @@
             </div>
         </form>
         <div id="rbpl-results">
-            {% if risk_pl_results %}
+            {% set rpbl = risk_pl_results.get('results', {}) if risk_pl_results else {} %}
+            {% if rpbl %}
             <div class="result">
                 <h4>Results:</h4>
                 <div class="horizontal-table">
@@ -673,9 +690,9 @@
                         <div class="table-cell">Difference</div>
                     </div>
                     <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Actual P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Greek P&L Sum'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Difference'] }}</div>
+                        <div class="table-cell">{{ rpbl['Actual P&L'] }}</div>
+                        <div class="table-cell">{{ rpbl['Greek P&L Sum'] }}</div>
+                        <div class="table-cell">{{ rpbl['Difference'] }}</div>
                     </div>
                     <br>
                     <h4>Intermediate Calcuations:</h4>
@@ -687,11 +704,11 @@
                         <div class="table-cell">Vega P&L</div>
                     </div>
                     <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Initial Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Bumped Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Delta P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Gamma P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Vega P&L'] }}</div>
+                        <div class="table-cell">{{ rpbl['Initial Price'] }}</div>
+                        <div class="table-cell">{{ rpbl['Bumped Price'] }}</div>
+                        <div class="table-cell">{{ rpbl['Delta P&L'] }}</div>
+                        <div class="table-cell">{{ rpbl['Gamma P&L'] }}</div>
+                        <div class="table-cell">{{ rpbl['Vega P&L'] }}</div>
                     </div>
                 </div>
             </div>
@@ -709,7 +726,7 @@
                     <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
                     <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
                     <input type="hidden" name="num_steps" value="{{ form_data.num_steps }}">
-                    <input type="hidden" name="model" value="{{ form_data.model }}">
+                    <input type="hidden" name="model" value="{{ form_data.pricing_model }}">
                     <div class="form-group full-width">
                         <button type="button"
                             onclick="submitForm('ai-rpbl-assessment-form', '/vanilla-options/american', 'rpbl-assessment-section');"
@@ -720,14 +737,16 @@
             {% endif %}
         </div>
         <div id="rpbl-assessment-section">
-            {% if session.get('risk_pl_results', {}).get('gpt_rpbl_assessment') %}
+            {% if gpt_rpbl_assessment %}
             <div class="assessment-container">
-                <textarea id="rpbl-assessment" class="assessment-textarea"
-                    readonly>{{ session['risk_pl_results']['gpt_rpbl_assessment'] }}</textarea>
+                <textarea id="rpbl-assessment" class="assessment-textarea" readonly>{{ gpt_rpbl_assessment }}</textarea>
+
                 <div class="assessment-buttons">
-                    <button onclick="editAssessment('rpbl-assessment')" class="edit-button">Edit</button>
-                    <button onclick="saveAssessment('rpbl-assessment')" class="save-button"
-                        style="display: none;">Save</button>
+                    <button type="button" onclick="editAssessment('rpbl-assessment', 'save-rpbl-assessment-btn')"
+                        class="edit-button">Edit</button>
+                    <button type="button" id="save-rpbl-assessment-btn"
+                        onclick="saveAssessment('rpbl-assessment', '/vanilla-options/save-assessment', 'save-rpbl-assessment-btn')"
+                        class="save-button" style="display: none;">Save</button>
                 </div>
             </div>
             {% endif %}
@@ -825,18 +844,26 @@
         document.querySelector(".tab-button").click();
     });
 
-    function editAssessment(textareaId) {
+    function editAssessment(textareaId, saveBtnId) {
         const textarea = document.getElementById(textareaId);
-        const saveBtn = document.getElementById('save-scenario-assessment-btn');
+        const saveBtn = document.getElementById(saveBtnId);
+
+        if (!textarea || !saveBtn) {
+            return;
+        }
+
         textarea.readOnly = false;
         saveBtn.style.display = 'inline-block';
     }
 
-    function saveAssessment(textareaId, url) {
+    function saveAssessment(textareaId, url, saveBtnId) {
         const textarea = document.getElementById(textareaId);
-        const saveBtn = document.getElementById('save-scenario-assessment-btn');
+        const saveBtn = document.getElementById(saveBtnId);
 
-        // Send the updated assessment to the server
+        if (!textarea || !saveBtn || !url) {
+            return;
+        }
+
         fetch(url, {
             method: 'POST',
             headers: {
@@ -848,14 +875,13 @@
         })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
+                if (data.status === 'success') {
                     textarea.readOnly = true;
                     saveBtn.style.display = 'none';
                 }
             })
             .catch(error => console.error('Error:', error));
     }
-
     function toggleMonteCarloParams() {
         const modelType = document.getElementById('pricing_model').value;
         const mcParams = document.getElementById('monte_carlo_params');

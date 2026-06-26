@@ -70,6 +70,7 @@
     <h4>8.2 Scenario Analysis</h4>
     <p>{{ scenario_description }}</p>
     <h5>Scenario Results</h5>
+    {% if scenario_results %}
     <table>
         <thead>
             <tr>
@@ -96,8 +97,46 @@
             {% endfor %}
         </tbody>
     </table>
+    {% else %}
+    <p>No scenario results available.</p>
+    {% endif %}
     <h5>MRM Assessment:</h5>
     <p>{{ scenario_assessment }}</p>
+
+    <!-- Convergence Analysis -->
+    <h4>8.3 Convergence Analysis</h4>
+    {% if convergence_plot %}
+        <h5>Convergence Plot</h5>
+        <img src="{{ url_for('static', filename=convergence_plot) }}" alt="Convergence Analysis Plot" style="max-width: 100%; height: auto;">
+    {% else %}
+        <p>No convergence plot available.</p>
+    {% endif %}
+
+    {% if convergence_summary %}
+        <h5>Convergence Results</h5>
+        <table>
+            <thead>
+                <tr>
+                    <th>Step / Paths</th>
+                    <th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in convergence_summary %}
+                <tr>
+                    <td>{{ item[0] }}</td>
+                    <td>{{ item[1] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No convergence results available.</p>
+    {% endif %}
+
+    <h5>MRM Assessment:</h5>
+    <p>{{ convergence_assessment }}</p>
+
 
     <!-- Provide a download link for the report -->
     <h3>Download the Report</h3>

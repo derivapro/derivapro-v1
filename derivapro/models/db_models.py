@@ -11,6 +11,8 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    security_question = db.Column(db.String(255), nullable=True)
+    security_answer_hash = db.Column(db.String(255), nullable=True)
     role = db.Column(db.String(50), nullable=False, default="user")
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -26,6 +28,18 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password: str) -> bool:
         return bcrypt.check_password_hash(self.password_hash, password)
+
+    def set_security_answer(self, answer: str) -> None:
+        self.security_answer_hash = bcrypt.generate_password_hash(
+            answer.strip().lower()
+        ).decode("utf-8")
+
+    def check_security_answer(self, answer: str) -> bool:
+        if not self.security_answer_hash:
+            return False
+        return bcrypt.check_password_hash(
+            self.security_answer_hash, answer.strip().lower()
+        )
 
     def __repr__(self):
         return f"<User {self.username}>"

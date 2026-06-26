@@ -1,32 +1,97 @@
 {% extends "base.html" %}
 
+{% block title %}Register{% endblock %}
+
 {% block content %}
-<h2>Register</h2>
+<div class="auth-page">
+    <div class="auth-card auth-card-enhanced">
 
-{% if error %}
-<div class="result">
-    <p>{{ error }}</p>
+        <div class="auth-header">
+            <h2>Create Account</h2>
+            <p>Set up your account to save pricing results, analyses, and portfolio positions.</p>
+        </div>
+
+        {% if error %}
+        <div class="auth-alert auth-alert-error">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="auth-form">
+            <div class="auth-form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Choose a username" required autofocus>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="password">Password</label>
+                <div class="auth-password-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Create a password" required>
+                    <button type="button" class="auth-password-toggle" onclick="togglePassword('password', this)">
+                        Show
+                    </button>
+                </div>
+                <small class="auth-help-text">Use a strong password that you can remember securely.</small>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="confirm_password">Confirm Password</label>
+                <div class="auth-password-wrapper">
+                    <input type="password" id="confirm_password" name="confirm_password"
+                        placeholder="Re-enter your password" required>
+                    <button type="button" class="auth-password-toggle"
+                        onclick="togglePassword('confirm_password', this)">
+                        Show
+                    </button>
+                </div>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="security_question">Security Question</label>
+                <select id="security_question" name="security_question" required>
+                    <option value="">Select a security question</option>
+                    <option value="What was the name of your first school?">What was the name of your first school?
+                    </option>
+                    <option value="What is your mother’s maiden name?">What is your mother’s maiden name?</option>
+                    <option value="What was the name of your first pet?">What was the name of your first pet?</option>
+                    <option value="What city were you born in?">What city were you born in?</option>
+                </select>
+                <small class="auth-help-text">This will be used to verify your identity if you need to reset your
+                    password.</small>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="security_answer">Security Answer</label>
+                <div class="auth-password-wrapper">
+                    <input type="password" id="security_answer" name="security_answer"
+                        placeholder="Enter your security answer" required>
+                    <button type="button" class="auth-password-toggle"
+                        onclick="togglePassword('security_answer', this)">
+                        Show
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="auth-button">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account?</p>
+            <a href="{{ url_for('auth.login') }}" class="auth-secondary-link">Sign in</a>
+        </div>
+    </div>
 </div>
-{% endif %}
 
-<form method="post" class="form-grid">
-    <div class="form-group">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required>
-    </div>
-
-    <div class="form-group">
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
-    </div>
-
-    <div class="form-group">
-        <label for="confirm_password">Confirm Password:</label>
-        <input type="password" id="confirm_password" name="confirm_password" required>
-    </div>
-
-    <div class="form-group full-width">
-        <button type="submit">Register</button>
-    </div>
-</form>
+<script>
+    function togglePassword(inputId, button) {
+        const input = document.getElementById(inputId);
+        if (input.type === "password") {
+            input.type = "text";
+            button.textContent = "Hide";
+        } else {
+            input.type = "password";
+            button.textContent = "Show";
+        }
+    }
+</script>
 {% endblock %}
