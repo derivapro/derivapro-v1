@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Saved Result Detail</h2>
+
+<div class="result">
+    <p><strong>Saved At:</strong> {{ result.created_at }}</p>
+    <p><strong>Product Type:</strong> {{ result.instrument.product_type if result.instrument else "" }}</p>
+    <p><strong>Ticker:</strong> {{ result.instrument.ticker if result.instrument else "" }}</p>
+    <p><strong>Model:</strong> {{ result.instrument.model_name if result.instrument else "" }}</p>
+    <p><strong>Price:</strong> {{ "%.4f"|format(result.price) if result.price is not none else "" }}</p>
+    <p><strong>Delta:</strong> {{ "%.4f"|format(result.delta) if result.delta is not none else "" }}</p>
+    <p><strong>Gamma:</strong> {{ "%.4f"|format(result.gamma) if result.gamma is not none else "" }}</p>
+    <p><strong>Vega:</strong> {{ "%.4f"|format(result.vega) if result.vega is not none else "" }}</p>
+    <p><strong>Theta:</strong> {{ "%.4f"|format(result.theta) if result.theta is not none else "" }}</p>
+    <p><strong>Rho:</strong> {{ "%.4f"|format(result.rho) if result.rho is not none else "" }}</p>
+</div>
+
+<div class="result">
+    <h3>Instrument Parameters</h3>
+    <div
+        style="max-height: 300px; overflow-y: auto; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px;">
+        {{ result.instrument.params_json if result.instrument else {} }}
+    </div>
+</div>
+
+<div class="result">
+    <h3>Result JSON</h3>
+    <div
+        style="max-height: 300px; overflow-y: auto; overflow-x: auto; white-space: pre-wrap; font-family: monospace; font-size: 12px;">
+        {{ result.result_json }}
+    </div>
+</div>
+{% endblock %}

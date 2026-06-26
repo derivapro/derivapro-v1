@@ -18,6 +18,7 @@
                 <th style="min-width: 80px;">Vega</th>
                 <th style="min-width: 80px;">Theta</th>
                 <th style="min-width: 80px;">Rho</th>
+                <th style="min-width: 100px;">View</th>
                 <th style="min-width: 180px;">Add to Portfolio</th>
             </tr>
         </thead>
@@ -34,6 +35,9 @@
                 <td>{{ "%.4f"|format(result.vega) if result.vega is not none else "" }}</td>
                 <td>{{ "%.4f"|format(result.theta) if result.theta is not none else "" }}</td>
                 <td>{{ "%.4f"|format(result.rho) if result.rho is not none else "" }}</td>
+                <td>
+                    <a href="{{ url_for('saved_results.saved_result_detail', result_id=result.id) }}">Open</a>
+                </td>
                 <td>
                     {% if portfolios %}
                     <form method="post" action="{{ url_for('portfolios.add_position') }}"

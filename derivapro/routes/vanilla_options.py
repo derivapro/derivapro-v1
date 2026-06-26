@@ -1873,6 +1873,40 @@ def american_options():
 def reporting():
     sensitivity_results = session.get("sensitivity_results", {})
     scenario_results = session.get("scenario_results", {})
+    latest_analysis = None
+    latest_pricing_result = None
+
+    if current_user.is_authenticated:
+        last_analysis_result_id = session.get("last_analysis_result_id")
+        last_result_id = session.get("last_result_id")
+
+        if last_analysis_result_id:
+            latest_analysis = AnalysisResult.query.filter_by(
+                id=last_analysis_result_id,
+                user_id=current_user.id,
+            ).first()
+
+        if last_result_id:
+            latest_pricing_result = PricingResult.query.filter_by(
+                id=last_result_id,
+                user_id=current_user.id,
+            ).first()
+
+        if latest_analysis and latest_analysis.result_json:
+            if latest_analysis.analysis_type in [
+                "sensitivity",
+                "barrier_sensitivity",
+                "asian_sensitivity",
+                "autocallable_sensitivity",
+            ]:
+                sensitivity_results = latest_analysis.result_json
+            elif latest_analysis.analysis_type in [
+                "scenario",
+                "barrier_scenario",
+                "asian_scenario",
+                "autocallable_scenario",
+            ]:
+                scenario_results = latest_analysis.result_json
 
     sensitivity_combined = []
     sensitivity_plot = None
@@ -1885,7 +1919,10 @@ def reporting():
                 sensitivity_results.get("greek_values", []),
             )
         )
-        sensitivity_plot = sensitivity_results.get("plot_path", None)
+        sensitivity_plot = sensitivity_results.get(
+            "plot_filename",
+            sensitivity_results.get("plot_path", None),
+        )
         sensitivity_assessment = sensitivity_results.get(
             "gpt_sensitivity_assessment", "No assessment available."
         )
@@ -1895,7 +1932,15 @@ def reporting():
         else:
             logger.debug("No sensitivity plot found")
 
-    scenario_table = scenario_results.get("table", [])
+    scenario_table = []
+    if scenario_results:
+        baseline = scenario_results.get("baseline_scenario_table")
+        stressed = scenario_results.get("stressed_scenario_table")
+        if baseline:
+            scenario_table.append(baseline)
+        if stressed:
+            scenario_table.append(stressed)
+
     scenario_assessment = scenario_results.get(
         "gpt_scenario_assessment", "No assessment available."
     )
@@ -1927,6 +1972,8 @@ def reporting():
         "sensitivity_combined": sensitivity_combined,
         "sensitivity_plot": sensitivity_plot,
         "scenario_results": scenario_table,
+        "latest_pricing_result": latest_pricing_result,
+        "latest_analysis": latest_analysis,
     }
 
     report_data["sensitivity_assessment"] = sensitivity_assessment
