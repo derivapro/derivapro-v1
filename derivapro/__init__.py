@@ -7,7 +7,10 @@ Created on Fri Jun  7 21:27:49 2024
 
 import os
 
+from dotenv import load_dotenv
 from flask import Flask
+
+load_dotenv()
 
 from .config import config_by_name
 from .extensions import bcrypt, db, login_manager, migrate

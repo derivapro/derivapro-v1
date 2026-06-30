@@ -19,3 +19,4 @@ Flask-Login
 Flask-Bcrypt
 joblib
 Flask-WTF
+psycopg2-binary
