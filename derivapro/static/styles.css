@@ -1246,6 +1246,22 @@ details summary {
     line-height: 1.6;
 }
 
+.section-title {
+    margin: 22px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--dp-light-gray);
+}
+
+.section-title h3 {
+    margin: 0;
+    font-family: var(--dp-font-heading);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.1;
+    color: var(--dp-dark-blue);
+    letter-spacing: 0.02em;
+}
+
 .history-table-card {
     border: 1px solid rgba(200, 201, 199, 0.85);
     border-radius: 12px;
@@ -1573,4 +1589,109 @@ details summary {
     .home-content-card {
         padding: 18px;
     }
+}
+
+/* ===== Portfolios Page ===== */
+.portfolio-form-card {
+    margin-bottom: 22px;
+    padding: 20px 22px;
+    border: 1px solid rgba(200, 201, 199, 0.85);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(16, 24, 32, 0.05);
+}
+
+.portfolio-form-card h3 {
+    margin: 0 0 14px;
+    color: var(--dp-dark-blue);
+}
+
+.portfolio-create-form {
+    margin: 0;
+    max-width: 100%;
+}
+
+.portfolios-table td {
+    vertical-align: middle;
+}
+
+/* ===== Portfolio Detail Page ===== */
+.detail-summary-item-full {
+    grid-column: 1 / -1;
+}
+
+.portfolio-positions-table td {
+    vertical-align: middle;
+}
+
+/* ===== Market Data Page ===== */
+.market-data-intro-card {
+    margin-bottom: 22px;
+}
+
+.market-data-section-card {
+    margin-bottom: 24px;
+    padding: 20px 22px;
+    border: 1px solid rgba(200, 201, 199, 0.85);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(16, 24, 32, 0.05);
+}
+
+.market-data-section-card h3 {
+    margin: 0 0 14px;
+    color: var(--dp-dark-blue);
+}
+
+.market-data-form {
+    display: grid;
+    gap: 16px;
+}
+
+.tenor-checkbox-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin-top: 6px;
+}
+
+.tenor-checkbox-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid rgba(200, 201, 199, 0.85);
+    border-radius: 8px;
+    background: #f9fcfd;
+    cursor: pointer;
+}
+
+.tenor-checkbox-item span {
+    color: var(--dp-black);
+    font-size: 14px;
+}
+
+.tenor-action-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.market-data-results-card {
+    margin-top: 20px;
+}
+
+.market-data-results-card h4 {
+    margin: 0 0 12px;
+    color: var(--dp-dark-blue);
+}
+
+.market-data-table {
+    margin: 0;
+}
+
+.market-data-table th,
+.market-data-table td {
+    text-align: left;
 }

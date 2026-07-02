@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Prepayment Model Validator</h1>
+<div class="page-title compact">
+    <h1>Prepayment Model Validator</h1>
+    <p>Upload loan data, prepare features, train models, and review validation workflows in one place.</p>
+</div>
 
 <div class="card mb-3" style="border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px; background: white;">
   {% if upload_success %}
@@ -30,9 +33,9 @@
 
 
 <!-- Data Summary Interface -->
-<h1 style="color: #2E86C1">
-  Data Summary
-</h1>
+<div class="section-title">
+  <h3>Data Summary</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   
   <!-- Interactive Tab System -->
@@ -122,9 +125,9 @@
 
 
 <!-- Column Conversion Interface -->
-<h1 style="color: #2E86C1">
-  Column Type Conversion
-</h1>
+<div class="section-title">
+  <h3>Column Type Conversion</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap;">
     <div style="min-width: 200px;">
@@ -154,9 +157,9 @@
 </div>
 
 <!-- Data Imputation & Normalization Interface -->
-<h1 style="color: #2E86C1">
-  Data Processing
-</h1>
+<div class="section-title">
+  <h3>Data Processing</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <p style="color: #6c757d; margin-bottom: 15px;">Choose either imputation or normalization for your selected column.</p>
   
@@ -213,9 +216,9 @@
 </div>
 
 <!-- Data Preparation Interface -->
-<h1 style="color: #2E86C1">
-  Model Preparation
-</h1>
+<div class="section-title">
+  <h3>Model Preparation</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <div style="display: flex; gap: 20px; align-items: end; flex-wrap: wrap;">
     <div style="min-width: 200px;">
@@ -278,9 +281,9 @@
 </div>
 
 <!-- Column Selection Interface -->
-<h1 style="color: #2E86C1">
-  Column Selection
-</h1>
+<div class="section-title">
+  <h3>Column Selection</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <p style="color: #6c757d; margin-bottom: 15px;">Select which columns to include/exclude from model training. Remove identifier columns, irrelevant features, etc.</p>
   
@@ -334,9 +337,9 @@
 </div>
 
 <!-- Feature Selection Interface -->
-<h1 style="color: #2E86C1">
-  Feature Selection
-</h1>
+<div class="section-title">
+  <h3>Feature Selection</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <!-- Feature Selection Tabs -->
   <div class="feature-tabs">
@@ -449,9 +452,9 @@
 </div>
 
 <!-- Final Column Selection Interface -->
-<h1 style="color: #2E86C1">
-  Final Column Selection
-</h1>
+<div class="section-title">
+  <h3>Final Column Selection</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <p style="color: #6c757d; margin-bottom: 15px;">
     Review and manually select your final features from the list that passed feature selection and threshold validation. 
@@ -551,9 +554,9 @@
 
 
 <!-- Model Training Interface -->
-<h1 style="color: #2E86C1">
-  Model Training
-</h1>
+<div class="section-title">
+  <h3>Model Training</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <!-- Model Training Tabs -->
   <div class="model-training-tabs">
@@ -788,9 +791,9 @@
 </div>
 
 <!-- Model Registry Interface -->
-<h1 style="color: #2E86C1">
-  Model Registry
-</h1>
+<div class="section-title">
+  <h3>Model Registry</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   
   <!-- When no model is registered -->
@@ -834,9 +837,9 @@
 </div>
 
 <!-- Model Performance Testing Interface -->
-<h1 style="color: #2E86C1">
-  Model Performance Testing
-</h1>
+<div class="section-title">
+  <h3>Model Performance Testing</h3>
+</div>
 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
   <!-- Model Training Tabs -->
   <div class="model-performance_testing-tabs">

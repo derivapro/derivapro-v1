@@ -1,45 +1,71 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Portfolio: {{ portfolio.name }}</h2>
+<div class="page-title compact">
+    <h1>Portfolio: {{ portfolio.name }}</h1>
+    <p>Review saved positions, pricing references, and portfolio-level holdings for this collection.</p>
+</div>
 
-<div class="result">
-    <p><strong>Description:</strong> {{ portfolio.description or "N/A" }}</p>
-    <p><strong>Created At:</strong> {{ portfolio.created_at }}</p>
+<div class="detail-back-row">
+    <a href="{{ url_for('portfolios.portfolios') }}" class="table-action-link detail-back-link">
+        Back to Portfolios
+    </a>
+</div>
+
+<div class="detail-summary-card">
+    <div class="detail-summary-grid">
+        <div class="detail-summary-item">
+            <span>Name</span>
+            <strong>{{ portfolio.name }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Created At</span>
+            <strong>{{ portfolio.created_at }}</strong>
+        </div>
+        <div class="detail-summary-item detail-summary-item-full">
+            <span>Description</span>
+            <strong>{{ portfolio.description or "N/A" }}</strong>
+        </div>
+    </div>
 </div>
 
 {% if positions %}
-<table class="results-table">
-    <thead>
-        <tr>
-            <th>Added At</th>
-            <th>Product Type</th>
-            <th>Ticker</th>
-            <th>Model</th>
-            <th>Price</th>
-            <th>Quantity</th>
-            <th>Notional</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for position in positions %}
-        <tr>
-            <td>{{ position.created_at }}</td>
-            <td>{{ position.instrument.product_type if position.instrument else "" }}</td>
-            <td>{{ position.instrument.ticker if position.instrument else "" }}</td>
-            <td>{{ position.instrument.model_name if position.instrument else "" }}</td>
-            <td>
-                {{ "%.4f"|format(position.pricing_result.price) if position.pricing_result and position.pricing_result.price is not none else "" }}
-            </td>
-            <td>{{ "%.4f"|format(position.quantity) if position.quantity is not none else "" }}</td>
-            <td>{{ "%.4f"|format(position.notional) if position.notional is not none else "" }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="history-table-card">
+    <div class="history-table-wrap">
+        <table class="results-table history-table portfolio-positions-table">
+            <thead>
+                <tr>
+                    <th>Added At</th>
+                    <th>Product Type</th>
+                    <th>Ticker</th>
+                    <th>Model</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Notional</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in positions %}
+                <tr>
+                    <td>{{ position.created_at }}</td>
+                    <td>{{ position.instrument.product_type if position.instrument else "" }}</td>
+                    <td>{{ position.instrument.ticker if position.instrument else "" }}</td>
+                    <td>{{ position.instrument.model_name if position.instrument else "" }}</td>
+                    <td>
+                        {{ "%.4f"|format(position.pricing_result.price) if position.pricing_result and position.pricing_result.price is not none else "" }}
+                    </td>
+                    <td>{{ "%.4f"|format(position.quantity) if position.quantity is not none else "" }}</td>
+                    <td>{{ "%.4f"|format(position.notional) if position.notional is not none else "" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% else %}
-<div class="result">
-    <p>No positions in this portfolio yet.</p>
+<div class="empty-state-card">
+    <h3>No Positions Yet</h3>
+    <p>This portfolio does not contain any saved positions yet. Add a saved result to this portfolio to begin tracking holdings.</p>
 </div>
 {% endif %}
 {% endblock %}

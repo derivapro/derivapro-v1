@@ -1,18 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Portfolios</h2>
+<div class="page-title compact">
+    <h1>Portfolios</h1>
+    <p>Create and manage named collections of saved positions for ongoing analysis and reporting workflows.</p>
+</div>
 
-<div class="result">
+<div class="portfolio-form-card">
     <h3>Create Portfolio</h3>
-    <form method="post" class="form-grid">
+    <form method="post" class="form-grid portfolio-create-form">
         <div class="form-group">
-            <label for="name">Portfolio Name:</label>
+            <label for="name">Portfolio Name</label>
             <input type="text" id="name" name="name" required>
         </div>
 
         <div class="form-group">
-            <label for="description">Description:</label>
+            <label for="description">Description</label>
             <input type="text" id="description" name="description">
         </div>
 
@@ -23,33 +26,41 @@
 </div>
 
 {% if portfolios %}
-<table class="results-table">
-    <thead>
-        <tr>
-            <th>Created At</th>
-            <th>Name</th>
-            <th>Description</th>
-            <th>View</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for portfolio in portfolios %}
-        <tr>
-            <td>{{ portfolio.created_at }}</td>
-            <td>{{ portfolio.name }}</td>
-            <td>{{ portfolio.description or "" }}</td>
-            <td>
-                <a href="{{ url_for('portfolios.portfolio_detail', portfolio_id=portfolio.id) }}">
-                    Open
-                </a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="history-table-card">
+    <div class="history-table-wrap">
+        <table class="results-table history-table portfolios-table">
+            <thead>
+                <tr>
+                    <th>Created At</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>View</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for portfolio in portfolios %}
+                <tr>
+                    <td>{{ portfolio.created_at }}</td>
+                    <td>{{ portfolio.name }}</td>
+                    <td>{{ portfolio.description or "" }}</td>
+                    <td>
+                        <a
+                            href="{{ url_for('portfolios.portfolio_detail', portfolio_id=portfolio.id) }}"
+                            class="table-action-link"
+                        >
+                            Open
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% else %}
-<div class="result">
-    <p>No portfolios created yet.</p>
+<div class="empty-state-card">
+    <h3>No Portfolios Yet</h3>
+    <p>Create your first portfolio to start organizing saved pricing results into reusable positions.</p>
 </div>
 {% endif %}
 {% endblock %}

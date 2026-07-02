@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>European Vanilla Options</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>European Vanilla Options</h1>
+    <p>Price European-style vanilla options, review Greeks, and access validation and reporting workflows from one page.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -12,7 +14,9 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Option Pricing</h3>
+<div class="section-title">
+    <h3>Option Pricing</h3>
+</div>
 <form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">
     <div class="form-group">
         <label for="ticker">Stock Ticker:</label>
@@ -123,7 +127,9 @@
 
 <div class="action-section-card">
     <div id="navigation-buttons">
-        <h3>Model Validation</h3>
+        <div class="section-title compact">
+            <h3>Model Validation</h3>
+        </div>
         <div class="nav-button-container">
             <button onclick="location.href='{{ url_for('vanilla_options.conceptual_soundness') }}'"
                 class="btn-primary nav-btn">Conceptual<br>Soundness</button>
@@ -137,7 +143,9 @@
     </div>
 
     <div id="reporting-section">
-        <h3>Report</h3>
+        <div class="section-title compact">
+            <h3>Report</h3>
+        </div>
         <a href="{{ url_for('vanilla_options.reporting') }}" class="btn btn-primary reporting-btn"
             target="_blank">Reporting</a>
     </div>

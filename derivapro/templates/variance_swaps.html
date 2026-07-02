@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Variance Swaps</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Variance Swaps</h1>
+    <p>Calculate variance swap metrics, review realized and expected variance, and assess current and simulated settlement outcomes.</p>
+</div>
 
 <div id="markdown-content">
     {{ content|safe }}
@@ -12,7 +14,9 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Variance Swap</h3>
+<div class="section-title">
+    <h3>Variance Swap</h3>
+</div>
 <form method="post" class="form-grid">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
@@ -85,7 +89,9 @@
 
 {% if variance_notional %}
 <hr>
-<h3>Results</h3>
+<div class="section-title">
+    <h3>Results</h3>
+</div>
 <div class="results-container" style="display: grid; grid-template-columns: auto 1fr; gap: 10px; max-width: 600px;">
     <div class="result-label">Variance Notional:</div>
     <div class="result-value">{{ variance_notional }}</div>

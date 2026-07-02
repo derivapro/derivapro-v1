@@ -3,8 +3,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>American Vanilla Options</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>American Vanilla Options</h1>
+    <p>Price American-style vanilla options, review analytics, and explore validation and reporting workflows in one place.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -14,7 +16,9 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Option Pricing</h3>
+<div class="section-title">
+    <h3>Option Pricing</h3>
+</div>
 
 <form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">
     <div class="form-group">
@@ -289,7 +293,9 @@
 
 <!-- Analysis Tabs -->
 <div id="analysis-section">
-    <h3>Analysis</h3>
+    <div class="section-title">
+        <h3>Analysis</h3>
+    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>

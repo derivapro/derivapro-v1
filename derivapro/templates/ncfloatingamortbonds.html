@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>NonCallable Floating Amortizing Bonds</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Non-Callable Floating Amortizing Bonds</h1>
+    <p>Price floating-rate amortizing bonds, review valuation outputs, and explore sensitivity to rate, index, and spread assumptions.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -12,7 +14,9 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Bond Pricing</h3>
+<div class="section-title">
+    <h3>Bond Pricing</h3>
+</div>
 
 <form id="floating-bond-form" method="post" class="form-grid">
     <div class="form-group">

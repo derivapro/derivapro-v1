@@ -2,8 +2,10 @@
 
 {% block content %}
 
-<h2>Forwards Contract</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Forward Contracts</h1>
+    <p>Price forward contracts, review profit and loss outcomes, and run supporting sensitivity and scenario analysis workflows.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -13,7 +15,9 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Forwards Pricing</h3>
+<div class="section-title">
+    <h3>Forwards Pricing</h3>
+</div>
 <form id="forwards-form" method="post" class="form-grid">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
@@ -104,7 +108,9 @@
 
 <!-- Analysis Tabs -->
 <div id="analysis-section">
-    <h3>Analysis</h3>
+    <div class="section-title">
+        <h3>Analysis</h3>
+    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>

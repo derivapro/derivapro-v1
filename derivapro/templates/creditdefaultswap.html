@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Credit Default Swap</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Credit Default Swap</h1>
+    <p>Price CDS trades, review key credit metrics, and run supporting sensitivity and scenario analysis workflows.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -12,7 +14,9 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Credit Default Swap</h3>
+<div class="section-title">
+    <h3>Credit Default Swap</h3>
+</div>
 
 <form id="cds-form" method="post" class="form-grid">
     <div class="form-group">
@@ -94,7 +98,9 @@
 
 <!-- Analysis Tabs -->
 <div id="analysis-section">
-    <h3>Analysis</h3>
+    <div class="section-title">
+        <h3>Analysis</h3>
+    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>

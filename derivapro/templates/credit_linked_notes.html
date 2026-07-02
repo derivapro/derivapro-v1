@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Credit Linked Notes</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Credit Linked Notes</h1>
+    <p>Price credit linked notes, compare fixed and floating structures, and run supporting sensitivity and scenario analysis.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -12,7 +14,9 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Credit Linked Notes</h3>
+<div class="section-title">
+    <h3>Credit Linked Notes</h3>
+</div>
 
 <div class="tabs">
     <button id="fixed-tab" class="tab-link active" onclick="switchTab(event, 'fixed')">NonCallable Fixed Rate Bonds</button>
@@ -255,7 +259,9 @@
     
     <!-- Analysis Tabs -->
     <div id="analysis-section">
-        <h3>Analysis</h3>
+        <div class="section-title">
+            <h3>Analysis</h3>
+        </div>
         <div class="analysis-tabs">
             <button id="fixed-tab" class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
             <button id="fixed-tab" class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
@@ -720,7 +726,9 @@
     {% endif %}
     <!-- Analysis Tabs -->
     <div id="analysis-section-float">
-        <h3>Analysis</h3>
+        <div class="section-title">
+            <h3>Analysis</h3>
+        </div>
         <div class="analysis-tabs">
             <button id="float-tab" class="tab-button" onclick="openTab(event, 'sensitivity-analysis-float')">Sensitivity Analysis</button>
             <button id="float-tab" class="tab-button" onclick="openTab(event, 'scenario-analysis-float')">Scenario Analysis</button>

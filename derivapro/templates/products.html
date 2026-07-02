@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Products{% endblock %}
+
+{% block content %}
+<div class="page-title compact">
+    <h1>Products</h1>
+    <p>Browse all product categories and open each pricing or analytics workflow directly from this page.</p>
+</div>
+
+<div class="history-table-card" style="padding: 22px;">
+    <div class="detail-section-card" style="margin-bottom: 18px;">
+        <h3>Vanilla Options</h3>
+        <ul>
+            <li><a href="{{ url_for('vanilla_options.european_options') }}">European Options</a></li>
+            <li><a href="{{ url_for('vanilla_options.american_options') }}">American Options</a></li>
+        </ul>
+    </div>
+
+    <div class="detail-section-card" style="margin-bottom: 18px;">
+        <h3>NonCallable Bonds</h3>
+        <ul>
+            <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}">Fixed Rate Bonds</a></li>
+            <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Fixed Rate Amortizing Bonds</a></li>
+            <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}">Floating Rate Bonds</a></li>
+            <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Floating Rate Amortizing Bonds</a></li>
+        </ul>
+    </div>
+
+    <div class="detail-section-card" style="margin-bottom: 18px;">
+        <h3>Exotic Options</h3>
+        <ul>
+            <li><a href="{{ url_for('exotic_options.barrier_options') }}">Barrier Options</a></li>
+            <li><a href="{{ url_for('exotic_options.asian_options') }}">Asian Options</a></li>
+            <li><a href="{{ url_for('exotic_options.autocallable_options') }}">AutoCallable</a></li>
+        </ul>
+    </div>
+
+    <div class="detail-section-card" style="margin-bottom: 18px;">
+        <h3>Futures &amp; Forwards</h3>
+        <ul>
+            <li><a href="{{ url_for('futures_forwards.forwards') }}">Forwards</a></li>
+            <li><a href="{{ url_for('futures_forwards.futures') }}">Futures</a></li>
+        </ul>
+    </div>
+
+    <div class="detail-section-card" style="margin-bottom: 18px;">
+        <h3>Interest Rate Derivatives</h3>
+        <ul>
+            <li><a href="{{ url_for('rates.swap_page') }}">Swaps Analytical</a></li>
+            <li><a href="{{ url_for('swaps.swaps') }}">Swaps M2M</a></li>
+            <li><a href="{{ url_for('rates.swaption_page') }}">Swaptions Analytical</a></li>
+            <li><a href="{{ url_for('swaptions.swaptions') }}">Swaptions M2M</a></li>
+            <li><a href="{{ url_for('term_structure.calculate_term_structure') }}">Term Structure</a></li>
+        </ul>
+    </div>
+
+    <div class="detail-section-card" style="margin-bottom: 18px;">
+        <h3>Credit Derivatives</h3>
+        <ul>
+            <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">Credit Default Swaps</a></li>
+            <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}">Synthetic Collateralized Debt Obligations</a></li>
+            <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}">Credit Linked Notes</a></li>
+        </ul>
+    </div>
+
+    <div class="detail-section-card" style="margin-bottom: 18px;">
+        <h3>Volatility / Risk Products</h3>
+        <ul>
+            <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}">Variance Swaps</a></li>
+            <li><a href="{{ url_for('volatility_surface.volatility_surface') }}">Volatility Surface</a></li>
+        </ul>
+    </div>
+
+    <div class="detail-section-card" style="margin-bottom: 0;">
+        <h3>Prepayment Products</h3>
+        <ul>
+            <li><a href="{{ url_for('prepayment.prepayment') }}">Prepayment</a></li>
+            <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}">Prepayment Model Validator</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
