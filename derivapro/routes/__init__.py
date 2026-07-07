@@ -22,6 +22,7 @@ def register_routes(app):
     from .saved_results import saved_results_bp
     from .analysis_history import analysis_history_bp
     from .portfolios import portfolios_bp
+    from .exports import exports_bp
 
     app.register_blueprint(saved_results_bp, url_prefix="/saved-results")
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -49,3 +50,4 @@ def register_routes(app):
     app.register_blueprint(reports_generated_bp, url_prefix="/reports-generated")
     app.register_blueprint(analysis_history_bp, url_prefix="/analysis-history")
     app.register_blueprint(portfolios_bp, url_prefix="/portfolios")
+    app.register_blueprint(exports_bp, url_prefix="/exports")

@@ -169,48 +169,24 @@ class SOFRRateProvider(MarketRateProvider):
             return []
 
 
-# class SOFRCompoundedRateCalculator:
-#     def __init__(self, rates, day_count=None, calendar=None):
-#         """
-#         rates: list of (date, overnight_rate), rate as decimal (e.g. 0.053)
-#         day_count: optional QuantLib day count convention (default Actual/360)
-#         calendar: optional QuantLib calendar (default US GovBond)
-#         """
 
 #         self.rates = sorted(rates, key=lambda x: x[0])
 #         self.day_count = day_count if day_count is not None else ql.Actual360()
 #         self.calendar = calendar if calendar is not None else ql.UnitedStates(ql.UnitedStates.GovernmentBond)
 
 
-#     def _filter_rates_for_tenor(self, end_date: ql.Date, tenor: ql.Period):
-#         start_date = self.calendar.advance(end_date, -tenor)
-#         return [
-#             (d, r) for d, r in self.rates
-#             if start_date < d <= end_date
-#         ]
 
 #     def compound(self, end_date, tenor, method="compounded"):
 #         rates = self._filter_rates_for_tenor(end_date, tenor)
 #         if len(rates) < 2:
 #             raise ValueError("Not enough rate observations for selected tenor")
 
-#         accruals = []
-#         for i in range(len(rates) - 1):
-#             d0, r = rates[i]
-#             d1, _ = rates[i + 1]
-#             dt = self.day_count.yearFraction(d0, d1)
-#             accruals.append((r, dt))
 
 #         if method == "simple":
 #             num = sum(r * dt for r, dt in accruals)
 #             den = sum(dt for _, dt in accruals)
 #             return num / den
 
-#         elif method == "compounded":
-#             compound_factor = 1.0
-#             for r, dt in accruals:
-#                 compound_factor *= (1 + r * dt)
-#             return compound_factor - 1.0
 
 #         elif method == "continuous":
 #             return math.exp(sum(r * dt for r, dt in accruals)) - 1.0
@@ -256,41 +232,8 @@ class SOFRCompoundedRateCalculator:
 
 # class ShockedSOFRRateProvider(MarketRateProvider):
 
-#     def sofr_operations(self, rateType: str = 'sofr', startDate: str = None, format: str = 'json', data_type: str = 'rate'):
-#         # Convert QuantLib Date to string 'YYYY-MM-DD' if startDate is QuantLib Date
-#         if startDate is not None:
-#             if isinstance(startDate, ql.Date):
-#                 startDate = startDate.to_date().isoformat()  # 'YYYY-MM-DD'
-#             elif isinstance(startDate, str):
-#                 # assume already in correct format
-#                 pass
-#             else:
-#                 raise ValueError("startDate must be QuantLib Date or string in 'YYYY-MM-DD' format")
-#         else:
-#             # default if no date passed
-#             startDate = "2025-06-24"
 
 #         url = f"https://markets.newyorkfed.org/api/rates/secured/{rateType}/search.{format}?startDate={startDate}&type={data_type}"
 #         return url
 
-#     def get_sofr_data(self, startDate=None):
-#         url = self.sofr_operations(startDate=startDate)
-#         response = requests.get(url)
-#         if response.status_code == 200:
-#             data = response.json()
-#             return data
-#         else:
-#             print(f"Request failed with status code: {response.status_code}")
-#             return None
 
-#     def get_market_rates(self, startDate=None):
-#         data = self.get_sofr_data(startDate=startDate)
-#         if data and "refRates" in data:
-#             rates = []
-#             for entry in data["refRates"]:
-#                 tenor = ql.Period(1, ql.Days)
-#                 rate = entry["percentRate"] / 100.0
-#                 rates.append((tenor, rate))
-#             return rates
-#         else:
-#             return []

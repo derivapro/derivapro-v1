@@ -26,14 +26,13 @@ import os
 import markdown
 from random import random
 from datetime import datetime
-from openai import OpenAI  # kept to preserve existing imports
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from ..extensions import db
 from ..models.db_models import AnalysisResult, Instrument, PricingResult, Report
 from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
 from ..models import mdls_monte_carlo_v2 as monte_carlo_module
-from openai import AzureOpenAI
+from ..llm import llm_client
 
 from dotenv import load_dotenv, find_dotenv
 import logging
@@ -42,60 +41,21 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
-# # Import the Monte Carlo module with space in filename
-# monte_carlo_path = os.path.join(
-#     os.path.dirname(os.path.dirname(__file__)), "models", "mdls_monte_carlo_NEW.py"
-# )
-# spec = importlib.util.spec_from_file_location("monte_carlo_module", monte_carlo_path)
-# if spec is not None:
-#     monte_carlo_module = importlib.util.module_from_spec(spec)
-#     if spec.loader is not None:
-#         spec.loader.exec_module(monte_carlo_module)
-# else:
-#     raise ImportError(f"Could not load Monte Carlo module from {monte_carlo_path}")
-
 vanilla_options_bp = Blueprint("vanilla_options", __name__)
 
 # Load the environment variables from the .env file
 load_dotenv(find_dotenv())
 
 # Get the values from the environment variables
-api_key = os.getenv("OpenAI_API_Key")
-base_url = os.getenv("Base_URL")
-api_version = os.getenv("API_Version")
-model = os.getenv("Model")
-Auth_headers = os.getenv("Auth_headers")
-
-# Add auth header
-auth_headers = {Auth_headers: api_key}
-
-# Instantiate the Azure OpenAI client
-client = AzureOpenAI(
-    api_key=api_key,
-    api_version=api_version,
-    default_headers=auth_headers,
-    azure_endpoint=base_url,
-)
+model = os.getenv("LLM_MODEL", os.getenv("Model"))
 
 
 def ask_gpt(question):
-    """
-    Sends a request to Azure OpenAI's GPT-4 API with the given question.
-    """
+    """Send a request to the configured LLM provider and return text."""
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Assistant is a large language model hosted in Azure OpenAI.",
-                },
-                {"role": "user", "content": f"{question}"},
-            ],
-        )
-        return response.choices[0].message.content
+        return llm_client.generate_response(prompt=question, model=model)
     except Exception as e:
-        logger.exception("Error occurred while calling OpenAI API")
+        logger.exception("Error occurred while calling LLM provider")
         return f"An error occurred: {e}"
 
 

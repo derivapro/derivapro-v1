@@ -38,11 +38,6 @@ class LatticeModel:
             option_type,
         )
 
-        # The factor by which the price rises (assuming it rises) = u
-        # The factor by which the price falls (assuming it falls) = d
-        # The probability of a price rise = pu
-        # The probability of a price fall = pd
-        # discount rate = disc
 
         u = math.exp(self.volatility * math.sqrt(self.time_to_expiry / steps))
         d = math.exp(-self.volatility * math.sqrt(self.time_to_expiry / steps))
@@ -143,11 +138,6 @@ class LatticeModel:
             option_type,
         )
 
-        # The factor by which the price rises (assuming it rises) = u
-        # The factor by which the price falls (assuming it falls) = d
-        # The probability of a price rise = pu
-        # The probability of a price fall = pd
-        # discount rate = disc
 
         u = math.exp(
             (self.risk_free_rate - (self.volatility**2 / 2))

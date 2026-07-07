@@ -9,6 +9,7 @@
 <div class="portfolio-form-card">
     <h3>Create Portfolio</h3>
     <form method="post" class="form-grid portfolio-create-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="name">Portfolio Name</label>
             <input type="text" id="name" name="name" required>
@@ -28,6 +29,10 @@
 {% if portfolios %}
 <div class="history-table-card">
     <div class="history-table-wrap">
+        <div class="table-actions">
+            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=xlsx" class="btn">Export XLSX</a>
+            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=csv" class="btn">Export CSV</a>
+        </div>
         <table class="results-table history-table portfolios-table">
             <thead>
                 <tr>

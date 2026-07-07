@@ -23,9 +23,9 @@ from ..models.mdls_structured_products import (
 import os
 import numpy as np
 import markdown
-from openai import AzureOpenAI
 from dotenv import load_dotenv
 from ..extensions import db
+from ..llm import llm_client
 from ..models.db_models import AnalysisResult, Instrument, Plot, PricingResult
 from ..models.market_data import StockData
 import logging
@@ -37,42 +37,15 @@ exotic_options_bp = Blueprint("exotic_options", __name__)
 load_dotenv()
 
 # Get the values from the environment variables
-api_key = os.getenv("OpenAI_API_Key")
-base_url = os.getenv("Base_URL")
-api_version = os.getenv("API_Version")
-model = os.getenv("Model")
-Auth_headers = os.getenv("Auth_headers")
-
-# Add auth header
-auth_headers = {Auth_headers: api_key}
-
-# Instantiate the Azure OpenAI client
-client = AzureOpenAI(
-    api_key=api_key,
-    api_version=api_version,
-    default_headers=auth_headers,
-    azure_endpoint=base_url,
-)
+model = os.getenv("LLM_MODEL", os.getenv("Model"))
 
 
 def ask_gpt(question):
-    """
-    Sends a request to Azure OpenAI's GPT-4 API with the given question.
-    """
+    """Send a request to the configured LLM provider and return text."""
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Assistant is a large language model hosted in Azure OpenAI.",
-                },
-                {"role": "user", "content": f"{question}"},
-            ],
-        )
-        return response.choices[0].message.content
+        return llm_client.generate_response(prompt=question, model=model)
     except Exception as e:
-        logger.exception("Error occurred while calling OpenAI API")
+        logger.exception("Error occurred while calling LLM provider")
         return f"An error occurred: {e}"
 
 
@@ -123,7 +96,9 @@ def autocallable_options():
                 user_id=current_user.id,
             ).first()
             if latest_pricing_result and latest_pricing_result.result_json:
-                option_price_value = latest_pricing_result.result_json.get("option_price")
+                option_price_value = latest_pricing_result.result_json.get(
+                    "option_price"
+                )
                 if option_price_value is not None:
                     option_price = "${:,.4f}".format(float(option_price_value))
 
@@ -607,7 +582,9 @@ def autocallable_options():
                     session.pop("autocallable_convergence_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["autocallable_convergence_results"] = convergence_results_data
+                    session["autocallable_convergence_results"] = (
+                        convergence_results_data
+                    )
 
                 convergence_results = convergence_results_data
 
@@ -834,7 +811,9 @@ def asian_options():
                 user_id=current_user.id,
             ).first()
             if latest_pricing_result and latest_pricing_result.result_json:
-                option_price_value = latest_pricing_result.result_json.get("option_price")
+                option_price_value = latest_pricing_result.result_json.get(
+                    "option_price"
+                )
                 if option_price_value is not None:
                     option_price = "${:,.4f}".format(float(option_price_value))
 
@@ -1443,7 +1422,9 @@ def barrier_options():
                 user_id=current_user.id,
             ).first()
             if latest_pricing_result and latest_pricing_result.result_json:
-                option_price_value = latest_pricing_result.result_json.get("option_price")
+                option_price_value = latest_pricing_result.result_json.get(
+                    "option_price"
+                )
                 if option_price_value is not None:
                     option_price = "${:,.4f}".format(float(option_price_value))
 
@@ -1465,7 +1446,7 @@ def barrier_options():
         sensitivity_results = session.get("sensitivity_results")
         scenario_results = session.get("scenario_results")
         convergence_results = session.get("barrier_convergence_results")
-        risk_pl_results = session.get("risk_pl_results")    
+        risk_pl_results = session.get("risk_pl_results")
 
     if request.method == "POST":
         action = request.form.get("analysis_type")

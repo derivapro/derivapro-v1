@@ -3,9 +3,10 @@ from flask import Blueprint, render_template, request, json
 import QuantLib as ql
 import os
 import markdown
-from openai import AzureOpenAI
 from dotenv import load_dotenv
 import logging
+
+from ..llm import llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -15,67 +16,30 @@ nc_bonds_bp = Blueprint("nc_bonds", __name__)
 load_dotenv()
 
 # Get the values from the environment variables
-api_key = os.getenv("OpenAI_API_Key")
-base_url = os.getenv("Base_URL")
-api_version = os.getenv("API_Version")
-model = os.getenv("Model")
-Auth_headers = os.getenv("Auth_headers")
-
-# Add auth header
-auth_headers = {Auth_headers: api_key}
-
-# Instantiate the Azure OpenAI client
-client = AzureOpenAI(
-    api_key=api_key,
-    api_version=api_version,
-    default_headers=auth_headers,
-    azure_endpoint=base_url,
-)
+model = os.getenv("LLM_MODEL", os.getenv("Model"))
 
 
 def ask_gpt(question):
-    """
-    Sends a request to Azure OpenAI's GPT-4 API with the given question.
-
-    Args:
-        question (str): The input question or prompt to GPT.
-
-    Returns:
-        str: The generated response from GPT, or an error message in case of failure.
-    """
+    """Send a request to the configured LLM provider and return text."""
     try:
-        # Send the request to Azure OpenAI API
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Assistant is a large language model hosted in Azure OpenAI.",
-                },
-                {"role": "user", "content": f"{question}"},
-            ],
-        )
-
-        # Extract the content of the response
-        return response.choices[0].message.content
-
+        return llm_client.generate_response(prompt=question, model=model)
     except Exception as e:
         error_msg = str(e)
-        logger.exception("Error occurred while calling OpenAI API")
+        logger.exception("Error occurred while calling LLM provider")
 
         if "403" in error_msg:
             logger.error(
-                "Authentication failed or access is restricted for the Azure OpenAI API."
+                "Authentication failed or access is restricted for the LLM provider."
             )
             return "Error: Access to the AI service is currently restricted. Please verify the API configuration or contact support."
         elif "401" in error_msg:
             logger.error("Unauthorized access attempt. Please check API credentials.")
             return "Error: Authentication failed. Please verify the API configuration or contact support."
         elif "429" in error_msg:
-            logger.error("Rate limit exceeded for Azure OpenAI API")
+            logger.error("Rate limit exceeded for LLM provider")
             return "Error: Too many requests. Please wait a moment and try again."
         else:
-            logger.error("Unexpected error in Azure OpenAI API call")
+            logger.error("Unexpected error in LLM provider call")
             return f"An error occurred while generating the assessment. Please try again. Error details: {error_msg}"
 
 

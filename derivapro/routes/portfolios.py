@@ -53,11 +53,101 @@ def portfolio_detail(portfolio_id):
         .all()
     )
 
+    greek_fields = ["delta", "gamma", "vega", "theta", "rho"]
+    summary = {field: 0.0 for field in greek_fields}
+    asset_class_summary = {}
+
+    for position in positions:
+        pricing_result = position.pricing_result
+        if not pricing_result:
+            continue
+
+        multiplier = (
+            position.notional if position.notional is not None else position.quantity
+        )
+        if multiplier is None:
+            multiplier = 1.0
+
+        asset_class = (
+            position.instrument.product_type
+            if position.instrument and position.instrument.product_type
+            else "Unknown"
+        )
+
+        by_class = asset_class_summary.setdefault(
+            asset_class,
+            {"name": asset_class, **{field: 0.0 for field in greek_fields}},
+        )
+
+        for field in greek_fields:
+            value = getattr(pricing_result, field) or 0.0
+            exposure = value * multiplier
+            summary[field] += exposure
+            by_class[field] += exposure
+
+    max_greek = max(abs(value) for value in summary.values()) or 1.0
+
     return render_template(
         "portfolio_detail.html",
         portfolio=portfolio,
         positions=positions,
+        summary=summary,
+        asset_class_summary=asset_class_summary,
+        max_greek=max_greek,
     )
+
+
+@portfolios_bp.route("/<int:portfolio_id>/update-position", methods=["POST"])
+@login_required
+def update_position(portfolio_id):
+    position_id = request.form.get("position_id", type=int)
+    quantity = request.form.get("quantity", type=float)
+    notional = request.form.get("notional", type=float)
+
+    position = Position.query.filter_by(
+        id=position_id,
+        portfolio_id=portfolio_id,
+        user_id=current_user.id,
+    ).first()
+
+    if not position:
+        flash("Position not found.", "error")
+        return redirect(
+            url_for("portfolios.portfolio_detail", portfolio_id=portfolio_id)
+        )
+
+    if quantity is not None:
+        position.quantity = quantity
+    if notional is not None:
+        position.notional = notional
+
+    db.session.commit()
+    flash("Position updated successfully.", "success")
+    return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio_id))
+
+
+@portfolios_bp.route("/<int:portfolio_id>/delete-position", methods=["POST"])
+@login_required
+def delete_position(portfolio_id):
+    position_id = request.form.get("position_id", type=int)
+
+    position = Position.query.filter_by(
+        id=position_id,
+        portfolio_id=portfolio_id,
+        user_id=current_user.id,
+    ).first()
+
+    if not position:
+        flash("Position not found.", "error")
+        return redirect(
+            url_for("portfolios.portfolio_detail", portfolio_id=portfolio_id)
+        )
+
+    db.session.delete(position)
+    db.session.commit()
+
+    flash("Position deleted successfully.", "success")
+    return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio_id))
 
 
 @portfolios_bp.route("/add-position", methods=["POST"])

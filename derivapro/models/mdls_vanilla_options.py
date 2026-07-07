@@ -11,15 +11,6 @@ matplotlib.use("Agg")  # Use the Agg backend for non-interactive plotting
 import sys
 import os
 
-# # Import the Monte Carlo module with space in filename
-# monte_carlo_path = os.path.join(os.path.dirname(__file__), "mdls_monte_carlo_NEW.py")
-# spec = importlib.util.spec_from_file_location("monte_carlo_module", monte_carlo_path)
-# if spec is not None:
-#     monte_carlo_module = importlib.util.module_from_spec(spec)
-#     if spec.loader is not None:
-#         spec.loader.exec_module(monte_carlo_module)
-# else:
-#     raise ImportError(f"Could not load Monte Carlo module from {monte_carlo_path}")
 
 
 class BlackScholes:

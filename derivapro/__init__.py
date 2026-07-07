@@ -15,7 +15,6 @@ load_dotenv()
 from .config import config_by_name
 from .extensions import bcrypt, db, login_manager, migrate
 from .logging_config import configure_logging
-from .routes import register_routes
 
 
 def create_app():
@@ -31,6 +30,10 @@ def create_app():
     migrate.init_app(app, db)
     login_manager.init_app(app)
     bcrypt.init_app(app)
+    from .extensions import csrf
+    from .routes import register_routes
+
+    csrf.init_app(app)
 
     from .models import db_models  # noqa: F401
 

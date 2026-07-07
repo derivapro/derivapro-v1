@@ -9,6 +9,10 @@
 {% if results %}
 <div class="history-table-card">
     <div class="history-table-wrap">
+        <div class="table-actions">
+            <a href="{{ url_for('exports.export') }}?type=saved_results&format=xlsx" class="btn">Export XLSX</a>
+            <a href="{{ url_for('exports.export') }}?type=saved_results&format=csv" class="btn">Export CSV</a>
+        </div>
         <table class="results-table history-table saved-results-table">
             <thead>
                 <tr>
@@ -49,6 +53,7 @@
                         {% if portfolios %}
                         <form method="post" action="{{ url_for('portfolios.add_position') }}"
                             class="portfolio-inline-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="pricing_result_id" value="{{ result.id }}">
 
                             <select name="portfolio_id" required>

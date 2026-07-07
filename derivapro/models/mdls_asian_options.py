@@ -91,13 +91,6 @@ class AsianOption:
             bs_process, "PseudoRandom", requiredSamples=self.num_paths, seed=self.seed
         )
 
-        # engine = ql.MCDiscreteArithmeticAPEngine(
-        #     bs_process, "PseudoRandom",
-        #     requiredSamples=self.num_paths,
-        #     seed=self.seed,
-        #     controlVariate=False,
-        #     antitheticVariate=False
-        # )
 
         averaging_dates = [
             ql.Date(date.day, date.month, date.year) for date in self.averaging_dates

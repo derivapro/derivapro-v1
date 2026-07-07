@@ -239,6 +239,80 @@
             });
         });
     </script>
+
+    <script>
+        // Reposition flyout submenus so they align vertically with their parent menu items
+        (function () {
+            const nav = document.getElementById('navPanel');
+            if (!nav) return;
+
+            function attach(li) {
+                const submenu = li.querySelector(':scope > ul');
+                if (!submenu) return;
+
+                const show = () => {
+                    const linkEl = li.querySelector('a');
+                    const rect = linkEl ? linkEl.getBoundingClientRect() : li.getBoundingClientRect();
+                    const navRect = nav.getBoundingClientRect();
+                    const isTopLevel = li.parentElement === nav.querySelector('ul');
+                    // For top-level items place submenu to the right of the nav panel.
+                    // For nested items place submenu immediately adjacent to the parent li (slight overlap) to avoid a hover gap.
+                    const left = isTopLevel ? (navRect.right + 6) : (rect.right - 2);
+                    submenu.style.position = 'fixed';
+                    submenu.style.left = left + 'px';
+                    // account for submenu's own top padding and border so its first item lines up with the parent
+                    const sStyle = window.getComputedStyle(submenu);
+                    const padTop = parseFloat(sStyle.paddingTop) || 0;
+                    const borderTop = parseFloat(sStyle.borderTopWidth) || 0;
+                    // center the submenu's first item vertically with the parent li so hover transitions are smooth
+                    const firstItem = submenu.querySelector('li');
+                    const firstH = firstItem ? firstItem.getBoundingClientRect().height : 0;
+                    const centeredTop = rect.top + (rect.height / 2) - (firstH / 2) - padTop - borderTop;
+                    const extraOffset = -2; // nudge up to remove micro-gap
+                    submenu.style.top = (centeredTop + extraOffset) + 'px';
+                    submenu.style.display = 'block';
+                };
+
+                const hide = () => {
+                    setTimeout(() => {
+                        if (!li.matches(':hover') && !submenu.matches(':hover')) {
+                            submenu.style.display = 'none';
+                        }
+                    }, 50);
+                };
+
+                li.addEventListener('mouseenter', show);
+                li.addEventListener('mouseleave', hide);
+                submenu.addEventListener('mouseenter', () => submenu.style.display = 'block');
+                submenu.addEventListener('mouseleave', () => submenu.style.display = 'none');
+
+                // recurse for nested lists
+                Array.from(submenu.children).forEach(child => { if (child.tagName === 'LI') attach(child); });
+            }
+
+            Array.from(nav.querySelectorAll('li')).forEach(li => attach(li));
+
+            window.addEventListener('resize', () => {
+                document.querySelectorAll('#navPanel ul ul').forEach(ul => {
+                    if (getComputedStyle(ul).display !== 'none') {
+                        const parent = ul.parentElement;
+                        const parentLink = parent ? parent.querySelector('a') : null;
+                        const rect = parentLink ? parentLink.getBoundingClientRect() : parent.getBoundingClientRect();
+                        const navRect = nav.getBoundingClientRect();
+                        const isTopLevel = parent.parentElement === nav.querySelector('ul');
+                        const sStyle = window.getComputedStyle(ul);
+                        const padTop = parseFloat(sStyle.paddingTop) || 0;
+                        const borderTop = parseFloat(sStyle.borderTopWidth) || 0;
+                        const firstItem = ul.querySelector('li');
+                        const firstH = firstItem ? firstItem.getBoundingClientRect().height : 0;
+                        ul.style.left = (isTopLevel ? (navRect.right + 6) : (rect.right - 2)) + 'px';
+                        const extraOffset = -2;
+                        ul.style.top = (rect.top + (rect.height / 2) - (firstH / 2) - padTop - borderTop + extraOffset) + 'px';
+                    }
+                });
+            });
+        })();
+    </script>
 </body>
 
 </html>
