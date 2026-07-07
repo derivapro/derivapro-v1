@@ -25,6 +25,7 @@
 
 <div id="fixed" class="tab-content active">
     <form id="fixed-bond-form" method="post" class="form-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="tab_selected" id="tab_selected_fixed" value="fixed-tab">
         <div class="form-group">
             <label for="value_date">Evaluation Date:</label>
@@ -452,7 +453,8 @@
 
 <div id="floating" class="tab-content">
     <form id="floating-bond-form" method="post" class="form-grid">
-    <input type="hidden" name="tab_selected" id="tab_selected_floating" value="float-tab">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="tab_selected" id="tab_selected_floating" value="float-tab">
         <div class="form-group">
             <label for="value_date">Evaluation Date:</label>
             <input type="date" id="value_date" name="value_date" value="{{ form_data.value_date }}" required>

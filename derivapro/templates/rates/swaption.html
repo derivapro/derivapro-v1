@@ -116,6 +116,8 @@
 </div>
 
 <script>
+const csrfToken = "{{ csrf_token() }}";
+
 (function () {
   const setStatus = (msg, ok=true) => {
     document.getElementById('swpt-status').innerHTML =
@@ -199,6 +201,8 @@
       fd.append("paths", String(intval(document.getElementById('paths').value, 10000)));
       fd.append("steps_per_year", String(intval(document.getElementById('steps_per_year').value, 24)));
     }
+
+    fd.append("csrf_token", csrfToken);
 
     try {
       const resp = await fetch("/api/rates/price_swaption", { method: "POST", body: fd });

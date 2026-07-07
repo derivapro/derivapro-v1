@@ -912,6 +912,8 @@
 
 
 <script>
+const csrfToken = "{{ csrf_token() }}";
+
 function openTab(evt, tabName) {
   var i, tabcontent, tablinks;
 
@@ -950,6 +952,7 @@ function convertSingleColumn() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       columns: [selectedColumn],
@@ -1016,6 +1019,7 @@ function processData(operationType) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       columns: [selectedColumn],
@@ -1071,6 +1075,7 @@ function prepareData() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       columns: [selectedTargetVariable],
@@ -1184,6 +1189,7 @@ function runFeatureSelection(method) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       method: method,
@@ -1263,10 +1269,11 @@ function removeFeaturesByThreshold(method) {
   showFeatureTabStatus(statusDiv, `Removing features below ${methodName} threshold...`, 'info');
   
   // Make API call
-  fetch('/prepayment-v2/prepayment-model-validator/remove_features', {
+  fetch('/prepayment-v2/prepayment-model-validator/model_training', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       method: method,
@@ -1641,6 +1648,7 @@ function applyColumnSelection() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       selected_columns: selectedColumns
@@ -1840,6 +1848,7 @@ function applyFinalColumnSelection() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       selected_columns: selectedColumns
@@ -1980,6 +1989,7 @@ function registerModel() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
         }
     })
     .then(response => response.json())
@@ -2010,6 +2020,7 @@ function deleteModel() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
         }
     })
     .then(response => response.json())
@@ -2095,6 +2106,7 @@ function startOver() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     }
   })
   .then(response => response.json())

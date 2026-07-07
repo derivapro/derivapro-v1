@@ -18,6 +18,7 @@
     <h3>Synthetic Collateralized Debt Obligation</h3>
 </div>
 <form id="cds-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div id="tranches">
         <!-- Fixed Tranche fields (always 3) -->
 

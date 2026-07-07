@@ -19,6 +19,7 @@
 </div>
 
 <form id="cds-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="nominal">Nominal ($):</label>
         <input type="number" step="0.01" id="nominal" name="nominal" value="{{ form_data.nominal }}" required>

@@ -20,6 +20,7 @@
 </div>
 
 <form id="term-structure-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <!--action="{{ url_for('term_structure.calculate_term_structure') }}" -->
     <div class = form-group>
       <label for="start_date">Start Date (YYYY-MM-DD):</label>
@@ -157,8 +158,9 @@
 
       <div id="parallel-shock-generator" class="tab-content">
         <h3>Parallel Shocks</h3>
-        <form id="parallel-shock-form" onsubmit="return false;" class="form-grid">
-            <input type="hidden" name="analysis_type" value="parallel">
+      <form id="parallel-shock-form" onsubmit="return false;" class="form-grid">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="analysis_type" value="parallel">
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="forward_tenor_str" value="{{ form_data.forward_tenor_str }}">
             <input type="hidden" name="method_name" value="{{ form_data.method_name }}">
@@ -240,6 +242,7 @@
       <div id="non-parallel-shock-generator" class="tab-content">
         <h3>Non-Parallel Shocks</h3>
         <form id="non-parallel-shock-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="non-parallel">
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="forward_tenor_str" value="{{ form_data.forward_tenor_str }}">

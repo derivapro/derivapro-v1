@@ -15,6 +15,7 @@
 <div class="market-data-section-card">
     <h3>Treasury Rates</h3>
     <form method="POST" action="{{ url_for('extract_market_data.extract_market_data') }}" class="market-data-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="treasury_start_date">As of Date</label>
             <input
@@ -81,6 +82,7 @@
 <div class="market-data-section-card">
     <h3>SOFR Rates</h3>
     <form method="POST" action="{{ url_for('extract_market_data.extract_market_data') }}" class="market-data-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
             <label for="sofr_start_date">As of Date</label>
             <input

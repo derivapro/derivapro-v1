@@ -21,6 +21,7 @@
 </div>
 
 <form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Stock Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -275,6 +276,7 @@
             <p>Customize your prompt below and click the button to get an AI-powered assessment of your American option
                 pricing result.</p>
             <form method="post" style="display: block;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="ai_american_option_assessment">
 
                 <div class="form-group">
@@ -506,6 +508,7 @@
                 </tbody>
             </table>
             <form id="ai-scenario-assessment-form" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
                 <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
                 <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
@@ -546,6 +549,7 @@
     <div id="convergence-analysis" class="tab-content">
         <h4>Convergence Analysis</h4>
         <form id="convergence-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="pricing_model" value="{{ form_data.pricing_model }}">
             <input type="hidden" name="analysis_type" value="convergence">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
@@ -762,6 +766,7 @@
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>
+    const csrfToken = "{{ csrf_token() }}";
     var formData = {{ form_data| tojson | safe }};
     document.getElementById('options-form').addEventListener('submit', function (event) {
         var loadingSpinner = document.getElementById('loadingSpinner');
@@ -874,6 +879,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
             },
             body: JSON.stringify({
                 assessment: textarea.value

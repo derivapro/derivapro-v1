@@ -25,6 +25,7 @@
 </p>
 
 <form id="structured-autocallable-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="analysis_type" value="structured_pricing">
 
     <div class="form-group">
@@ -179,6 +180,7 @@
 <h4>Legacy Basic Autocallable Option Pricing</h4>
 
 <form id="options-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Stock Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -321,6 +323,7 @@
             alt="Sensitivity Analysis Plot">
         {% endif %}
         <form id="ai-assessment-form" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- AI Assessment Form Fields -->
             <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
             <input type="hidden" name="sensitivity_results" value="{{ sensitivity_results }}">
@@ -427,6 +430,7 @@
                 </tbody>
             </table>
             <form id="ai-scenario-assessment-form" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
                 <div class="form-group full-width">
                     <button type="button"
@@ -452,6 +456,7 @@
     <div id="convergence-analysis" class="tab-content">
         <h4>Convergence Analysis</h4>
         <form id="convergence-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="convergence">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="K" value="{{ form_data.K }}">
@@ -506,7 +511,9 @@
     <div id="rbpl-analysis" class="tab-content">
         <h4>RBPL Analysis</h4>
         <form id="rbpl-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="risk_pl">
+
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="K" value="{{ form_data.K }}">
             <input type="hidden" name="r" value="{{ form_data.r }}">

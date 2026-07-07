@@ -19,6 +19,7 @@
 </div>
 
 <form id="swap-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <h2>Swap Inputs</h2>
 </br>
     <div class="form-group">

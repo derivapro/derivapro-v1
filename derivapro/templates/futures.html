@@ -14,6 +14,7 @@
 
 <h3>Futures Pricing</h3>
 <form id="futures-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -289,6 +290,7 @@
     <div id="rbpl-analysis" class="tab-content">
         <h4>RBPL Analysis</h4>
         <form id="rbpl-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="risk_pl">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">

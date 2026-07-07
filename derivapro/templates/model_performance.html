@@ -24,6 +24,7 @@
         <h4>Sensitivity Analysis</h4>
         <!-- Sensitivity Analysis Form and Results -->
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
@@ -79,7 +80,9 @@
                 alt="Sensitivity Analysis Plot">
             {% endif %}
             <form id="ai-assessment-form" method="post">
-                <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
+                <form id="ai-assessment-form" method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
                 <div class="form-group full-width">
                     <button type="button"
                         onclick="submitForm('ai-assessment-form', '/vanilla-options/model-performance', 'gpt-assessment-section');">AI
@@ -105,6 +108,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <div class="form-group">
                 <label for="spot_scenario">Spot Price Scenario (% change):</label>
@@ -187,6 +191,7 @@
                 </tbody>
             </table>
             <form id="ai-scenario-assessment-form" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
                 <div class="form-group full-width">
                     <button type="button"
@@ -214,6 +219,7 @@
     <div id="convergence-analysis" class="tab-content">
         <h4>Convergence Analysis</h4>
         <form id="convergence-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="convergence">
             <div class="form-group">
                 <label for="model_type">Model:</label>
@@ -250,6 +256,7 @@
                 alt="Convergence Analysis Plot">
             {% endif %}
             <form id="ai-convergence-assessment-form" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="ai_convergence_assessment">
                 <div class="form-group full-width">
                     <button type="button"
@@ -283,6 +290,8 @@
 
 <!-- JavaScript for Tabs and AJAX Form Submission -->
 <script>
+    const csrfToken = "{{ csrf_token() }}";
+
     // JavaScript for Tabs
     function openTab(evt, tabName) {
         var i, tabcontent, tablinks;
@@ -352,7 +361,10 @@
         var updatedAssessment = assessmentTextarea.value;
         fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
             body: JSON.stringify({ assessment: updatedAssessment }),
         }).then(response => {
             if (response.ok) {

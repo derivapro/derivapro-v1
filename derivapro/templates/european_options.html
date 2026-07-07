@@ -18,6 +18,7 @@
     <h3>Option Pricing</h3>
 </div>
 <form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Stock Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>

@@ -19,6 +19,7 @@
 </div>
 
 <form id="fixed-bond-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="value_date">Evaluation Date:</label>
         <input type="date" id="value_date" name="value_date" value="{{ form_data.value_date }}" required>
@@ -157,7 +158,10 @@
     <!-- AI Assessment Button and Form -->
     <div class="assessment-section" style="margin-top: 20px;">
         <form method="POST" id="assessment-form" onsubmit="return submitAssessment(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="ai_assessment">
+
+
             <!-- Include all original form data -->
             <input type="hidden" name="value_date" value="{{ form_data.value_date }}">
             <input type="hidden" name="spot_dates" value="{{ form_data.spot_dates }}">

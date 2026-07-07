@@ -25,16 +25,21 @@
 </div>
 
 <script>
+const csrfToken = "{{ csrf_token() }}";
+
 function goBackWithResults() {
     window.location.href = "{{ url_for('vanilla_options.european_options') }}";
 }
 
 function runAIAssessment() {
-    fetch('/vanilla-options/ai-assessment', {
+    fetch('/vanilla-options/save-assessment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: 'Please assess the reasonableness and comprehensiveness of the ongoing monitoring for vanilla option model as shown in ongoing_monitoring.md.' })
-    })
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ assessment: updatedAssessment }),
+    }).then(response => {
     .then(response => response.json())
     .then(data => {
         document.getElementById('gpt-assessment').value = data.assessment;

@@ -18,6 +18,7 @@
     <h3>Variance Swap</h3>
 </div>
 <form method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
