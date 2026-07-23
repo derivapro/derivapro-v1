@@ -1,11 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">    
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        (function () {
+            const storedTheme = localStorage.getItem('derivaProTheme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = storedTheme || (prefersDark ? 'dark' : 'light');
+            document.documentElement.dataset.theme = theme;
+        })();
+    </script>
     <title>{% block title %}Page Title{% endblock %}</title>
     <!-- MathJax -->
     <!-- <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script> -->
@@ -34,6 +42,10 @@
         </div>
 
         <div class="top-bar-right">
+            <button id="themeToggle" class="theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false">
+                <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+                <span class="theme-toggle-text">Dark</span>
+            </button>
             <div class="auth-links">
                 {% if current_user.is_authenticated %}
                 <div class="auth-user-badge">
@@ -219,6 +231,28 @@
                 this.textContent = 'Show Menu';
             }
         });
+
+        (function () {
+            const themeToggle = document.getElementById('themeToggle');
+            if (!themeToggle) return;
+
+            function applyTheme(theme) {
+                const isDark = theme === 'dark';
+                document.documentElement.dataset.theme = theme;
+                themeToggle.setAttribute('aria-pressed', String(isDark));
+                themeToggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+                themeToggle.querySelector('.theme-toggle-icon').textContent = isDark ? '☀️' : '🌙';
+                themeToggle.querySelector('.theme-toggle-text').textContent = isDark ? 'Light' : 'Dark';
+            }
+
+            applyTheme(document.documentElement.dataset.theme || 'light');
+
+            themeToggle.addEventListener('click', function () {
+                const nextTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+                localStorage.setItem('derivaProTheme', nextTheme);
+                applyTheme(nextTheme);
+            });
+        })();
 
         // Highlight the selected link
         document.querySelectorAll('.nav-link').forEach(function (link) {
