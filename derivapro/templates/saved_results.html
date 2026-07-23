@@ -9,7 +9,7 @@
 {% if results %}
 <div class="history-table-card">
     <div class="history-table-wrap">
-        <div class="table-actions">
+        <div class="table-actions saved-results-actions">
             <a href="{{ url_for('exports.export') }}?type=saved_results&format=xlsx" class="btn">Export XLSX</a>
             <a href="{{ url_for('exports.export') }}?type=saved_results&format=csv" class="btn">Export CSV</a>
         </div>

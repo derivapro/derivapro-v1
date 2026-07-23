@@ -147,8 +147,10 @@
         <div class="section-title compact">
             <h3>Report</h3>
         </div>
-        <a href="{{ url_for('vanilla_options.reporting') }}" class="btn btn-primary reporting-btn"
-            target="_blank">Reporting</a>
+        <div style="display: flex; gap: 10px;">
+            <a href="{{ url_for('vanilla_options.reporting') }}" class="btn btn-primary reporting-btn" target="_blank">View Report</a>
+            <a href="{{ url_for('vanilla_options.download_report') }}" class="btn btn-secondary reporting-btn" target="_blank">Download PDF</a>
+        </div>
     </div>
 </div>
 

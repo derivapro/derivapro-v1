@@ -5,6 +5,12 @@
 {% block content %}
 <h2>Model Performance</h2>
 
+{% if error_message %}
+<div class="error-box" style="margin-bottom: 14px; color: #842029; background: #f8d7da; border: 1px solid #f5c2c7; padding: 10px 12px; border-radius: 8px;">
+    {{ error_message }}
+</div>
+{% endif %}
+
 <!-- Go Back Button -->
 <div class="form-group full-width spacing-bottom">
     <button type="button" onclick="goBackWithResults();" class="btn btn-primary nav-btn">Go Back</button>
@@ -80,9 +86,8 @@
                 alt="Sensitivity Analysis Plot">
             {% endif %}
             <form id="ai-assessment-form" method="post">
-                <form id="ai-assessment-form" method="post">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
                 <div class="form-group full-width">
                     <button type="button"
                         onclick="submitForm('ai-assessment-form', '/vanilla-options/model-performance', 'gpt-assessment-section');">AI
@@ -110,6 +115,15 @@
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
+            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+            <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+            <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
+            <input type="hidden" name="volatility" value="{{ form_data.volatility }}">
+            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+            <input type="hidden" name="num_steps" value="{{ form_data.num_steps|default(252) }}">
+            <input type="hidden" name="model_type" value="{{ form_data.model_type|default('black_scholes') }}">
             <div class="form-group">
                 <label for="spot_scenario">Spot Price Scenario (% change):</label>
                 <select id="spot_scenario" name="spot_scenario" required>
@@ -221,6 +235,15 @@
         <form id="convergence-form" onsubmit="return false;" class="form-grid">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="convergence">
+            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
+            <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
+            <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
+            <input type="hidden" name="volatility" value="{{ form_data.volatility }}">
+            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
+            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
+            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
+            <input type="hidden" name="num_steps" value="{{ form_data.num_steps|default(252) }}">
+            <input type="hidden" name="model_type" value="{{ form_data.model_type|default('black_scholes') }}">
             <div class="form-group">
                 <label for="model_type">Model:</label>
                 <select id="model_type" name="model_type" required>
@@ -229,18 +252,15 @@
             </div>
             <div class="form-group">
                 <label for="num_mc_paths">Number of Monte Carlo Paths:</label>
-                <!-- VALUE REMOVED -->
-                <input type="number" id="num_mc_paths" name="num_mc_paths" min="1000" max="200000" step="1000" required>
+                <input type="number" id="num_mc_paths" name="num_mc_paths" value="{{ form_data.num_paths|default(2000) }}" min="1000" max="200000" step="1000" required>
             </div>
             <div class="form-group">
                 <label for="num_mc_steps">Number of Monte Carlo Time Steps:</label>
-                <!-- VALUE REMOVED -->
-                <input type="number" id="num_mc_steps" name="num_mc_steps" min="50" max="1000" step="1" required>
+                <input type="number" id="num_mc_steps" name="num_mc_steps" value="{{ form_data.num_steps|default(252) }}" min="50" max="1000" step="1" required>
             </div>
             <div class="form-group">
                 <label for="obs">Observations:</label>
-                <!-- VALUE REMOVED -->
-                <input type="number" id="obs" name="obs" min="3" max="20" step="1" required>
+                <input type="number" id="obs" name="obs" value="50" min="3" max="200" step="1" required>
             </div>
             <div class="form-group full-width">
                 <button type="button"

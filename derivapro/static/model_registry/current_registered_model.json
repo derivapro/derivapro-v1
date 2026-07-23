@@ -1,0 +1,6 @@
+{
+  "model_file": "registered_model_20260707_182726.pkl",
+  "metadata_file": "registered_model_metadata_20260707_182726.json",
+  "registration_timestamp": "20260707_182726",
+  "model_summary": "Logistic Regression (logistic_regression)"
+}

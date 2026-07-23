@@ -200,7 +200,7 @@
         {% if cdo_analysis_results %}
         <div class="result">
             <h4>Sensitivity Analysis Results</h4>
-            <img src="{{ url_for('static', filename=session['cdo_analysis_results']['plot_filename']) }}" alt="Plot">
+            <img src="{{ url_for('static', filename=cdo_analysis_results['plot_filename']) }}" alt="Plot">
         {% endif %}
         </div>
     </div>

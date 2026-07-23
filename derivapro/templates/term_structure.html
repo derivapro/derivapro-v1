@@ -143,12 +143,12 @@
     </table>
   {% endif %}
 
-  {% if session.yield_curve_plot %}
+  {% if yield_curve_plot_filename %}
     <h2>Yield Curve Plots</h2>
-    <img src="{{ url_for('static', filename='plots/' + session.yield_curve_plot.filename) }}" alt="Yield Curve Plot" />
+    <img src="{{ url_for('static', filename='plots/' + yield_curve_plot_filename) }}" alt="Yield Curve Plot" />
   {% endif %}
   
-  {% if session.yield_curve_plot %}
+  {% if yield_curve_plot_filename %}
     <div id="Analysis">
       <h2>Analysis</h2>
       <div class="tabs">
@@ -195,7 +195,7 @@
         </form>
 
         <div id="parallel-shock-results" class="result">
-          {% if session.shocked_yield_curve_plot_filename %}
+          {% if shocked_yield_curve_plot_filename %}
           {% if form_data.fit_selection == 'Yes' %}
             <h2>Shocked Fit Quality (R² Values)</h2>
 
@@ -234,7 +234,7 @@
           {% endif %}
 
           <h2>Shocked Yield Curve Plots</h2>
-            <img src="{{ url_for('static', filename='plots/' + session.shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
+            <img src="{{ url_for('static', filename='plots/' + shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
           {% endif %}
         </div>
       </div>
@@ -278,7 +278,7 @@
         </form>
 
         <div id="non-parallel-shock-results" class="result">
-          {% if session.shocked_yield_curve_plot_filename %}
+          {% if shocked_yield_curve_plot_filename %}
           {% if form_data.fit_selection == 'Yes' %}
             <h2>Shocked Fit Quality (R² Values)</h2>
 
@@ -316,7 +316,7 @@
             </table>
             {% endif %}
           <h2>Shocked Yield Curve Plots</h2>
-            <img src="{{ url_for('static', filename='plots/' + session.shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
+            <img src="{{ url_for('static', filename='plots/' + shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
           {% endif %}
         </div>
       </div>

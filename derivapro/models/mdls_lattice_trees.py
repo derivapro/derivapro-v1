@@ -1,9 +1,10 @@
 # Last updated Sep 08
+from __future__ import annotations
 
 import math
 import logging
+from typing import Union
 
-# from cgitb import small
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,8 +15,14 @@ logger = logging.getLogger(__name__)
 
 class LatticeModel:
     def __init__(
-        self, ticker, strike_price, start_date, end_date, risk_free_rate, volatility
-    ):
+        self,
+        ticker: str,
+        strike_price: Union[float, int],
+        start_date: str,
+        end_date: str,
+        risk_free_rate: float,
+        volatility: float,
+    ) -> None:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
@@ -30,14 +37,17 @@ class LatticeModel:
         self.volatility = volatility
 
     def Cox_Ross_Rubinstein_Tree(
-        self, option_type="call", steps=100, plot_vis="no", greeks=False
-    ):
+        self,
+        option_type: str = "call",
+        steps: int = 100,
+        plot_vis: str = "no",
+        greeks: bool = False,
+    ) -> Union[float, dict[str, float]]:
         logger.debug(
             "Running Cox Ross Rubinstein Tree: steps=%s, option_type=%s",
             steps,
             option_type,
         )
-
 
         u = math.exp(self.volatility * math.sqrt(self.time_to_expiry / steps))
         d = math.exp(-self.volatility * math.sqrt(self.time_to_expiry / steps))
@@ -89,7 +99,7 @@ class LatticeModel:
         else:
             return C[0]
 
-    def CRRGreeks(self, option_type, steps):
+    def CRRGreeks(self, option_type: str, steps: int) -> dict[str, float]:
         delta = self.Cox_Ross_Rubinstein_Tree(option_type, steps, greeks=True)["Delta"]
         gamma = self.Cox_Ross_Rubinstein_Tree(option_type, steps, greeks=True)["Gamma"]
         option_price = self.Cox_Ross_Rubinstein_Tree(option_type, steps)
@@ -130,14 +140,17 @@ class LatticeModel:
         }
 
     def Jarrow_Rudd_Tree(
-        self, option_type="call", steps=100, plot_vis="no", greeks=False
-    ):
+        self,
+        option_type: str = "call",
+        steps: int = 100,
+        plot_vis: str = "no",
+        greeks: bool = False,
+    ) -> Union[float, dict[str, float]]:
         logger.debug(
             "Running Jarrow Rudd Tree: steps=%s, option_type=%s",
             steps,
             option_type,
         )
-
 
         u = math.exp(
             (self.risk_free_rate - (self.volatility**2 / 2))
@@ -196,7 +209,7 @@ class LatticeModel:
         else:
             return C[0]
 
-    def JRTGreeks(self, option_type, steps):
+    def JRTGreeks(self, option_type: str, steps: int) -> dict[str, float]:
         result = self.Jarrow_Rudd_Tree(option_type, steps, greeks=True)
         delta = result["Delta"]
         gamma = result["Gamma"]
@@ -232,7 +245,13 @@ class LatticeModel:
         }
 
     ## define a calculator to see optimal number of steps
-    def step_optimization(self, option_type="call", start=10, step=50, limit=1000):
+    def step_optimization(
+        self,
+        option_type: str = "call",
+        start: int = 10,
+        step: int = 50,
+        limit: int = 1000,
+    ) -> None:
         runs1 = list(range(start, limit, step))
         CRR1 = []
         JR1 = []
@@ -264,7 +283,12 @@ class LatticeModel:
         plt.legend(loc="upper right")
         plt.show()
 
-    def Trinomial_Asset_Pricing(self, option_type="call", steps=100, plot_vis="no"):
+    def Trinomial_Asset_Pricing(
+        self,
+        option_type: str = "call",
+        steps: int = 100,
+        plot_vis: str = "no",
+    ) -> float:
         logger.debug(
             "Running Trinomial Asset Pricing: steps=%s, option_type=%s",
             steps,
@@ -356,7 +380,7 @@ class LatticeModel:
 
         return option_price
 
-    def TAPGreeks(self, option_type, steps):
+    def TAPGreeks(self, option_type: str, steps: int) -> dict[str, float]:
         option_price = self.Trinomial_Asset_Pricing(option_type, steps)
 
         original_spot_price = self.spot_price
@@ -406,12 +430,12 @@ class LatticeModel:
 
     def risk_pl_analysis(
         self,
-        option_type="call",
-        steps=100,
-        price_change=0.01,
-        vol_change=0.01,
-        model="CRR",
-    ):
+        option_type: str = "call",
+        steps: int = 100,
+        price_change: float = 0.01,
+        vol_change: float = 0.01,
+        model: str = "CRR",
+    ) -> dict[str, float]:
         """
         Risk-Based P&L Analysis for American Options.
 
@@ -485,16 +509,16 @@ class LatticeModel:
 class AmericanOptionSmoothnessTest:
     def __init__(
         self,
-        ticker,
-        strike_price,
-        start_date,
-        end_date,
-        risk_free_rate,
-        volatility,
-        model,
-        option_type,
-        num_steps,
-    ):
+        ticker: str,
+        strike_price: Union[float, int],
+        start_date: str,
+        end_date: str,
+        risk_free_rate: float,
+        volatility: float,
+        model: str,
+        option_type: str,
+        num_steps: int,
+    ) -> None:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
@@ -511,7 +535,9 @@ class AmericanOptionSmoothnessTest:
         self.option_type = option_type
         self.num_steps = num_steps
 
-    def generate_variable_range(self, variable, num_steps, range_span):
+    def generate_variable_range(
+        self, variable: str, num_steps: int, range_span: float
+    ) -> np.ndarray:
         if variable == "strike_price":
             base = self.strike_price
         elif variable == "risk_free_rate":
@@ -525,7 +551,9 @@ class AmericanOptionSmoothnessTest:
 
         return np.linspace(base - range_span, base + range_span, num_steps)
 
-    def calculate_single_greek(self, option, target_variable):
+    def calculate_single_greek(
+        self, option: LatticeModel, target_variable: str
+    ) -> float:
         if self.model == "CRR":
             if target_variable == "option_price":
                 return option.CRRGreeks(self.option_type, self.num_steps)[
@@ -555,8 +583,8 @@ class AmericanOptionSmoothnessTest:
                 ]
 
     def calculate_greeks_over_range(
-        self, variable, num_steps, range_span, target_variable
-    ):
+        self, variable: str, num_steps: int, range_span: float, target_variable: str
+    ) -> tuple[np.ndarray, list[float]]:
         variable_values = self.generate_variable_range(variable, num_steps, range_span)
         greek_values = []
 
@@ -602,8 +630,12 @@ class AmericanOptionSmoothnessTest:
         return variable_values, greek_values
 
     def plot_single_greek(
-        self, variable_values, greek_values, target_variable, variable_name
-    ):
+        self,
+        variable_values: np.ndarray,
+        greek_values: list[float],
+        target_variable: str,
+        variable_name: str,
+    ) -> None:
         plt.figure(figsize=(10, 6))
         plt.plot(
             variable_values, greek_values, label=target_variable.capitalize(), color="b"
@@ -615,15 +647,15 @@ class AmericanOptionSmoothnessTest:
 
 
 def lattice_convergence_test(
-    max_steps,
-    max_sims,
-    obs,
-    pricer_class,
-    pricer_params,
-    model,
-    option_type,
-    mode="steps",
-):
+    max_steps: int,
+    max_sims: int,
+    obs: int,
+    pricer_class: type,
+    pricer_params: dict,
+    model: str,
+    option_type: str,
+    mode: str = "steps",
+) -> list[tuple[int, float]]:
     logger.debug("lattice_convergence_test called with model: %r", model)
 
     if mode == "steps":

@@ -3,6 +3,7 @@
 {% block content %}
 <h2>Implied Volatility Surface</h2>
 <form method="post" id="volSurfaceForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label for="symbol">Stock Symbol:</label>
     <input type="text" id="symbol" name="symbol" required>
     <button type="submit">Generate Volatility Surface</button>

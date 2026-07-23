@@ -11,6 +11,7 @@
       <strong>✓ File Uploaded:</strong> {{ uploaded_filename }}
       <div style="margin-top: 10px;">
         <form method="POST" action="{{ url_for('prepayment_v2.delete_upload') }}" style="display: inline; margin-right: 10px;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">Delete File Only</button>
         </form>
         <button onclick="startOver()" style="background: #fd7e14; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
@@ -20,6 +21,7 @@
     </div>
   {% else %}
     <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div style="margin-bottom: 15px;">
         <label style="display: block; margin-bottom: 5px; font-weight: bold;">Select Loan Data:</label>
         <input type="file" name="file" accept=".csv" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; max-width: 400px;" required>
@@ -1269,7 +1271,7 @@ function removeFeaturesByThreshold(method) {
   showFeatureTabStatus(statusDiv, `Removing features below ${methodName} threshold...`, 'info');
   
   // Make API call
-  fetch('/prepayment-v2/prepayment-model-validator/model_training', {
+  fetch('/prepayment-v2/prepayment-model-validator/remove_features', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1510,6 +1512,7 @@ function trainModel(method) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken,
     },
     body: JSON.stringify({
       method: method,

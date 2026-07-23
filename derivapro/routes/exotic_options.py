@@ -63,6 +63,25 @@ def _format_percent(value):
     return "{:.2f}%".format(float(value) * 100)
 
 
+def _get_latest_result_ids(user_id):
+    latest_pricing = (
+        PricingResult.query
+        .filter_by(user_id=user_id)
+        .order_by(PricingResult.created_at.desc())
+        .first()
+    )
+    latest_analysis = (
+        AnalysisResult.query
+        .filter_by(user_id=user_id)
+        .order_by(AnalysisResult.created_at.desc())
+        .first()
+    )
+    return (
+        latest_pricing.id if latest_pricing else None,
+        latest_analysis.id if latest_analysis else None,
+    )
+
+
 @exotic_options_bp.route("/", methods=["GET", "POST"])
 def exotic_options():
     return render_template("exotic_options.html")
@@ -83,12 +102,17 @@ def autocallable_options():
     structured_results = None
     latest_analysis = None
     latest_pricing_result = None
-    form_data = session.get("form_data", {})
+    form_data = {}
     structured_form_data = {}
+    latest_pricing_result_id = None
+    latest_analysis_result_id = None
 
     if current_user.is_authenticated:
-        last_result_id = session.get("last_result_id")
-        last_analysis_result_id = session.get("last_analysis_result_id")
+        latest_pricing_result_id, latest_analysis_result_id = _get_latest_result_ids(
+            current_user.id
+        )
+        last_result_id = latest_pricing_result_id
+        last_analysis_result_id = latest_analysis_result_id
 
         if last_result_id:
             latest_pricing_result = PricingResult.query.filter_by(
@@ -117,10 +141,10 @@ def autocallable_options():
                 elif latest_analysis.analysis_type == "autocallable_risk_pl":
                     risk_pl_results = latest_analysis.result_json
     else:
-        sensitivity_results = session.get("sensitivity_results")
-        scenario_results = session.get("scenario_results")
-        convergence_results = session.get("autocallable_convergence_results")
-        risk_pl_results = session.get("risk_pl_results")
+        sensitivity_results = None
+        scenario_results = None
+        convergence_results = None
+        risk_pl_results = None
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -328,7 +352,7 @@ def autocallable_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="autocallable_sensitivity",
                         result_json=sensitivity_results_data,
                     )
@@ -338,19 +362,16 @@ def autocallable_options():
                     plot = Plot(
                         user_id=current_user.id,
                         analysis_result_id=analysis_result.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         plot_type="autocallable_sensitivity",
                         filename=plot_filename,
                         filepath=os.path.join("derivapro", "static", plot_filename),
                     )
                     db.session.add(plot)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("sensitivity_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["sensitivity_results"] = sensitivity_results_data
+                    pass
 
                 sensitivity_results = sensitivity_results_data
 
@@ -451,18 +472,15 @@ def autocallable_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="autocallable_scenario",
                         result_json=scenario_results_data,
                     )
                     db.session.add(analysis_result)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("scenario_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["scenario_results"] = scenario_results_data
+                    pass
 
                 scenario_results = scenario_results_data
 
@@ -556,7 +574,7 @@ def autocallable_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="autocallable_convergence",
                         result_json=convergence_results_data,
                     )
@@ -566,7 +584,7 @@ def autocallable_options():
                     plot = Plot(
                         user_id=current_user.id,
                         analysis_result_id=analysis_result.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         plot_type="autocallable_convergence",
                         filename=convergence_results_data["plot_filename"],
                         filepath=os.path.join(
@@ -577,14 +595,9 @@ def autocallable_options():
                     )
                     db.session.add(plot)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("autocallable_convergence_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["autocallable_convergence_results"] = (
-                        convergence_results_data
-                    )
+                    pass
 
                 convergence_results = convergence_results_data
 
@@ -655,17 +668,15 @@ def autocallable_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="autocallable_risk_pl",
                         result_json=risk_pl_results,
                     )
                     db.session.add(analysis_result)
                     db.session.commit()
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("risk_pl_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["risk_pl_results"] = risk_pl_results
+                    pass
 
                 return render_template(
                     "autocallables.html",
@@ -763,8 +774,6 @@ def autocallable_options():
                 db.session.add(pricing_result)
                 db.session.commit()
 
-                session["last_result_id"] = pricing_result.id
-
             option_price = "${:,.4f}".format(raw_option_price)
         except Exception:
             logger.exception("Error using v2 MC engine for autocallable pricing")
@@ -799,11 +808,16 @@ def asian_options():
     ) = None
     latest_analysis = None
     latest_pricing_result = None
-    form_data = session.get("form_data", {})
+    form_data = {}
+    latest_pricing_result_id = None
+    latest_analysis_result_id = None
 
     if current_user.is_authenticated:
-        last_result_id = session.get("last_result_id")
-        last_analysis_result_id = session.get("last_analysis_result_id")
+        latest_pricing_result_id, latest_analysis_result_id = _get_latest_result_ids(
+            current_user.id
+        )
+        last_result_id = latest_pricing_result_id
+        last_analysis_result_id = latest_analysis_result_id
 
         if last_result_id:
             latest_pricing_result = PricingResult.query.filter_by(
@@ -832,10 +846,10 @@ def asian_options():
                 elif latest_analysis.analysis_type == "asian_risk_pl":
                     risk_pl_results = latest_analysis.result_json
     else:
-        sensitivity_results = session.get("sensitivity_results")
-        scenario_results = session.get("scenario_results")
-        convergence_results = session.get("asian_convergence_results")
-        risk_pl_results = session.get("risk_pl_results")
+        sensitivity_results = None
+        scenario_results = None
+        convergence_results = None
+        risk_pl_results = None
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -937,7 +951,7 @@ def asian_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="asian_sensitivity",
                         result_json=sensitivity_results_data,
                     )
@@ -947,19 +961,16 @@ def asian_options():
                     plot = Plot(
                         user_id=current_user.id,
                         analysis_result_id=analysis_result.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         plot_type="asian_sensitivity",
                         filename=plot_filename,
                         filepath=os.path.join("derivapro", "static", plot_filename),
                     )
                     db.session.add(plot)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("sensitivity_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["sensitivity_results"] = sensitivity_results_data
+                    pass
 
                 sensitivity_results = sensitivity_results_data
 
@@ -1073,18 +1084,15 @@ def asian_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="asian_scenario",
                         result_json=scenario_results_data,
                     )
                     db.session.add(analysis_result)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("scenario_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["scenario_results"] = scenario_results_data
+                    pass
 
                 scenario_results = scenario_results_data
 
@@ -1172,7 +1180,7 @@ def asian_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="asian_convergence",
                         result_json=convergence_results_data,
                     )
@@ -1182,7 +1190,7 @@ def asian_options():
                     plot = Plot(
                         user_id=current_user.id,
                         analysis_result_id=analysis_result.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         plot_type="asian_convergence",
                         filename=convergence_results_data["plot_filename"],
                         filepath=os.path.join(
@@ -1193,12 +1201,9 @@ def asian_options():
                     )
                     db.session.add(plot)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("asian_convergence_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["asian_convergence_results"] = convergence_results_data
+                    pass
 
                 convergence_results = convergence_results_data
 
@@ -1271,18 +1276,15 @@ def asian_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="asian_risk_pl",
                         result_json=risk_pl_results,
                     )
                     db.session.add(analysis_result)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("risk_pl_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["risk_pl_results"] = risk_pl_results
+                    pass
 
                 return render_template(
                     "asian_options.html",
@@ -1377,8 +1379,6 @@ def asian_options():
                 db.session.add(pricing_result)
                 db.session.commit()
 
-                session["last_result_id"] = pricing_result.id
-
             option_price = "${:,.4f}".format(raw_option_price)
         except Exception:
             logger.exception("Error using v2 MC engine for Asian pricing")
@@ -1410,11 +1410,16 @@ def barrier_options():
     ) = None
     latest_analysis = None
     latest_pricing_result = None
-    form_data = session.get("form_data", {})
+    form_data = {}
+    latest_pricing_result_id = None
+    latest_analysis_result_id = None
 
     if current_user.is_authenticated:
-        last_result_id = session.get("last_result_id")
-        last_analysis_result_id = session.get("last_analysis_result_id")
+        latest_pricing_result_id, latest_analysis_result_id = _get_latest_result_ids(
+            current_user.id
+        )
+        last_result_id = latest_pricing_result_id
+        last_analysis_result_id = latest_analysis_result_id
 
         if last_result_id:
             latest_pricing_result = PricingResult.query.filter_by(
@@ -1443,10 +1448,10 @@ def barrier_options():
                 elif latest_analysis.analysis_type == "barrier_risk_pl":
                     risk_pl_results = latest_analysis.result_json
     else:
-        sensitivity_results = session.get("sensitivity_results")
-        scenario_results = session.get("scenario_results")
-        convergence_results = session.get("barrier_convergence_results")
-        risk_pl_results = session.get("risk_pl_results")
+        sensitivity_results = None
+        scenario_results = None
+        convergence_results = None
+        risk_pl_results = None
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -1546,7 +1551,7 @@ def barrier_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="barrier_sensitivity",
                         result_json=sensitivity_results_data,
                     )
@@ -1556,19 +1561,16 @@ def barrier_options():
                     plot = Plot(
                         user_id=current_user.id,
                         analysis_result_id=analysis_result.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         plot_type="barrier_sensitivity",
                         filename=plot_filename,
                         filepath=os.path.join("derivapro", "static", plot_filename),
                     )
                     db.session.add(plot)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("sensitivity_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["sensitivity_results"] = sensitivity_results_data
+                    pass
 
                 sensitivity_results = sensitivity_results_data
 
@@ -1638,7 +1640,7 @@ def barrier_options():
                 analysis_result = AnalysisResult(
                     user_id=current_user.id,
                     instrument_id=instrument.id,
-                    pricing_result_id=session.get("last_result_id"),
+                    pricing_result_id=latest_pricing_result_id,
                     analysis_type="barrier_convergence",
                     result_json=convergence_results_data,
                 )
@@ -1648,7 +1650,7 @@ def barrier_options():
                 plot = Plot(
                     user_id=current_user.id,
                     analysis_result_id=analysis_result.id,
-                    pricing_result_id=session.get("last_result_id"),
+                    pricing_result_id=latest_pricing_result_id,
                     plot_type="barrier_convergence",
                     filename=convergence_results_data["plot_filename"],
                     filepath=os.path.join(
@@ -1657,12 +1659,9 @@ def barrier_options():
                 )
                 db.session.add(plot)
                 db.session.commit()
-
-                session["last_analysis_result_id"] = analysis_result.id
-                session.pop("barrier_convergence_results", None)
                 latest_analysis = analysis_result
             else:
-                session["barrier_convergence_results"] = convergence_results_data
+                pass
 
             convergence_results = convergence_results_data
 
@@ -1837,18 +1836,15 @@ def barrier_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="barrier_scenario",
                         result_json=scenario_results_data,
                     )
                     db.session.add(analysis_result)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("scenario_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["scenario_results"] = scenario_results_data
+                    pass
 
                 scenario_results = scenario_results_data
 
@@ -1865,7 +1861,7 @@ def barrier_options():
                 else:
                     scenario_data = {}
             elif not scenario_data:
-                scenario_data = session.get("scenario_results", {})
+                scenario_data = scenario_results or {}
 
             baseline_table = scenario_data.get("baseline_scenario_table", {})
             stressed_table = scenario_data.get("stressed_scenario_table", {})
@@ -1894,7 +1890,7 @@ def barrier_options():
                 latest_analysis.result_json = scenario_data
                 db.session.commit()
             else:
-                session["scenario_results"] = scenario_data
+                pass
 
             scenario_results = scenario_data
 
@@ -2006,18 +2002,15 @@ def barrier_options():
                     analysis_result = AnalysisResult(
                         user_id=current_user.id,
                         instrument_id=instrument.id,
-                        pricing_result_id=session.get("last_result_id"),
+                        pricing_result_id=latest_pricing_result_id,
                         analysis_type="barrier_risk_pl",
                         result_json=risk_pl_results,
                     )
                     db.session.add(analysis_result)
                     db.session.commit()
-
-                    session["last_analysis_result_id"] = analysis_result.id
-                    session.pop("risk_pl_results", None)
                     latest_analysis = analysis_result
                 else:
-                    session["risk_pl_results"] = risk_pl_results
+                    pass
 
             except Exception:
                 logger.exception(
@@ -2106,8 +2099,6 @@ def barrier_options():
                     )
                     db.session.add(pricing_result)
                     db.session.commit()
-
-                    session["last_result_id"] = pricing_result.id
 
                 option_price = "${:,.4f}".format(raw_option_price)
             except Exception:

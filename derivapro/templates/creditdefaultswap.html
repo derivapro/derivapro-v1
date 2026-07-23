@@ -144,7 +144,7 @@
             {% if cds_analysis_results %}
             <div class="result">
                 <h4>Sensitivity Analysis Results</h4>
-                <img src="{{ url_for('static', filename=session['cds_sensitivity_analysis_results']['plot_filename']) }}" alt="Plot">
+                <img src="{{ url_for('static', filename=cds_analysis_results['plot_filename']) }}" alt="Plot">
             {% endif %}
             </div>
         </div>

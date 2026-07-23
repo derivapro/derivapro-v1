@@ -7,13 +7,18 @@ from flask import (
     redirect,
     url_for,
     jsonify,
+    current_app,
 )
-import os  # ← Add this here
+import os
 import logging
 import pandas as pd
-import pickle  # ← Add this here
 from werkzeug.utils import secure_filename
+from flask_login import current_user, login_required
+from ..extensions import db
+from ..models.db_models import PrepaymentModelRegistry
+
 from ..models.mdls_prepayment_v2 import PrepaymentDataUploader, Validation
+from ..utils.model_storage import save_model_artifact, load_model_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -693,10 +698,10 @@ def final_column_selection():
 
 
 @prepayment_v2_bp.route("/prepayment-model-validator/model_training", methods=["POST"])
+@login_required
 def model_training():
     """Handle model training"""
     import os
-    import pickle
 
     try:
         # Check if file is uploaded
@@ -739,7 +744,7 @@ def model_training():
             import uuid
 
             # Create temp directory
-            temp_dir = "derivapro/static/temp_models"
+            temp_dir = current_app.config["PREPAYMENT_TEMP_MODEL_DIR"]
             os.makedirs(temp_dir, exist_ok=True)
 
             # Create UNIQUE filename with timestamp or UUID
@@ -748,7 +753,8 @@ def model_training():
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             temp_model_file = os.path.join(
-                temp_dir, f"temp_model_{dataset_name}_{timestamp}.pkl"
+                temp_dir,
+                f"temp_model_user_{current_user.id}_{dataset_name}_{timestamp}.joblib",
             )
 
             model_data = {
@@ -759,12 +765,43 @@ def model_training():
             }
 
             # Save to file instead of session
-            with open(temp_model_file, "wb") as f:
-                pickle.dump(model_data, f)
+            save_model_artifact(model_data, temp_model_file)
 
-            # Store only the filename in session (small)
-            session["last_trained_model_file"] = temp_model_file
             logger.debug("Stored trained model in temp file: %s", temp_model_file)
+
+            # Remove older temporary model entries for this user
+            PrepaymentModelRegistry.query.filter_by(
+                user_id=current_user.id,
+                is_temporary=True,
+            ).delete()
+
+            temp_registry_entry = PrepaymentModelRegistry(
+                user_id=current_user.id,
+                dataset_name=os.path.basename(filepath),
+                model_type=validator.last_training_method,
+                model_name=validator.last_training_results["model"],
+                task_type=validator.task,
+                target_variable=validator.target,
+                feature_columns_json=list(validator.X_train.columns),
+                hyperparameters_json=validator.last_training_params,
+                metrics_json=validator.last_training_results["metrics"],
+                preprocessing_json={
+                    "conversions": getattr(validator, "_conversions", {}),
+                    "imputations": getattr(validator, "_imputations", {}),
+                    "normalizations": getattr(validator, "_normalizations", {}),
+                    "selected_columns": getattr(
+                        validator, "_selected_modeling_columns", []
+                    ),
+                },
+                artifact_path=temp_model_file,
+                artifact_filename=os.path.basename(temp_model_file),
+                storage_backend=current_app.config["PREPAYMENT_MODEL_STORAGE_BACKEND"],
+                is_active=False,
+                is_temporary=True,
+                registered_at=datetime.utcnow(),
+            )
+            db.session.add(temp_registry_entry)
+            db.session.commit()
 
         return jsonify({
             "success": True,
@@ -778,6 +815,7 @@ def model_training():
 
 
 @prepayment_v2_bp.route("/prepayment-model-validator/register_model", methods=["POST"])
+@login_required
 def register_model():
     """Register the trained model for performance testing"""
     try:
@@ -802,15 +840,24 @@ def register_model():
         validator = Validation(filepath)
         logger.debug("Validator created successfully for model registration")
 
-        # Check if there's a trained model file in session
-        if "last_trained_model_file" not in session:
-            logger.warning("No trained model file in session during model registration")
+        latest_temp_entry = (
+            PrepaymentModelRegistry.query
+            .filter_by(
+                user_id=current_user.id,
+                is_temporary=True,
+            )
+            .order_by(PrepaymentModelRegistry.created_at.desc())
+            .first()
+        )
+
+        if not latest_temp_entry:
+            logger.warning("No trained temp model found for user during registration")
             return jsonify({
                 "success": False,
                 "error": "No trained model found. Please train a model first.",
             })
 
-        temp_model_file = session["last_trained_model_file"]
+        temp_model_file = latest_temp_entry.artifact_path
         logger.debug("Looking for temp model file: %s", temp_model_file)
 
         # Check if temp file exists
@@ -818,7 +865,7 @@ def register_model():
             logger.warning("Temp model file not found: %s", temp_model_file)
 
             # Let's see what files DO exist in the temp directory
-            temp_dir = "derivapro/static/temp_models"
+            temp_dir = current_app.config["PREPAYMENT_TEMP_MODEL_DIR"]
             if os.path.exists(temp_dir):
                 existing_files = os.listdir(temp_dir)
                 logger.debug("Files in temp directory: %s", existing_files)
@@ -835,8 +882,7 @@ def register_model():
         # Load the trained model from temp file
         try:
             logger.debug("Loading model from temp file: %s", temp_model_file)
-            with open(temp_model_file, "rb") as f:
-                model_data = pickle.load(f)
+            model_data = load_model_artifact(temp_model_file)
 
             validator.trained_model = model_data["model"]
             validator.last_training_results = model_data["results"]
@@ -852,7 +898,7 @@ def register_model():
 
         # Register the model
         logger.debug("Calling validator.register_model()")
-        result = validator.register_model()
+        result = validator.register_model(user_id=current_user.id)
 
         if result["success"]:
             logger.debug(
@@ -875,6 +921,7 @@ def register_model():
 @prepayment_v2_bp.route(
     "/prepayment-model-validator/get_registered_model", methods=["GET"]
 )
+@login_required
 def get_registered_model():
     """Get information about the currently registered model"""
     try:
@@ -887,7 +934,7 @@ def get_registered_model():
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         validator = Validation(filepath)
-        result = validator.get_registered_model_info()
+        result = validator.get_registered_model_info(current_user.id)
 
         return jsonify(result)
 
@@ -908,9 +955,8 @@ def retrain_model():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        # DON'T clear session - let the temp file remain available for re-registration
-        # Only clear it when a new model is actually trained
-        logger.debug("Training state ready (session preserved)")
+        # Training state is preserved through database-backed temporary model records
+        logger.debug("Training state ready")
 
         return jsonify({
             "success": True,
@@ -924,6 +970,7 @@ def retrain_model():
 @prepayment_v2_bp.route(
     "/prepayment-model-validator/reregister_model", methods=["POST"]
 )
+@login_required
 def reregister_model():
     """Replace the current registered model with the newly trained one"""
     try:
@@ -936,14 +983,23 @@ def reregister_model():
         filepath = session["uploaded_data_file_path"]
         validator = Validation(filepath)
 
-        # Check if there's a newly trained model
-        if "last_trained_model_file" not in session:
+        latest_temp_entry = (
+            PrepaymentModelRegistry.query
+            .filter_by(
+                user_id=current_user.id,
+                is_temporary=True,
+            )
+            .order_by(PrepaymentModelRegistry.created_at.desc())
+            .first()
+        )
+
+        if not latest_temp_entry:
             return jsonify({
                 "success": False,
                 "error": "No newly trained model found. Please train a model first.",
             })
 
-        temp_model_file = session["last_trained_model_file"]
+        temp_model_file = latest_temp_entry.artifact_path
 
         if not os.path.exists(temp_model_file):
             return jsonify({
@@ -952,8 +1008,7 @@ def reregister_model():
             })
 
         # Load the new model
-        with open(temp_model_file, "rb") as f:
-            model_data = pickle.load(f)
+        model_data = load_model_artifact(temp_model_file)
 
         validator.trained_model = model_data["model"]
         validator.last_training_results = model_data["results"]
@@ -961,7 +1016,10 @@ def reregister_model():
         validator.last_training_params = model_data["params"]
 
         # Register the new model (this will automatically replace any existing registration)
-        result = validator.register_model(replace_existing=True)
+        result = validator.register_model(
+            user_id=current_user.id,
+            replace_existing=True,
+        )
 
         return jsonify({
             "success": result["success"],
@@ -980,6 +1038,7 @@ def reregister_model():
 @prepayment_v2_bp.route(
     "/prepayment-model-validator/deregister_model", methods=["POST"]
 )
+@login_required
 def deregister_model():
     """Deregister the currently registered model"""
     try:
@@ -993,7 +1052,7 @@ def deregister_model():
         validator = Validation(filepath)
 
         # Deregister the model
-        result = validator.deregister_model()
+        result = validator.deregister_model(current_user.id)
 
         return jsonify(result)
 
@@ -1009,7 +1068,10 @@ def deregister_model():
     "/prepayment-model-validator/model_performance_testing", methods=["POST"]
 )
 def model_performance_testing():
-    pass
+    return jsonify({
+        "success": False,
+        "error": "Model performance testing endpoint is not implemented yet.",
+    }), 200
 
 
 @prepayment_v2_bp.route("/delete_upload", methods=["POST"])
@@ -1025,6 +1087,7 @@ def delete_upload():
 
 
 @prepayment_v2_bp.route("/prepayment-model-validator/start_over", methods=["POST"])
+@login_required
 def start_over():
     """Complete reset - delete all files, metadata, and session data"""
     try:
@@ -1038,14 +1101,14 @@ def start_over():
                     validator = Validation(filepath)
 
                     # Clean up temporary model files
-                    temp_cleanup = validator.cleanup_temp_models()
+                    temp_cleanup = validator.cleanup_temp_models(current_user.id)
                     if temp_cleanup["success"] and temp_cleanup.get("files_deleted"):
                         cleanup_results.append(
                             f"✓ Deleted {len(temp_cleanup['files_deleted'])} temporary model file(s)"
                         )
 
                     # Deregister and delete registered model files
-                    deregister_result = validator.deregister_model()
+                    deregister_result = validator.deregister_model(current_user.id)
                     if deregister_result["success"] and deregister_result.get(
                         "files_deleted"
                     ):
@@ -1109,7 +1172,6 @@ def start_over():
             "feature_selection_method",
             "feature_selection_threshold",
             "preserve_feature_plots",
-            "last_trained_model_file",
         ]
 
         cleared_sessions = 0

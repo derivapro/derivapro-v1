@@ -29,19 +29,52 @@ def _get_secret_key() -> str:
         "SECRET_KEY is not set. Configure it in the environment for non-development environments."
     )
 
+
 class Config:
     SECRET_KEY = _get_secret_key()
     TESTING = False
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///derivapro.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    PREPAYMENT_TEMP_MODEL_DIR = os.getenv(
+        "PREPAYMENT_TEMP_MODEL_DIR",
+        "derivapro/static/temp_models",
+    )
+    PREPAYMENT_MODEL_REGISTRY_DIR = os.getenv(
+        "PREPAYMENT_MODEL_REGISTRY_DIR",
+        "derivapro/static/model_registry",
+    )
+    PREPAYMENT_MODEL_STORAGE_BACKEND = os.getenv(
+        "PREPAYMENT_MODEL_STORAGE_BACKEND",
+        "local",
+    )
+    PREPAYMENT_S3_BUCKET = os.getenv("PREPAYMENT_S3_BUCKET", "")
+    PREPAYMENT_S3_PREFIX = os.getenv("PREPAYMENT_S3_PREFIX", "prepayment-models/")
+    PREPAYMENT_S3_ENDPOINT_URL = os.getenv("PREPAYMENT_S3_ENDPOINT_URL", "")
+    PREPAYMENT_S3_REGION = os.getenv("PREPAYMENT_S3_REGION", "")
+
+    # ---------- Flask-Caching ----------
+    # Configurable TTL for external market-data fetches (yfinance / FRED / SOFR).
+    # Set MARKET_DATA_CACHE_TTL=0 in the environment to disable caching.
+    MARKET_DATA_CACHE_TTL: int = int(os.getenv("MARKET_DATA_CACHE_TTL", "300"))  # 5 min
+    CACHE_DEFAULT_TIMEOUT: int = int(os.getenv("CACHE_DEFAULT_TIMEOUT", "300"))
+
 
 class DevelopmentConfig(Config):
     DEBUG = _env_flag("FLASK_DEBUG", "true")
 
+    # Simple in-process memory cache – no external dependency in dev
+    CACHE_TYPE: str = "SimpleCache"
+    CACHE_THRESHOLD: int = 2000  # max items in the SimpleCache store
+
 
 class ProductionConfig(Config):
     DEBUG = False
+
+    # Redis in production. Set REDIS_URL in the environment (e.g. redis://localhost:6379/0).
+    CACHE_TYPE: str = "RedisCache"
+    CACHE_REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    CACHE_KEY_PREFIX: str = "derivapro:"
 
 
 config_by_name = {

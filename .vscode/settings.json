@@ -11,11 +11,13 @@
     "eigvals",
     "jsonify",
     "linalg",
+    "lsmc",
     "mdls",
     "milstein",
     "moneyness",
     "ndarray",
     "ndmin",
+    "nsteps",
     "pagesizes",
     "pdfgen",
     "RBPL",
@@ -30,5 +32,6 @@
     "zsign"
   ],
   "continue.enableQuickActions": true,
-  "continue.enableConsole": true
+  "continue.enableConsole": true,
+  "sqltools.useNodeRuntime": true
 }

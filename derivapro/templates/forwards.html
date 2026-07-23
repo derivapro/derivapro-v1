@@ -160,7 +160,7 @@
             {% if forward_sensitivity_analysis_results %}
             <div class="result">
                 <h4>Sensitivity Analysis Results</h4>
-                <img src="{{ url_for('static', filename=session['forward_sensitivity_analysis_results']['plot_filename']) }}" alt="Plot">
+                <img src="{{ url_for('static', filename=forward_sensitivity_analysis_results['plot_filename']) }}" alt="Plot">
             {% endif %}
             </div>
         </div>
@@ -241,13 +241,13 @@
                 <tbody>
                     <tr>
                         <td>Baseline</td>
-                        <td>{{ session['forward_scenario_results']['baseline_scenario_table']['baseline_forwardPrice'] }}</td>
-                        <td>{{ session['forward_scenario_results']['baseline_scenario_table']['baseline_forwardPL'] }}</td>
+                        <td>{{ forward_scenario_results['baseline_scenario_table']['baseline_forwardPrice'] }}</td>
+                        <td>{{ forward_scenario_results['baseline_scenario_table']['baseline_forwardPL'] }}</td>
                     </tr>
                     <tr>
                         <td>Stressed</td>
-                        <td>{{ session['forward_scenario_results']['stressed_scenario_table']['stressed_forwardPrice'] }}</td>
-                        <td>{{ session['forward_scenario_results']['stressed_scenario_table']['stressed_forwardPL'] }}</td>
+                        <td>{{ forward_scenario_results['stressed_scenario_table']['stressed_forwardPrice'] }}</td>
+                        <td>{{ forward_scenario_results['stressed_scenario_table']['stressed_forwardPL'] }}</td>
                     </tr>
                 </tbody>
             </table>

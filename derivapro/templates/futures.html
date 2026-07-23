@@ -191,7 +191,7 @@
             {% if future_sensitivity_analysis_results %}
             <div class="result">
                 <h4>Sensitivity Analysis Results</h4>
-                <img src="{{ url_for('static', filename=session['future_sensitivity_analysis_results']['plot_filename']) }}" alt="Plot">
+                <img src="{{ url_for('static', filename=future_sensitivity_analysis_results['plot_filename']) }}" alt="Plot">
             </div>
             {% endif %}
         </div>
@@ -272,13 +272,13 @@
                 <tbody>
                     <tr>
                         <td>Baseline</td>
-                        <td>{{ session['future_scenario_results']['baseline_scenario_table']['baseline_futPrice'] }}</td>
-                        <td>{{ session['future_scenario_results']['baseline_scenario_table']['baseline_futPL'] }}</td>
+                        <td>{{ future_scenario_results['baseline_scenario_table']['baseline_futPrice'] }}</td>
+                        <td>{{ future_scenario_results['baseline_scenario_table']['baseline_futPL'] }}</td>
                     </tr>
                     <tr>
                         <td>Stressed</td>
-                        <td>{{ session['future_scenario_results']['stressed_scenario_table']['stressed_futPrice'] }}</td>
-                        <td>{{ session['future_scenario_results']['stressed_scenario_table']['stressed_futPL'] }}</td>
+                        <td>{{ future_scenario_results['stressed_scenario_table']['stressed_futPrice'] }}</td>
+                        <td>{{ future_scenario_results['stressed_scenario_table']['stressed_futPL'] }}</td>
                     </tr>
                 </tbody>
             </table>

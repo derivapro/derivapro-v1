@@ -5,7 +5,7 @@ Created on Sun Jun  9 00:46:08 2024
 @author: minwuu01
 """
 
-from flask import Blueprint, render_template, request, session
+from flask import Blueprint, render_template, request
 from ..models.mdls_futures_forwards import Forwards, Futures
 from ..models.mdls_futures_forwards import ForwardsAnalysis
 from ..models.mdls_futures_forwards import FuturesAnalysis
@@ -173,12 +173,11 @@ def forwards():
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
 
                 plt.savefig(plot_path)
-                session["forward_sensitivity_analysis_results"] = {
+                forward_sensitivity_analysis_results = {
                     "plot_filename": plot_filename,
                     "step_range": step_range,
                     "num_steps": num_steps,
                 }
-                forward_sensitivity_analysis_results = True
 
                 plt.close()  # Close the plot after saving
 
@@ -186,7 +185,6 @@ def forwards():
                 forward_sensitivity_analysis_results = (
                     f"Error in sensitivity analysis: {str(e)}"
                 )
-                session["sensitivity_analysis_results"] = None
 
         elif action == "scenario":
             try:
@@ -249,12 +247,10 @@ def forwards():
                     "stressed_forwardPL": stressed_forwardPL,
                 }
 
-                session["forward_scenario_results"] = {
+                forward_scenario_results = {
                     "baseline_scenario_table": baseline_scenario_table,
                     "stressed_scenario_table": stressed_scenario_table,
                 }
-
-                forward_scenario_results = True
             except Exception:
                 logger.exception("An error occurred during forward scenario analysis")
                 forward_scenario_results = None
@@ -462,21 +458,18 @@ def futures():
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
                 plt.savefig(plot_path)
 
-                session["future_sensitivity_analysis_results"] = {
+                future_sensitivity_analysis_results = {
                     "plot_filename": plot_filename,
                     "step_range": step_range,
                     "num_steps": num_steps,
                     "model_selection": model_selection,
                 }
 
-                future_sensitivity_analysis_results = True
-
                 plt.close()
             except Exception as e:
                 future_sensitivity_analysis_results = (
                     f"Error in sensitivity analysis: {str(e)}"
                 )
-                session["future_sensitivity_analysis_results"] = None
         elif action == "scenario":
             try:
                 rate_change = float(request.form.get("rate_scenario", 0))
@@ -544,12 +537,10 @@ def futures():
                     "stressed_futPL": stressed_futPL,
                 }
 
-                session["future_scenario_results"] = {
+                future_scenario_results = {
                     "baseline_scenario_table": baseline_scenario_table,
                     "stressed_scenario_table": stressed_scenario_table,
                 }
-
-                future_scenario_results = True
             except Exception:
                 logger.exception("An error occurred during futures scenario analysis")
                 future_scenario_results = None

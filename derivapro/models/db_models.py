@@ -22,6 +22,7 @@ class User(UserMixin, db.Model):
     positions = db.relationship("Position", back_populates="user", lazy=True)
     plots = db.relationship("Plot", back_populates="user", lazy=True)
     reports = db.relationship("Report", back_populates="user", lazy=True)
+    prepayment_models = db.relationship("PrepaymentModelRegistry", lazy=True)
 
     def set_password(self, password: str) -> None:
         self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -175,6 +176,7 @@ class Report(db.Model):
     report_type = db.Column(db.String(100), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     filepath = db.Column(db.String(500), nullable=False)
+    pdf_data = db.Column(db.LargeBinary, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -232,4 +234,48 @@ class Position(db.Model):
         return (
             f"<Position portfolio_id={self.portfolio_id} "
             f"instrument_id={self.instrument_id} quantity={self.quantity}>"
+        )
+
+
+class PrepaymentModelRegistry(db.Model):
+    __tablename__ = "prepayment_model_registry"
+
+    __table_args__ = (
+        db.Index("ix_prepayment_model_registry_user_active", "user_id", "is_active"),
+        db.Index("ix_prepayment_model_registry_user_temp", "user_id", "is_temporary"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    dataset_name = db.Column(db.String(255), nullable=True)
+    model_type = db.Column(db.String(100), nullable=False)
+    model_name = db.Column(db.String(100), nullable=False)
+    task_type = db.Column(db.String(50), nullable=False)
+    target_variable = db.Column(db.String(255), nullable=False)
+
+    feature_columns_json = db.Column(db.JSON, nullable=True)
+    hyperparameters_json = db.Column(db.JSON, nullable=True)
+    metrics_json = db.Column(db.JSON, nullable=True)
+    preprocessing_json = db.Column(db.JSON, nullable=True)
+
+    artifact_path = db.Column(db.String(500), nullable=False)
+    artifact_filename = db.Column(db.String(255), nullable=False)
+    storage_backend = db.Column(db.String(50), nullable=False, default="local")
+
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    is_temporary = db.Column(db.Boolean, nullable=False, default=False)
+    registered_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User")
+
+    def __repr__(self):
+        return (
+            f"<PrepaymentModelRegistry id={self.id} "
+            f"user_id={self.user_id} "
+            f"model_name={self.model_name} "
+            f"model_type={self.model_type} "
+            f"is_active={self.is_active} "
+            f"is_temporary={self.is_temporary}>"
         )

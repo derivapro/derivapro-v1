@@ -1,29 +1,31 @@
+from __future__ import annotations
+
 import numpy as np
 from scipy.stats import norm
+from typing import Union
 
-# import os
-import matplotlib.pyplot as plt
-from ..models.market_data import StockData
-from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 import matplotlib
+import matplotlib.pyplot as plt
 
 matplotlib.use("Agg")  # Use the Agg backend for non-interactive plotting
 import sys
 import os
 
+from ..models.market_data import StockData
+from ..models import mdls_monte_carlo_v2 as monte_carlo_module
 
 
 class BlackScholes:
     def __init__(
         self,
-        ticker,
-        strike_price,
-        start_date,
-        end_date,
-        risk_free_rate,
-        volatility,
-        option_type="call",
-    ):
+        ticker: str,
+        strike_price: Union[float, int],
+        start_date: str,
+        end_date: str,
+        risk_free_rate: float,
+        volatility: float,
+        option_type: str = "call",
+    ) -> None:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
@@ -50,7 +52,7 @@ class BlackScholes:
                 f"Time to expiry must be positive, got {self.time_to_expiry}"
             )
 
-    def d1(self):
+    def d1(self) -> float:
         d1_numerator = (
             np.log(self.spot_price / self.strike_price)
             + (self.risk_free_rate + (self.volatility**2) / 2) * self.time_to_expiry
@@ -58,40 +60,40 @@ class BlackScholes:
         d1_denominator = self.volatility * np.sqrt(self.time_to_expiry)
         return d1_numerator / d1_denominator
 
-    def d2(self):
+    def d2(self) -> float:
         return self.d1() - self.volatility * np.sqrt(self.time_to_expiry)
 
-    def call_price(self):
+    def call_price(self) -> float:
         d1_value = self.d1()
         d2_value = self.d2()
         return self.spot_price * norm.cdf(d1_value) - self.strike_price * np.exp(
             -self.risk_free_rate * self.time_to_expiry
         ) * norm.cdf(d2_value)
 
-    def put_price(self):
+    def put_price(self) -> float:
         d1_value = self.d1()
         d2_value = self.d2()
         return self.strike_price * np.exp(
             -self.risk_free_rate * self.time_to_expiry
         ) * norm.cdf(-d2_value) - self.spot_price * norm.cdf(-d1_value)
 
-    def delta(self):
+    def delta(self) -> float:
         if self.option_type == "call":
             return norm.cdf(self.d1())
         elif self.option_type == "put":
             return norm.cdf(self.d1()) - 1
 
-    def gamma(self):
+    def gamma(self) -> float:
         d1_value = self.d1()
         return norm.pdf(d1_value) / (
             self.spot_price * self.volatility * np.sqrt(self.time_to_expiry)
         )
 
-    def vega(self):
+    def vega(self) -> float:
         d1_value = self.d1()
         return self.spot_price * norm.pdf(d1_value) * np.sqrt(self.time_to_expiry)
 
-    def theta(self):
+    def theta(self) -> float:
         d1_value = self.d1()
         d2_value = self.d2()
         term1 = -(self.spot_price * norm.pdf(d1_value) * self.volatility) / (
@@ -114,7 +116,7 @@ class BlackScholes:
             )
             return term1 + term2
 
-    def rho(self):
+    def rho(self) -> float:
         d2_value = self.d2()
         if self.option_type == "call":
             return (
@@ -135,14 +137,14 @@ class BlackScholes:
 class SmoothnessTest:
     def __init__(
         self,
-        ticker,
-        strike_price,
-        start_date,
-        end_date,
-        risk_free_rate,
-        volatility,
-        option_type="call",
-    ):
+        ticker: str,
+        strike_price: Union[float, int],
+        start_date: str,
+        end_date: str,
+        risk_free_rate: float,
+        volatility: float,
+        option_type: str = "call",
+    ) -> None:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
@@ -157,7 +159,9 @@ class SmoothnessTest:
         self.risk_free_rate = risk_free_rate
         self.volatility = volatility
 
-    def generate_variable_range(self, variable, num_steps, range_span):
+    def generate_variable_range(
+        self, variable: str, num_steps: int, range_span: float
+    ) -> np.ndarray:
         """Generate a range of values for the specified variable"""
         if variable == "strike_price":
             base_value = self.strike_price
@@ -172,7 +176,9 @@ class SmoothnessTest:
             base_value * (1 - range_span), base_value * (1 + range_span), num_steps
         )
 
-    def calculate_single_greek(self, option, target_variable):
+    def calculate_single_greek(
+        self, option: BlackScholes, target_variable: str
+    ) -> float:
         """Calculate a single Greek for the given option"""
         if target_variable == "option_price":
             return (
@@ -194,8 +200,8 @@ class SmoothnessTest:
             raise ValueError(f"Unsupported target variable: {target_variable}")
 
     def calculate_greeks_over_range(
-        self, variable, num_steps, range_span, target_variable
-    ):
+        self, variable: str, num_steps: int, range_span: float, target_variable: str
+    ) -> tuple[np.ndarray, list[float]]:
         """Calculate Greeks over a range of variable values"""
         values = self.generate_variable_range(variable, num_steps, range_span)
         greek_values = []

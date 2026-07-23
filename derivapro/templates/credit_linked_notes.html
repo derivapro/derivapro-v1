@@ -317,7 +317,7 @@
                 {% if cln_sensitivity_analysis_results_fixed %}
                 <div class="result">
                     <h4>Sensitivity Analysis Results</h4>
-                    <img src="{{ url_for('static', filename=session['cln_sensitivity_analysis_results_fixed']['plot_filename']) }}" alt="Plot">
+                    <img src="{{ url_for('static', filename=cln_sensitivity_analysis_results_fixed['plot_filename']) }}" alt="Plot">
                 </div>
                 {% endif %}
             </div>
@@ -790,7 +790,7 @@
                 {% if cln_sensitivity_analysis_results_float %}
                 <div class="result">
                     <h4>Sensitivity Analysis Results</h4>
-                    <img src="{{ url_for('static', filename=session['cln_sensitivity_analysis_results_float']['plot_filename']) }}" alt="Plot">
+                    <img src="{{ url_for('static', filename=cln_sensitivity_analysis_results_float['plot_filename']) }}" alt="Plot">
                 </div>
                 {% endif %}
             </div>

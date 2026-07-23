@@ -15,4 +15,11 @@ $$ \(-0.65 \cdot Absolute Shock \cdot e^{-Tenor(years)/4} + 0.9 \cdot Absolute S
 $$ \(0.8 \cdot Absolute Shock \cdot e^{-Tenor(years)/4} - 0.6 \cdot Absolute Shock \cdot (1 - e^{-Tenor(years)/4})) $$
 
 **Instructions:**
-Placeholder
+Use this workflow to construct, fit, and stress term structures from selected market tenors.
+
+1. Select valuation date, curve construction method, and forward tenor.
+2. Choose required market tenors for bootstrapping (multi-select tenor list).
+3. Optionally enable fit diagnostics to compare modeled versus market-implied outputs.
+4. Run the calculator to generate zero rates, discount factors, and forward rates.
+5. Apply parallel or non-parallel shock scenarios to analyze downstream rate sensitivity.
+6. Export or reuse the generated curve outputs in pricing and risk workflows.

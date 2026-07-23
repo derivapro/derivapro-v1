@@ -5,7 +5,7 @@ Created on Sun Jun  9 00:47:33 2024
 @author: minwuu01
 """
 
-from flask import Blueprint, render_template, request, session
+from flask import Blueprint, render_template, request
 from ..models.mdls_credit import (
     CreditDefaultSwap,
     SyntheticCDO,
@@ -179,17 +179,15 @@ def creditDefaultSwaps():
 
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
                 plt.savefig(plot_path)
-                session["cds_sensitivity_analysis_results"] = {
+                cds_analysis_results = {
                     "plot_filename": plot_filename,
                     "range_span": range_span,
                     "num_steps": num_steps,
                 }
-                cds_analysis_results = True
 
                 # plt.close()  # Close the plot after saving
             except Exception as e:
                 cds_analysis_results = f"Error in sensitivity analysis: {str(e)}"
-                session["cds_sensitivity_analysis_results"] = None
 
         elif action == "scenario":
             try:
@@ -272,6 +270,7 @@ def syntheticCDO():
     form_data = {}
     cds_list = []
     num_contracts = 0
+    error_message = None
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -284,6 +283,37 @@ def syntheticCDO():
             "tranche_lower_3": request.form.get("tranche_lower_3"),
         }
 
+        required_tranche_fields = [
+            "tranche_lower_1",
+            "tranche_upper_1",
+            "tranche_lower_2",
+            "tranche_upper_2",
+            "tranche_lower_3",
+            "tranche_upper_3",
+        ]
+        missing_fields = [
+            field for field in required_tranche_fields if not form_data.get(field)
+        ]
+        if missing_fields:
+            error_message = "Missing required tranche inputs: " + ", ".join(
+                missing_fields
+            )
+            logger.warning(
+                "Synthetic CDO missing fields: %s", ", ".join(missing_fields)
+            )
+            return render_template(
+                "synthetic_CDO.html",
+                cds_results=cds_results,
+                cdo_analysis_results=cdo_analysis_results,
+                baseline_CDO=baseline_CDO,
+                stressed_CDO=stressed_CDO,
+                form_data=form_data,
+                cds_list=cds_list,
+                num_contracts=num_contracts,
+                md_content=md_content,
+                error_message=error_message,
+            )
+
         try:
             tranche_lower_1 = float(form_data["tranche_lower_1"])
             tranche_upper_1 = float(form_data["tranche_upper_1"])
@@ -291,9 +321,21 @@ def syntheticCDO():
             tranche_upper_2 = float(form_data["tranche_upper_2"])
             tranche_lower_3 = float(form_data["tranche_lower_3"])
             tranche_upper_3 = float(form_data["tranche_upper_3"])
-        except ValueError as e:
+        except (TypeError, ValueError):
             logger.exception("Error converting tranche inputs to float")
-            # Handle the error, e.g., set default values or return an error message
+            error_message = "Invalid tranche inputs. Please enter numeric values."
+            return render_template(
+                "synthetic_CDO.html",
+                cds_results=cds_results,
+                cdo_analysis_results=cdo_analysis_results,
+                baseline_CDO=baseline_CDO,
+                stressed_CDO=stressed_CDO,
+                form_data=form_data,
+                cds_list=cds_list,
+                num_contracts=num_contracts,
+                md_content=md_content,
+                error_message=error_message,
+            )
 
         # Retrieve the tranche inputs dynamically and create a list of tranches
         tranches = [
@@ -425,12 +467,11 @@ def syntheticCDO():
 
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
                 plt.savefig(plot_path)
-                session["cdo_analysis_results"] = {
+                cdo_analysis_results = {
                     "plot_filename": plot_filename,
                     "range_span": range_span,
                     "num_steps": num_steps,
                 }
-                cdo_analysis_results = True
 
             #   plt.close()  # Close the plot after saving
             except Exception:
@@ -477,6 +518,7 @@ def syntheticCDO():
         cds_list=cds_list,
         md_content=md_content,
         num_contracts=num_contracts,
+        error_message=error_message,
         baseline_CDO=baseline_CDO,
         stressed_CDO=stressed_CDO,
     )
@@ -845,12 +887,11 @@ def creditLinkedNotes():
 
                     plot_path = os.path.join(STATIC_DIR, plot_filename)
                     plt.savefig(plot_path)
-                    session["cln_sensitivity_analysis_results_fixed"] = {
+                    cln_sensitivity_analysis_results_fixed = {
                         "plot_filename": plot_filename,
                         "range_span": range_span,
                         "num_steps": num_steps,
                     }
-                    cln_sensitivity_analysis_results_fixed = True
 
                     # plt.close()  # Close the plot after saving
 
@@ -1374,12 +1415,11 @@ def creditLinkedNotes():
 
                     plot_path = os.path.join(STATIC_DIR, plot_filename)
                     plt.savefig(plot_path)
-                    session["cln_sensitivity_analysis_results_float"] = {
+                    cln_sensitivity_analysis_results_float = {
                         "plot_filename": plot_filename,
                         "range_span": range_span,
                         "num_steps": num_steps,
                     }
-                    cln_sensitivity_analysis_results_float = True
 
                     # plt.close()  # Close the plot after saving
 

@@ -5,11 +5,16 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import io, base64
 import json
-import pickle
+import joblib
 import logging
 from datetime import datetime
 from werkzeug.utils import secure_filename
+from flask import current_app
 from sklearn.ensemble import RandomForestClassifier
+
+from ..extensions import db
+from .db_models import PrepaymentModelRegistry
+from ..utils.model_storage import save_model_artifact, delete_model_artifact
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +56,7 @@ class Prepayment:
         )
         probability = round(1 / (1 + np.exp(-log_odds)) * 100, 2)
         return probability
+
 
 class PrepaymentDataUploader:
     """
@@ -167,9 +173,6 @@ class Validation:
             "selected_modeling_columns": getattr(
                 self, "_selected_modeling_columns", []
             ),
-            "registered_model_info": getattr(
-                self, "_registered_model_info", {}
-            ),  # Add this line
         }
         with open(self.metadata_file, "w") as f:
             json.dump(metadata, f)
@@ -1493,7 +1496,7 @@ class Validation:
             logger.exception("Error in remove_features_by_threshold: %s", e)
             return {"success": False, "error": str(e)}
 
-    def register_model(self, replace_existing=False):
+    def register_model(self, user_id, replace_existing=False):
         """
         Register the last trained model as the official model for performance testing
 
@@ -1506,20 +1509,21 @@ class Validation:
                 "error": "No trained model found. Please train a model first.",
             }
 
+        if not user_id:
+            return {
+                "success": False,
+                "error": "A valid user is required to register the model.",
+            }
+
         try:
             # Create model registry directory
-            registry_dir = "derivapro/static/model_registry"
+            registry_dir = current_app.config["PREPAYMENT_MODEL_REGISTRY_DIR"]
             os.makedirs(registry_dir, exist_ok=True)
 
-            # Check if there's an existing registration
-            current_registration_file = os.path.join(
-                registry_dir, "current_registered_model.json"
-            )
             replaced_existing = False
 
-            if os.path.exists(current_registration_file) and replace_existing:
-                # Clean up existing registration first
-                deregister_result = self.deregister_model()
+            if replace_existing:
+                deregister_result = self.deregister_model(user_id)
                 if deregister_result["success"]:
                     replaced_existing = True
 
@@ -1527,13 +1531,11 @@ class Validation:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Save the registered model
-            model_filename = f"registered_model_{timestamp}.pkl"
+            model_filename = f"registered_model_{timestamp}.joblib"
             model_path = os.path.join(registry_dir, model_filename)
 
-            with open(model_path, "wb") as f:
-                pickle.dump(self.trained_model, f)
+            save_model_artifact(self.trained_model, model_path)
 
-            # Save model metadata
             metadata = {
                 "registration_timestamp": timestamp,
                 "model_type": self.last_training_method,
@@ -1552,26 +1554,65 @@ class Validation:
                 "model_file": model_filename,
             }
 
-            metadata_filename = f"registered_model_metadata_{timestamp}.json"
-            metadata_path = os.path.join(registry_dir, metadata_filename)
+            self._save_conversions()
 
-            with open(metadata_path, "w") as f:
-                json.dump(metadata, f, indent=2)
+            # Persist model registry metadata in the database
+            if replace_existing:
+                PrepaymentModelRegistry.query.filter_by(
+                    user_id=user_id,
+                    is_active=True,
+                ).update({"is_active": False})
+            else:
+                PrepaymentModelRegistry.query.filter_by(
+                    user_id=user_id,
+                    is_active=True,
+                ).update({"is_active": False})
 
-            # Update the current registration pointer
-            current_info = {
-                "model_file": model_filename,
-                "metadata_file": metadata_filename,
-                "registration_timestamp": timestamp,
-                "model_summary": f"{metadata['model_name']} ({metadata['model_type']})",
-            }
+            registry_entry = PrepaymentModelRegistry(
+                user_id=user_id,
+                dataset_name=os.path.basename(self.filepath),
+                model_type=self.last_training_method,
+                model_name=self.last_training_results["model"],
+                task_type=self.task,
+                target_variable=self.target,
+                feature_columns_json=list(self.X_train.columns),
+                hyperparameters_json=self.last_training_params,
+                metrics_json=self.last_training_results["metrics"],
+                preprocessing_json={
+                    "conversions": getattr(self, "_conversions", {}),
+                    "imputations": getattr(self, "_imputations", {}),
+                    "normalizations": getattr(self, "_normalizations", {}),
+                    "selected_columns": getattr(self, "_selected_modeling_columns", []),
+                },
+                artifact_path=model_path,
+                artifact_filename=model_filename,
+                storage_backend=current_app.config["PREPAYMENT_MODEL_STORAGE_BACKEND"],
+                is_active=True,
+                is_temporary=False,
+                registered_at=datetime.utcnow(),
+            )
+            db.session.add(registry_entry)
+            db.session.commit()
 
-            with open(current_registration_file, "w") as f:
-                json.dump(current_info, f, indent=2)
+            # Clean up temporary registry entries for this user
+            temp_entries = PrepaymentModelRegistry.query.filter_by(
+                user_id=user_id,
+                is_temporary=True,
+            ).all()
+            for temp_entry in temp_entries:
+                if (
+                    temp_entry.artifact_path
+                    and os.path.exists(temp_entry.artifact_path)
+                    and temp_entry.artifact_path != model_path
+                ):
+                    try:
+                        delete_model_artifact(temp_entry.artifact_path)
+                    except Exception:
+                        pass
 
-            # Store registration info in metadata for persistence
-            self._registered_model_info = metadata
-            self._save_conversions()  # This will include the registered model info
+                db.session.delete(temp_entry)
+
+            db.session.commit()
 
             message = f"Model '{metadata['model_name']}' has been successfully registered for performance testing"
             if replaced_existing:
@@ -1586,38 +1627,66 @@ class Validation:
                     "timestamp": timestamp,
                     "performance_metrics": metadata["performance_metrics"],
                     "target_variable": metadata["target_variable"],
+                    "registry_id": registry_entry.id,
                 },
             }
 
         except Exception as e:
             return {"success": False, "error": f"Registration failed: {str(e)}"}
 
-    def get_registered_model_info(self):
+    def get_registered_model_info(self, user_id):
         """
         Get information about the currently registered model
         """
-        registry_dir = "derivapro/static/model_registry"
-        current_registration_file = os.path.join(
-            registry_dir, "current_registered_model.json"
-        )
-
-        if not os.path.exists(current_registration_file):
-            return {"success": False, "message": "No model is currently registered"}
-
         try:
-            with open(current_registration_file, "r") as f:
-                current_info = json.load(f)
+            if not user_id:
+                return {
+                    "success": False,
+                    "error": "A valid user is required to load registered model info.",
+                }
 
-            # Load full metadata
-            metadata_path = os.path.join(registry_dir, current_info["metadata_file"])
-            with open(metadata_path, "r") as f:
-                full_metadata = json.load(f)
+            registry_entry = (
+                PrepaymentModelRegistry.query
+                .filter_by(
+                    user_id=user_id,
+                    is_active=True,
+                )
+                .order_by(PrepaymentModelRegistry.registered_at.desc())
+                .first()
+            )
+
+            if not registry_entry:
+                return {"success": False, "message": "No model is currently registered"}
+
+            registered_model = {
+                "registration_timestamp": (
+                    registry_entry.registered_at.strftime("%Y%m%d_%H%M%S")
+                    if registry_entry.registered_at
+                    else None
+                ),
+                "model_type": registry_entry.model_type,
+                "model_name": registry_entry.model_name,
+                "hyperparameters": registry_entry.hyperparameters_json,
+                "performance_metrics": registry_entry.metrics_json,
+                "target_variable": registry_entry.target_variable,
+                "task_type": registry_entry.task_type,
+                "feature_columns": registry_entry.feature_columns_json,
+                "data_preprocessing": registry_entry.preprocessing_json,
+                "model_file": registry_entry.artifact_filename,
+                "artifact_path": registry_entry.artifact_path,
+                "storage_backend": registry_entry.storage_backend,
+                "dataset_name": registry_entry.dataset_name,
+            }
 
             return {
                 "success": True,
-                "registered_model": full_metadata,
-                "summary": current_info["model_summary"],
-                "registration_date": current_info["registration_timestamp"],
+                "registered_model": registered_model,
+                "summary": f"{registry_entry.model_name} ({registry_entry.model_type})",
+                "registration_date": (
+                    registry_entry.registered_at.strftime("%Y%m%d_%H%M%S")
+                    if registry_entry.registered_at
+                    else None
+                ),
             }
 
         except Exception as e:
@@ -1626,61 +1695,58 @@ class Validation:
                 "error": f"Failed to load registered model info: {str(e)}",
             }
 
-    def deregister_model(self):
+    def deregister_model(self, user_id):
         """
         De-register the current model and clean up files
         """
         try:
-            registry_dir = "derivapro/static/model_registry"
-            current_registration_file = os.path.join(
-                registry_dir, "current_registered_model.json"
-            )
-
-            if os.path.exists(current_registration_file):
-                # Load current registration info
-                with open(current_registration_file, "r") as f:
-                    current_info = json.load(f)
-
-                # Delete the registered model files
-                model_file_path = os.path.join(registry_dir, current_info["model_file"])
-                metadata_file_path = os.path.join(
-                    registry_dir, current_info["metadata_file"]
-                )
-
-                files_deleted = []
-                if os.path.exists(model_file_path):
-                    os.remove(model_file_path)
-                    files_deleted.append(current_info["model_file"])
-
-                if os.path.exists(metadata_file_path):
-                    os.remove(metadata_file_path)
-                    files_deleted.append(current_info["metadata_file"])
-
-                # Remove the current registration pointer
-                os.remove(current_registration_file)
-
-                # Clear registration info from metadata
-                if hasattr(self, "_registered_model_info"):
-                    delattr(self, "_registered_model_info")
-                self._save_conversions()
-
+            if not user_id:
                 return {
-                    "success": True,
-                    "message": "Model successfully de-registered",
-                    "files_deleted": files_deleted,
+                    "success": False,
+                    "error": "A valid user is required to deregister the model.",
                 }
-            else:
+
+            active_entries = PrepaymentModelRegistry.query.filter_by(
+                user_id=user_id,
+                is_active=True,
+            ).all()
+
+            if not active_entries:
                 return {"success": False, "message": "No model is currently registered"}
+
+            files_deleted = []
+
+            for entry in active_entries:
+                if delete_model_artifact(entry.artifact_path):
+                    files_deleted.append(entry.artifact_filename)
+
+                entry.is_active = False
+
+            db.session.commit()
+
+            self._save_conversions()
+
+            return {
+                "success": True,
+                "message": "Model successfully de-registered",
+                "files_deleted": files_deleted,
+            }
 
         except Exception as e:
             return {"success": False, "error": f"De-registration failed: {str(e)}"}
 
-    def cleanup_temp_models(self):
+    def cleanup_temp_models(self, user_id):
         """
         Clean up temporary model files for this dataset
         """
         try:
-            temp_dir = "derivapro/static/temp_models"
+            if not user_id:
+                return {
+                    "success": False,
+                    "error": "A valid user is required to clean up temp models.",
+                }
+
+            temp_dir = current_app.config["PREPAYMENT_TEMP_MODEL_DIR"]
             if not os.path.exists(temp_dir):
                 return {"success": True, "message": "No temp files to clean"}
 
@@ -1688,11 +1754,11 @@ class Validation:
             files_deleted = []
 
             for filename in os.listdir(temp_dir):
-                if filename.startswith(f"temp_model_{dataset_name}_"):
+                if filename.startswith(f"temp_model_user_{user_id}_{dataset_name}_"):
                     file_path = os.path.join(temp_dir, filename)
                     try:
-                        os.remove(file_path)
-                        files_deleted.append(filename)
+                        if delete_model_artifact(file_path):
+                            files_deleted.append(filename)
                     except:
                         pass  # Continue if file can't be deleted
 
