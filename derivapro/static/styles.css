@@ -10,6 +10,18 @@
     --dp-soft-bg: rgb(230, 246, 248);
     --dp-orange: rgb(234, 112, 36);
 
+    --dp-page-bg: var(--dp-soft-bg);
+    --dp-surface: var(--dp-white);
+    --dp-surface-muted: #f8fbfc;
+    --dp-surface-soft: #fbfdff;
+    --dp-text: var(--dp-black);
+    --dp-text-muted: var(--dp-gray);
+    --dp-heading: var(--dp-dark-blue);
+    --dp-border: rgba(200, 201, 199, 0.85);
+    --dp-input-bg: var(--dp-white);
+    --dp-table-stripe: #f9f9f9;
+    --dp-table-head: #f2f2f2;
+
     --dp-border-radius: 10px;
     --dp-card-radius: 14px;
     --dp-shadow: 0 10px 30px rgba(16, 24, 32, 0.08);
@@ -22,13 +34,40 @@
     --dp-topbar-height: 66px;
 }
 
+html[data-theme="dark"] {
+    color-scheme: dark;
+    --dp-white: #101827;
+    --dp-black: #e5eef8;
+    --dp-dark-blue: #7dd3fc;
+    --dp-dark-blue-2: #0f4f6d;
+    --dp-blue: #9fb3c8;
+    --dp-light-blue: #38c7dc;
+    --dp-gray: #c4d0dd;
+    --dp-light-gray: #334155;
+    --dp-soft-bg: #0b1220;
+
+    --dp-page-bg: #0b1220;
+    --dp-surface: #111c2d;
+    --dp-surface-muted: #17233a;
+    --dp-surface-soft: #132033;
+    --dp-text: #e5eef8;
+    --dp-text-muted: #b6c4d4;
+    --dp-heading: #7dd3fc;
+    --dp-border: rgba(148, 163, 184, 0.28);
+    --dp-input-bg: #0f172a;
+    --dp-table-stripe: rgba(148, 163, 184, 0.08);
+    --dp-table-head: rgba(56, 199, 220, 0.12);
+    --dp-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+    --dp-shadow-strong: 0 10px 24px rgba(0, 0, 0, 0.48);
+}
+
 /* ===== Base ===== */
 html,
 body {
     margin: 0;
     padding: 0;
-    background: var(--dp-soft-bg);
-    color: var(--dp-black);
+    background: var(--dp-page-bg);
+    color: var(--dp-text);
     font-family: var(--dp-font-body);
     height: 100%;
 }
@@ -133,6 +172,28 @@ a:hover {
     box-shadow: 0 8px 18px rgba(11, 105, 163, 0.18);
 }
 
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 12px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-1px);
+}
+
 /* ===== Auth Links in Top Bar ===== */
 .auth-links {
     display: flex;
@@ -222,7 +283,7 @@ a:hover {
     margin-top: var(--dp-topbar-height);
     min-width: 0;
     min-height: calc(100vh - var(--dp-topbar-height));
-    background: var(--dp-soft-bg);
+    background: var(--dp-page-bg);
 }
 
 
@@ -367,7 +428,7 @@ main,
 .app-main {
     flex: 1;
     min-width: 0;
-    background: var(--dp-white);
+    background: var(--dp-surface);
     padding: 20px 24px;
     box-sizing: border-box;
     overflow: visible;
@@ -1242,7 +1303,7 @@ details summary {
 
 .page-title.compact p {
     margin: 0;
-    color: var(--dp-gray);
+    color: var(--dp-text-muted);
     line-height: 1.6;
 }
 
@@ -1339,7 +1400,7 @@ details summary {
 
 .empty-state-card p {
     margin: 0;
-    color: var(--dp-gray);
+    color: var(--dp-text-muted);
     line-height: 1.6;
 }
 
@@ -1407,7 +1468,7 @@ details summary {
     border: 1px solid rgba(200, 201, 199, 0.85);
     border-radius: 10px;
     background: #f8fbfc;
-    color: var(--dp-black);
+    color: var(--dp-text);
     white-space: pre-wrap;
     font-family: "Courier New", Courier, monospace;
     font-size: 12px;
@@ -1443,7 +1504,7 @@ details summary {
     border: 1px solid rgba(185, 195, 207, 0.95);
     border-radius: 8px;
     background: #ffffff;
-    color: var(--dp-black);
+    color: var(--dp-text);
     font-size: 13px;
     box-sizing: border-box;
 }
@@ -1475,7 +1536,7 @@ details summary {
 }
 
 .inline-muted-text {
-    color: var(--dp-gray);
+    color: var(--dp-text-muted);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -1578,7 +1639,7 @@ details summary {
 
 .home-markdown-content p,
 .home-markdown-content li {
-    color: var(--dp-gray);
+    color: var(--dp-text-muted);
     line-height: 1.7;
 }
 
@@ -1674,7 +1735,7 @@ details summary {
 }
 
 .tenor-checkbox-item span {
-    color: var(--dp-black);
+    color: var(--dp-text);
     font-size: 14px;
 }
 
@@ -1701,4 +1762,59 @@ details summary {
 .market-data-table th,
 .market-data-table td {
     text-align: left;
+}
+
+/* ===== Dark Theme Overrides ===== */
+html[data-theme="dark"] main,
+html[data-theme="dark"] .app-main {
+    background: var(--dp-surface);
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+    background: var(--dp-input-bg);
+    color: var(--dp-text);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .form-card input[type="text"],
+html[data-theme="dark"] .form-card input[type="number"],
+html[data-theme="dark"] .form-card input[type="date"],
+html[data-theme="dark"] .form-card select,
+html[data-theme="dark"] .form-card input[type="file"],
+html[data-theme="dark"] .portfolio-inline-form select,
+html[data-theme="dark"] .portfolio-inline-form input {
+    background: var(--dp-input-bg);
+    color: var(--dp-text);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .result,
+html[data-theme="dark"] #markdown-content,
+html[data-theme="dark"] #markdown-content blockquote,
+html[data-theme="dark"] #markdown-content pre,
+html[data-theme="dark"] #markdown-content code,
+html[data-theme="dark"] .auth-security-box,
+html[data-theme="dark"] .info-box {
+    background: var(--dp-surface-muted);
+    color: var(--dp-text);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .results-table th,
+html[data-theme="dark"] .history-table thead th,
+html[data-theme="dark"] .greeks-card .table-row:first-child {
+    background: var(--dp-table-head);
+    color: var(--dp-heading);
+}
+
+html[data-theme="dark"] .results-table td,
+html[data-theme="dark"] .results-table th,
+html[data-theme="dark"] .table-cell {
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .results-table tr:nth-child(even) {
+    background-color: var(--dp-table-stripe);
 }
