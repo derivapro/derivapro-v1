@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">    
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <title>{% block title %}Page Title{% endblock %}</title>
     <!-- MathJax -->
@@ -313,6 +314,97 @@
             });
         })();
     </script>
+
+<script>
+    (function () {
+        function getCsrfToken() {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return meta ? meta.content : '';
+        }
+
+        function isSameOrigin(url) {
+            try {
+                return new URL(url, window.location.href).origin === window.location.origin;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function requiresCsrf(method) {
+            return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(
+                String(method || 'GET').toUpperCase()
+            );
+        }
+
+        // Automatically protect same-origin fetch() requests.
+        const originalFetch = window.fetch.bind(window);
+
+        window.fetch = function (input, options = {}) {
+            const requestMethod = options.method
+                || (input instanceof Request ? input.method : 'GET');
+            const requestUrl = input instanceof Request ? input.url : input;
+
+            if (requiresCsrf(requestMethod) && isSameOrigin(requestUrl)) {
+                const headers = new Headers(
+                    options.headers
+                    || (input instanceof Request ? input.headers : undefined)
+                );
+                const token = getCsrfToken();
+
+                if (token && !headers.has('X-CSRFToken')) {
+                    headers.set('X-CSRFToken', token);
+                }
+
+                options = {
+                    ...options,
+                    headers: headers
+                };
+            }
+
+            return originalFetch(input, options);
+        };
+
+        // Automatically protect same-origin XMLHttpRequest requests.
+        const originalXhrOpen = XMLHttpRequest.prototype.open;
+        const originalXhrSend = XMLHttpRequest.prototype.send;
+
+        XMLHttpRequest.prototype.open = function (
+            method,
+            url,
+            async,
+            username,
+            password
+        ) {
+            this.derivaProRequestMethod = method;
+            this.derivaProRequestUrl = url;
+
+            return originalXhrOpen.call(
+                this,
+                method,
+                url,
+                async === undefined ? true : async,
+                username,
+                password
+            );
+        };
+
+        XMLHttpRequest.prototype.send = function (body) {
+            if (
+                requiresCsrf(this.derivaProRequestMethod)
+                && isSameOrigin(this.derivaProRequestUrl)
+            ) {
+                const token = getCsrfToken();
+
+                if (token) {
+                    this.setRequestHeader('X-CSRFToken', token);
+                }
+            }
+
+            return originalXhrSend.call(this, body);
+        };
+    })();
+</script>
+
 </body>
 
 </html>

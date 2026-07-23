@@ -313,6 +313,7 @@
     <div id="sensitivity-analysis" class="tab-content">
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
@@ -377,8 +378,8 @@
             <div class="assessment-section">
                 <h4>AI Assessment</h4>
                 <form id="ai-sensitivity-assessment-form" onsubmit="return false;" class="form-grid">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
-                    <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
                     <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
                     <input type="hidden" name="r" value="{{ form_data.r }}">
                     <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
@@ -426,6 +427,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
@@ -629,6 +631,7 @@
 
 
             <form id="ai-convergence-assessment-form" onsubmit="return false;" class="form-grid">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="ai_convergence_assessment">
                 <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
                 <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
@@ -669,6 +672,7 @@
     <div id="rbpl-analysis" class="tab-content">
         <h4>RBPL Analysis</h4>
         <form id="rbpl-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="risk_pl">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">
@@ -737,6 +741,7 @@
             <div class="assessment-section">
                 <h4>AI Assessment</h4>
                 <form id="ai-rpbl-assessment-form" onsubmit="return false;" class="form-grid">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="analysis_type" value="ai_rpbl_assessment">
                     <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
                     <input type="hidden" name="strike_price" value="{{ form_data.strike_price }}">

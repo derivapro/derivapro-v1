@@ -149,6 +149,7 @@
     <div id="sensitivity-analysis" class="tab-content" style="display: block;">
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
@@ -201,6 +202,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
@@ -352,7 +354,9 @@
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>
-document.getElementById('options-form').addEventListener('submit', function(event) {
+const csrfToken = "{{ csrf_token() }}";
+
+document.getElementById('futures-form').addEventListener('submit', function(event) {
     var loadingSpinner = document.getElementById('loadingSpinner');
     loadingSpinner.style.display = 'block';  // Show spinner on form submit
 
@@ -367,7 +371,12 @@ function submitForm(formId, url, updateId) {
     var formData = new FormData(form);
     var xhr = new XMLHttpRequest();
 
+    if (!formData.has('csrf_token')) {
+        formData.append('csrf_token', csrfToken);
+    }
+
     xhr.open("POST", url, true);
+    xhr.setRequestHeader('X-CSRFToken', csrfToken);
 
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {
