@@ -26,7 +26,6 @@ def get_llm_provider() -> Any:
     api_key = _get_env_value("LLM_API_KEY", "OpenAI_API_Key", default="")
     base_url = _get_env_value("LLM_BASE_URL", "Base_URL", default="")
     api_version = _get_env_value("LLM_API_VERSION", "API_Version", default=None)
-    model = _get_env_value("LLM_MODEL", "Model", default=None)
     auth_header_name = _get_env_value(
         "LLM_AUTH_HEADER_NAME", "Auth_headers", default=None
     )
@@ -52,4 +51,32 @@ def get_llm_provider() -> Any:
     raise ValueError(f"Unsupported LLM provider: {provider_name}")
 
 
-llm_client = get_llm_provider()
+class LazyLLMClient:
+    """Lazily construct the configured LLM provider on first use.
+
+    Route modules import ``llm_client`` during app startup. Creating the provider at
+    import time makes the whole Flask app fail when optional LLM credentials are not
+    configured, even for pages that do not use AI assessment. Lazy construction keeps
+    startup healthy and lets existing ``ask_gpt`` handlers surface configuration
+    errors only when an assessment is requested.
+    """
+
+    def __init__(self) -> None:
+        self._provider: Optional[Any] = None
+
+    def _get_provider(self) -> Any:
+        if self._provider is None:
+            self._provider = get_llm_provider()
+        return self._provider
+
+    def chat_completion(self, *args: Any, **kwargs: Any) -> Any:
+        return self._get_provider().chat_completion(*args, **kwargs)
+
+    def generate_response(self, *args: Any, **kwargs: Any) -> str:
+        return self._get_provider().generate_response(*args, **kwargs)
+
+    def get_model_info(self) -> dict[str, Any]:
+        return self._get_provider().get_model_info()
+
+
+llm_client = LazyLLMClient()

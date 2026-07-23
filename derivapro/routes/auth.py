@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
@@ -5,6 +7,14 @@ from ..extensions import db
 from ..models.db_models import User
 
 auth_bp = Blueprint("auth", __name__)
+
+
+def _is_safe_redirect_url(target: str | None) -> bool:
+    if not target:
+        return False
+
+    parsed = urlsplit(target)
+    return not parsed.netloc and not parsed.scheme and target.startswith("/")
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])
@@ -69,7 +79,9 @@ def login():
             login_user(user)
             flash("Logged in successfully.", "success")
             next_page = request.args.get("next")
-            return redirect(next_page or url_for("index.index"))
+            if not _is_safe_redirect_url(next_page):
+                next_page = url_for("index.index")
+            return redirect(next_page)
 
     return render_template("auth/login.html", error=error)
 

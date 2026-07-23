@@ -22,7 +22,9 @@ class User(UserMixin, db.Model):
     positions = db.relationship("Position", back_populates="user", lazy=True)
     plots = db.relationship("Plot", back_populates="user", lazy=True)
     reports = db.relationship("Report", back_populates="user", lazy=True)
-    prepayment_models = db.relationship("PrepaymentModelRegistry", lazy=True)
+    prepayment_models = db.relationship(
+        "PrepaymentModelRegistry", back_populates="user", lazy=True
+    )
 
     def set_password(self, password: str) -> None:
         self.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -268,7 +270,7 @@ class PrepaymentModelRegistry(db.Model):
     registered_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
-    user = db.relationship("User")
+    user = db.relationship("User", back_populates="prepayment_models")
 
     def __repr__(self):
         return (

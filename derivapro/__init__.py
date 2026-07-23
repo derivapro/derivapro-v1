@@ -9,6 +9,7 @@ import os
 import logging
 
 from dotenv import load_dotenv
+from curl_cffi.requests.exceptions import RequestException as CurlRequestException
 from flask import Flask, jsonify, request
 from werkzeug.exceptions import BadRequestKeyError
 
@@ -43,6 +44,23 @@ def create_app():
     from .models import db_models  # noqa: F401
 
     register_routes(app)
+
+    @app.errorhandler(CurlRequestException)
+    def handle_external_market_data_error(error):
+        logger.exception("External market data request failed")
+
+        payload = {
+            "error": "External market data is currently unavailable.",
+            "detail": "Please verify the ticker or try again later.",
+        }
+        if request.accept_mimetypes.best == "application/json":
+            return jsonify(payload), 503
+
+        return (
+            "External market data is currently unavailable. "
+            "Please verify the ticker or try again later.",
+            503,
+        )
 
     @app.errorhandler(BadRequestKeyError)
     def handle_bad_request_key(error):
