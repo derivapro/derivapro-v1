@@ -152,6 +152,7 @@
     <div id="sensitivity-analysis" class="tab-content" style="display: block;"> <!-- Default display is block -->
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <!-- Iterate over CDS Contracts -->
             <div class="contracts-container">
@@ -209,6 +210,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <!-- Iterate over CDS Contracts -->
             <div class="contracts-container">

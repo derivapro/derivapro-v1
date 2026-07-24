@@ -5,6 +5,7 @@
 <div class="form-wrap">
   <div class="form-card">
     <form id="swpt-form" enctype="multipart/form-data" class="form-grid">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
       <!-- Dates -->
       <label>Valuation date
@@ -205,7 +206,13 @@ const csrfToken = "{{ csrf_token() }}";
     fd.append("csrf_token", csrfToken);
 
     try {
-      const resp = await fetch("/api/rates/price_swaption", { method: "POST", body: fd });
+      const resp = await fetch("/api/rates/price_swaption", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": csrfToken
+        },
+        body: fd
+      });
       const data = await resp.json();
       if (!data.ok) throw new Error(data.error || "Pricing failed");
 

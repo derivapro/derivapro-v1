@@ -109,6 +109,7 @@
     <div id="sensitivity-analysis" class="tab-content" style="display: block;"> <!-- Default display is block -->
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="nominal" value="{{ form_data.nominal }}">
             <input type="hidden" name="spread" value="{{ form_data.spread }}">
@@ -153,6 +154,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <input type="hidden" name="nominal" value="{{ form_data.nominal }}">
             <input type="hidden" name="spread" value="{{ form_data.spread }}">

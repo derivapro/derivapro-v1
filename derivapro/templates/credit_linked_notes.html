@@ -270,6 +270,7 @@
         <div id="sensitivity-analysis" class="tab-content" style="display: block;">
             <h4>Sensitivity Analysis</h4>
             <form id="sensitivity-form" class="form-grid">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="fixed-sensitivity">
                 <input type="hidden" name="tab_selected" value="fixed-tab">
                 <input type="hidden" name="value_date" value="{{ form_data.value_date }}">
@@ -327,6 +328,7 @@
         <div id="scenario-analysis" class="tab-content">
             <h4>Scenario Analysis</h4>
             <form id="scenario-form" onsubmit="return false;" class="form-grid">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="fixed-scenario">
                 <input type="hidden" name="tab_selected" value="fixed-tab">
                 <input type="hidden" name="value_date" value="{{ form_data.value_date }}">
@@ -738,6 +740,7 @@
         <div id="sensitivity-analysis-float" class="tab-content" style="display: block;">
             <h4>Sensitivity Analysis</h4>
             <form id="float-sensitivity-form" class="form-grid">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- Hidden inputs for preserving form data -->
                 <input type="hidden" name="analysis_type" value="float-sensitivity">
                 <input type="hidden" name="tab_selected" value="float-tab">
@@ -798,6 +801,7 @@
         <div id="scenario-analysis-float" class="tab-content">
             <h4>Scenario Analysis</h4>
             <form id="float-scenario-form" onsubmit="return false;" class="form-grid">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="float-scenario">
                 <input type="hidden" name="tab_selected" value="float-tab">
                 <input type="hidden" name="value_date" value="{{ form_data.value_date }}">

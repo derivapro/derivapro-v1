@@ -5,7 +5,8 @@
 <div class="form-wrap">
   <div class="form-card">
     <form id="swap-form" enctype="multipart/form-data" class="form-grid">
-      <!-- Dates -->
+        <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- Dates -->
       <label>Start date
         <input type="date" id="start_date">
       </label>
@@ -123,6 +124,10 @@
     btn.disabled = true;
 
     const fd = new FormData();
+    fd.append(
+        "csrf_token",
+        document.getElementById("csrf_token").value
+    );
     fd.append("start_date", document.getElementById('start_date').value || "");
     fd.append("tenor_years", document.getElementById('tenor_years').value || "5");
     fd.append("notional", document.getElementById('notional').value || "1000000");
@@ -140,7 +145,13 @@
     if (fwdFile)  fd.append("fwd_file",  fwdFile);  else fd.append("fwd_path",  document.getElementById('fwd_path').value  || "");
 
     try {
-      const resp = await fetch("/api/rates/price_swap", { method: "POST", body: fd });
+      const resp = await fetch("/api/rates/price_swap", {
+          method: "POST",
+          headers: {
+              "X-CSRFToken": document.getElementById("csrf_token").value
+          },
+          body: fd
+      });
       const data = await resp.json();
       if (!data.ok) throw new Error(data.error || "Pricing failed");
 
