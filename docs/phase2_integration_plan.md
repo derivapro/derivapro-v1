@@ -1,12 +1,12 @@
-# Phase 2 Integration Review Plan
+# Phase 2 Post-Merge Review Plan
 
-This plan covers the review and integration of the remote branch:
+This plan covers post-merge review of the Phase 2 persistence and authentication work. The original remote branch was:
 
 ```text
 origin/Phase-2---Data-Persistence-&-Auth
 ```
 
-As of July 26, 2026, the branch is substantially ahead of `main` and includes authentication, database persistence, migrations, portfolio routes, saved-result workflows, report utilities, CSRF handling, UI updates, and additional runtime artifacts. It should be reviewed intentionally before merging.
+As of July 26, 2026, this work has been merged into `main` through PR #44. It includes authentication, database persistence, migrations, portfolio routes, saved-result workflows, report utilities, CSRF handling, UI updates, and additional runtime artifacts. The remaining task is controlled local validation and cleanup before treating it as the stable development baseline.
 
 ## Goals
 
@@ -17,16 +17,16 @@ As of July 26, 2026, the branch is substantially ahead of `main` and includes au
 
 ## Review Sequence
 
-1. Create a local review branch from `main`.
-2. Merge or rebase the Phase 2 branch into that review branch.
-3. Resolve conflicts with priority on preserving current `main` behavior.
+1. Pull the latest `main`.
+2. Create and activate a Python 3.10+ virtual environment.
+3. Install dependencies from `requirements.txt`.
 4. Review application startup, route registration, configuration, and extension initialization.
 5. Review database models and migrations.
 6. Review authentication, authorization, CSRF, and user-scoped data behavior.
 7. Review portfolio, saved-results, analysis-history, and export/report workflows.
 8. Review static/runtime artifacts and update `.gitignore` where needed.
 9. Run local app smoke tests and targeted route checks.
-10. Merge to `main` only after the branch can run locally and the high-risk workflows pass.
+10. Record defects as focused follow-up fixes instead of broad rewrites.
 
 ## High-Risk Areas To Inspect
 
@@ -61,13 +61,12 @@ As of July 26, 2026, the branch is substantially ahead of `main` and includes au
 ```bash
 git checkout main
 git pull --ff-only origin main
-git checkout -b review/phase2-integration
-git merge origin/Phase-2---Data-Persistence-\&-Auth
-python3 -m venv .venv
+python3 --version
+python3 -m venv .venv  # use Python 3.10+
 source .venv/bin/activate
 pip install -r requirements.txt
 python -m compileall -q derivapro
-python scripts/print_routes.py
+PYTHONPATH=. python scripts/print_routes.py
 python run.py
 ```
 
@@ -75,4 +74,4 @@ If database migrations are active on the review branch, add the migration comman
 
 ## Recommended Outcome
 
-Do not merge the Phase 2 branch as a blind fast-forward. Treat it as a review branch, split out or discard generated/runtime files where practical, fix startup or route regressions, and then merge a cleaned version into `main`.
+Treat the merged Phase 2 state as a candidate baseline, not a finished production state. Validate startup, auth, persistence, portfolio behavior, and product routes locally; then split out focused fixes for any regressions or runtime-artifact cleanup.

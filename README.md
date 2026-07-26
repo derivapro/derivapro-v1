@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.x-blue">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-blue">
   <img alt="Flask" src="https://img.shields.io/badge/Flask-Web%20App-black">
   <img alt="QuantLib" src="https://img.shields.io/badge/QuantLib-Pricing%20Engines-green">
   <img alt="Status" src="https://img.shields.io/badge/Status-Active%20Development-orange">
@@ -233,6 +233,8 @@ derivapro-v1/
 ---
 
 ## ⚙️ Setup and Local Development
+
+DerivaPro requires **Python 3.10 or newer**. The current dependency set includes packages such as `scikit-learn>=1.7.2`, which will not install on Python 3.9.
 
 ### 1. Create and activate a virtual environment
 
