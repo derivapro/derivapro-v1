@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>NonCallable Fixed Bonds</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Non-Callable Fixed Bonds</h1>
+    <p>Price fixed-rate non-callable bonds, review valuation metrics, and assess sensitivity to yield curve and shock assumptions.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -12,9 +14,12 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Bond Pricing</h3>
+<div class="section-title">
+    <h3>Bond Pricing</h3>
+</div>
 
 <form id="fixed-bond-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="value_date">Evaluation Date:</label>
         <input type="date" id="value_date" name="value_date" value="{{ form_data.value_date }}" required>
@@ -153,7 +158,10 @@
     <!-- AI Assessment Button and Form -->
     <div class="assessment-section" style="margin-top: 20px;">
         <form method="POST" id="assessment-form" onsubmit="return submitAssessment(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="ai_assessment">
+
+
             <!-- Include all original form data -->
             <input type="hidden" name="value_date" value="{{ form_data.value_date }}">
             <input type="hidden" name="spot_dates" value="{{ form_data.spot_dates }}">

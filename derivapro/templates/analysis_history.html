@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title compact">
+    <h1>Analysis History</h1>
+    <p>Review previously saved analyses and open a full record for detailed inspection.</p>
+</div>
+
+{% if analyses %}
+<div class="history-table-card">
+    <div class="history-table-wrap">
+        <table class="results-table history-table">
+            <thead>
+                <tr>
+                    <th>Saved At</th>
+                    <th>Analysis Type</th>
+                    <th>Product Type</th>
+                    <th>Ticker</th>
+                    <th>Model</th>
+                    <th>View</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for analysis in analyses %}
+                <tr>
+                    <td>{{ analysis.created_at }}</td>
+                    <td>{{ analysis.analysis_type }}</td>
+                    <td>{{ analysis.instrument.product_type if analysis.instrument else "" }}</td>
+                    <td>{{ analysis.instrument.ticker if analysis.instrument else "" }}</td>
+                    <td>{{ analysis.instrument.model_name if analysis.instrument else "" }}</td>
+                    <td>
+                        <a href="{{ url_for('analysis_history.analysis_detail', analysis_id=analysis.id) }}"
+                            class="table-action-link">
+                            Open
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state-card">
+    <h3>No Analysis History Yet</h3>
+    <p>You have not saved any analysis runs yet. Run an analysis to start building your history.</p>
+</div>
+{% endif %}
+{% endblock %}

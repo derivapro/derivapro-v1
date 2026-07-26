@@ -1,0 +1,1 @@
+{"conversions": {}, "imputations": {"Original Interest Rate": {"method": "median", "value": 5.375}, "Current Interest Rate": {"method": "median", "value": 5.375}}, "normalizations": {}, "data_split": {"target": "Current Actual UPB", "task": "regression", "test_ratio": 0.2, "random_state": 42}, "selected_modeling_columns": ["Original Interest Rate", "Current Interest Rate"]}

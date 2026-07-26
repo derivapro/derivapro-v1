@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Barrier Options</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Barrier Options</h1>
+    <p>Price barrier options, review risk analytics, and access scenario, convergence, and validation workflows in one place.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -12,9 +14,12 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Option Pricing</h3>
+<div class="section-title">
+    <h3>Option Pricing</h3>
+</div>
 
 <form id="options-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Stock Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -104,7 +109,9 @@
 
 <!-- Analysis Tabs -->
 <div id="analysis-section">
-    <h3>Analysis</h3>
+    <div class="section-title">
+        <h3>Analysis</h3>
+    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
@@ -115,6 +122,7 @@
     <div id="sensitivity-analysis" class="tab-content">
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="K" value="{{ form_data.K }}">
@@ -169,13 +177,18 @@
             </div>
         </form>
     </div>
+
     <div id="sensitivity-results" class="sens-results">
         {% if sensitivity_results %}
-        <img src="{{ url_for('static', filename=session['sensitivity_results']['plot_filename']) }}"
+        {% if sensitivity_results and sensitivity_results.get('plot_filename') %}
+        <img src="{{ url_for('static', filename=sensitivity_results.get('plot_filename')) }}"
             alt="Sensitivity Analysis Plot">
+        {% endif %}
+
         <form id="ai-assessment-form" method="post">
-            <!-- AI Assessment Form Fields -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
+    
             <input type="hidden" name="sensitivity_results" value="{{ sensitivity_results }}">
             <div class="form-group full-width">
                 <button type="button"
@@ -189,6 +202,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="K" value="{{ form_data.K }}">
@@ -265,25 +279,26 @@
                 <tbody>
                     <tr>
                         <td>Baseline</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_price'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_delta'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_gamma'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_vega'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_theta'] }}</td>
-                        <td>{{ session['scenario_results']['baseline_scenario_table']['baseline_rho'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_price'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_delta'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_gamma'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_vega'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_theta'] }}</td>
+                        <td>{{ scenario_results['baseline_scenario_table']['baseline_rho'] }}</td>
                     </tr>
                     <tr>
                         <td>Stressed</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_price'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_delta'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_gamma'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_vega'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_theta'] }}</td>
-                        <td>{{ session['scenario_results']['stressed_scenario_table']['stressed_rho'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_price'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_delta'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_gamma'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_vega'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_theta'] }}</td>
+                        <td>{{ scenario_results['stressed_scenario_table']['stressed_rho'] }}</td>
                     </tr>
                 </tbody>
             </table>
             <form id="ai-scenario-assessment-form" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
                 <div class="form-group full-width">
                     <button type="button"
@@ -311,6 +326,7 @@
         <h4>Convergence Analysis</h4>
 
         <form id="convergence-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="convergence">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="K" value="{{ form_data.K }}">
@@ -358,8 +374,8 @@
         </form>
 
         <div id="convergence-results" class="sens-results">
-            {% if convergence_results and session.get('barrier_convergence_results', {}).get('plot_filename') %}
-            <img src="{{ url_for('static', filename=session['barrier_convergence_results']['plot_filename']) }}"
+            {% if convergence_results and convergence_results.get('plot_filename') %}
+            <img src="{{ url_for('static', filename=convergence_results.get('plot_filename')) }}"
                 alt="Convergence Analysis Plot">
             {% endif %}
         </div>
@@ -369,7 +385,9 @@
     <div id="rbpl-analysis" class="tab-content">
         <h4>RBPL Analysis</h4>
         <form id="rbpl-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="risk_pl">
+
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="K" value="{{ form_data.K }}">
             <input type="hidden" name="r" value="{{ form_data.r }}">

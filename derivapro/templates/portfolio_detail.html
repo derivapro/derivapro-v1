@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title compact">
+    <h1>Portfolio: {{ portfolio.name }}</h1>
+    <p>Review saved positions, pricing references, and portfolio-level holdings for this collection.</p>
+</div>
+
+<div class="detail-back-row">
+    <a href="{{ url_for('portfolios.portfolios') }}" class="table-action-link detail-back-link">
+        Back to Portfolios
+    </a>
+</div>
+
+<div class="detail-summary-card">
+    <div class="detail-summary-grid">
+        <div class="detail-summary-item">
+            <span>Name</span>
+            <strong>{{ portfolio.name }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Created At</span>
+            <strong>{{ portfolio.created_at }}</strong>
+        </div>
+        <div class="detail-summary-item detail-summary-item-full">
+            <span>Description</span>
+            <strong>{{ portfolio.description or "N/A" }}</strong>
+        </div>
+    </div>
+</div>
+
+<div class="detail-dashboard-card">
+    <div class="detail-dashboard-grid">
+        <div class="dashboard-summary-panel">
+            <h3>Portfolio Greek Summary</h3>
+            <div class="dashboard-summary-list">
+                {% for name, value in summary.items() %}
+                <div class="dashboard-summary-item">
+                    <span>{{ name.title() }}</span>
+                    <strong>{{ "%.2f"|format(value) }}</strong>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="dashboard-chart-panel">
+            <h3>Largest Greek Contributors</h3>
+            <div class="greek-chart">
+                {% for name, value in summary.items() %}
+                <div class="greek-chart-row">
+                    <span class="greek-name">{{ name.title() }}</span>
+                    <div class="greek-bar-track">
+                        <div class="greek-bar"
+                            style="width: {{ (value|abs / max_greek * 100)|round(1) }}%; background-color: {% if value >= 0 %}#3d8bfd{% else %}#f06666{% endif %};">
+                        </div>
+                    </div>
+                    <span class="greek-value">{{ "%.2f"|format(value) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="asset-class-summary-card">
+    <h3>Greeks by Asset Class</h3>
+    <div class="table-actions">
+        <a href="{{ url_for('exports.export') }}?type=portfolio_summary&portfolio_id={{ portfolio.id }}&format=xlsx" class="btn">Export Summary XLSX</a>
+        <a href="{{ url_for('exports.export') }}?type=portfolio_summary&portfolio_id={{ portfolio.id }}&format=csv" class="btn">Export Summary CSV</a>
+    </div>
+    <div class="history-table-wrap">
+        <table class="results-table history-table portfolio-summary-table">
+            <thead>
+                <tr>
+                    <th>Asset Class</th>
+                    <th>Delta</th>
+                    <th>Gamma</th>
+                    <th>Vega</th>
+                    <th>Theta</th>
+                    <th>Rho</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asset_class, data in asset_class_summary.items() %}
+                <tr>
+                    <td>{{ data.name }}</td>
+                    <td>{{ "%.2f"|format(data.delta) }}</td>
+                    <td>{{ "%.2f"|format(data.gamma) }}</td>
+                    <td>{{ "%.2f"|format(data.vega) }}</td>
+                    <td>{{ "%.2f"|format(data.theta) }}</td>
+                    <td>{{ "%.2f"|format(data.rho) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if positions %}
+<div class="history-table-card">
+    <div class="history-table-wrap">
+            <div class="table-actions">
+                <a href="{{ url_for('exports.export') }}?type=portfolio_positions&portfolio_id={{ portfolio.id }}&format=xlsx" class="btn">Export Positions XLSX</a>
+                <a href="{{ url_for('exports.export') }}?type=portfolio_positions&portfolio_id={{ portfolio.id }}&format=csv" class="btn">Export Positions CSV</a>
+            </div>
+        <table class="results-table history-table portfolio-positions-table">
+            <thead>
+                <tr>
+                    <th>Added At</th>
+                    <th>Product Type</th>
+                    <th>Ticker</th>
+                    <th>Model</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Notional</th>
+                    <th>Edit</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in positions %}
+                <tr>
+                    <td>{{ position.created_at }}</td>
+                    <td>{{ position.instrument.product_type if position.instrument else "" }}</td>
+                    <td>{{ position.instrument.ticker if position.instrument else "" }}</td>
+                    <td>{{ position.instrument.model_name if position.instrument else "" }}</td>
+                    <td>
+                        {{ "%.4f"|format(position.pricing_result.price) if position.pricing_result and position.pricing_result.price is not none else "" }}
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('portfolios.update_position', portfolio_id=portfolio.id) }}" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="position_id" value="{{ position.id }}">
+                            <input type="number" step="0.01" name="quantity" value="{{ position.quantity or 1.0 }}" class="inline-input">
+                    </td>
+                    <td>
+                            <input type="number" step="0.01" name="notional" value="{{ position.notional or '' }}" class="inline-input">
+                    </td>
+                    <td>
+                            <button type="submit" class="table-action-link">Save</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="post" action="{{ url_for('portfolios.delete_position', portfolio_id=portfolio.id) }}" class="inline-form" onsubmit="return confirm('Delete this position?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="position_id" value="{{ position.id }}">
+                            <button type="submit" class="table-action-link table-action-delete">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state-card">
+    <h3>No Positions Yet</h3>
+    <p>This portfolio does not contain any saved positions yet. Add a saved result to this portfolio to begin tracking holdings.</p>
+</div>
+{% endif %}
+{% endblock %}

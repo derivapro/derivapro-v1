@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title compact">
+    <h1>Portfolios</h1>
+    <p>Create and manage named collections of saved positions for ongoing analysis and reporting workflows.</p>
+</div>
+
+<div class="portfolio-form-card">
+    <h3>Create Portfolio</h3>
+    <form method="post" class="form-grid portfolio-create-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="name">Portfolio Name</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description</label>
+            <input type="text" id="description" name="description">
+        </div>
+
+        <div class="form-group full-width">
+            <button type="submit">Create Portfolio</button>
+        </div>
+    </form>
+</div>
+
+{% if portfolios %}
+<div class="history-table-card">
+    <div class="history-table-wrap">
+        <div class="table-actions">
+            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=xlsx" class="btn">Export XLSX</a>
+            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=csv" class="btn">Export CSV</a>
+        </div>
+        <table class="results-table history-table portfolios-table">
+            <thead>
+                <tr>
+                    <th>Created At</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>View</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for portfolio in portfolios %}
+                <tr>
+                    <td>{{ portfolio.created_at }}</td>
+                    <td>{{ portfolio.name }}</td>
+                    <td>{{ portfolio.description or "" }}</td>
+                    <td>
+                        <a
+                            href="{{ url_for('portfolios.portfolio_detail', portfolio_id=portfolio.id) }}"
+                            class="table-action-link"
+                        >
+                            Open
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state-card">
+    <h3>No Portfolios Yet</h3>
+    <p>Create your first portfolio to start organizing saved pricing results into reusable positions.</p>
+</div>
+{% endif %}
+{% endblock %}

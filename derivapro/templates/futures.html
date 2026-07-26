@@ -14,6 +14,7 @@
 
 <h3>Futures Pricing</h3>
 <form id="futures-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -148,6 +149,7 @@
     <div id="sensitivity-analysis" class="tab-content" style="display: block;">
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
@@ -190,7 +192,7 @@
             {% if future_sensitivity_analysis_results %}
             <div class="result">
                 <h4>Sensitivity Analysis Results</h4>
-                <img src="{{ url_for('static', filename=session['future_sensitivity_analysis_results']['plot_filename']) }}" alt="Plot">
+                <img src="{{ url_for('static', filename=future_sensitivity_analysis_results['plot_filename']) }}" alt="Plot">
             </div>
             {% endif %}
         </div>
@@ -200,6 +202,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
@@ -271,13 +274,13 @@
                 <tbody>
                     <tr>
                         <td>Baseline</td>
-                        <td>{{ session['future_scenario_results']['baseline_scenario_table']['baseline_futPrice'] }}</td>
-                        <td>{{ session['future_scenario_results']['baseline_scenario_table']['baseline_futPL'] }}</td>
+                        <td>{{ future_scenario_results['baseline_scenario_table']['baseline_futPrice'] }}</td>
+                        <td>{{ future_scenario_results['baseline_scenario_table']['baseline_futPL'] }}</td>
                     </tr>
                     <tr>
                         <td>Stressed</td>
-                        <td>{{ session['future_scenario_results']['stressed_scenario_table']['stressed_futPrice'] }}</td>
-                        <td>{{ session['future_scenario_results']['stressed_scenario_table']['stressed_futPL'] }}</td>
+                        <td>{{ future_scenario_results['stressed_scenario_table']['stressed_futPrice'] }}</td>
+                        <td>{{ future_scenario_results['stressed_scenario_table']['stressed_futPL'] }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -289,6 +292,7 @@
     <div id="rbpl-analysis" class="tab-content">
         <h4>RBPL Analysis</h4>
         <form id="rbpl-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="risk_pl">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
@@ -350,7 +354,9 @@
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>
-document.getElementById('options-form').addEventListener('submit', function(event) {
+const csrfToken = "{{ csrf_token() }}";
+
+document.getElementById('futures-form').addEventListener('submit', function(event) {
     var loadingSpinner = document.getElementById('loadingSpinner');
     loadingSpinner.style.display = 'block';  // Show spinner on form submit
 
@@ -365,7 +371,12 @@ function submitForm(formId, url, updateId) {
     var formData = new FormData(form);
     var xhr = new XMLHttpRequest();
 
+    if (!formData.has('csrf_token')) {
+        formData.append('csrf_token', csrfToken);
+    }
+
     xhr.open("POST", url, true);
+    xhr.setRequestHeader('X-CSRFToken', csrfToken);
 
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4 && xhr.status === 200) {

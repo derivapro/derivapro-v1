@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-title compact">
+    <h1>Saved Result Detail</h1>
+    <p>Review the saved pricing metadata, valuation outputs, instrument configuration, and stored result payload.</p>
+</div>
+
+<div class="detail-back-row">
+    <a href="{{ url_for('saved_results.saved_results') }}" class="table-action-link detail-back-link">
+        Back to Saved Results
+    </a>
+</div>
+
+<div class="detail-summary-card">
+    <div class="detail-summary-grid">
+        <div class="detail-summary-item">
+            <span>Saved At</span>
+            <strong>{{ result.created_at }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Product Type</span>
+            <strong>{{ result.instrument.product_type if result.instrument else "" }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Ticker</span>
+            <strong>{{ result.instrument.ticker if result.instrument else "" }}</strong>
+        </div>
+        <div class="detail-summary-item">
+            <span>Model</span>
+            <strong>{{ result.instrument.model_name if result.instrument else "" }}</strong>
+        </div>
+    </div>
+</div>
+
+<div class="pricing-metrics-card">
+    <h3>Pricing Metrics</h3>
+    <div class="pricing-metrics-grid">
+        <div class="pricing-metric-item pricing-metric-item-highlight">
+            <span>Price</span>
+            <strong>{{ "%.4f"|format(result.price) if result.price is not none else "" }}</strong>
+        </div>
+        <div class="pricing-metric-item">
+            <span>Delta</span>
+            <strong>{{ "%.4f"|format(result.delta) if result.delta is not none else "" }}</strong>
+        </div>
+        <div class="pricing-metric-item">
+            <span>Gamma</span>
+            <strong>{{ "%.4f"|format(result.gamma) if result.gamma is not none else "" }}</strong>
+        </div>
+        <div class="pricing-metric-item">
+            <span>Vega</span>
+            <strong>{{ "%.4f"|format(result.vega) if result.vega is not none else "" }}</strong>
+        </div>
+        <div class="pricing-metric-item">
+            <span>Theta</span>
+            <strong>{{ "%.4f"|format(result.theta) if result.theta is not none else "" }}</strong>
+        </div>
+        <div class="pricing-metric-item">
+            <span>Rho</span>
+            <strong>{{ "%.4f"|format(result.rho) if result.rho is not none else "" }}</strong>
+        </div>
+    </div>
+</div>
+
+<div class="detail-section-card">
+    <h3>Instrument Parameters</h3>
+    <div class="detail-code-block">
+        {{ result.instrument.params_json if result.instrument else {} }}
+    </div>
+</div>
+
+<div class="detail-section-card">
+    <h3>Result JSON</h3>
+    <div class="detail-code-block detail-code-block-large">
+        {{ result.result_json }}
+    </div>
+</div>
+{% endblock %}

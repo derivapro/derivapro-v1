@@ -1,28 +1,28 @@
-The Black-Scholes Model, developed by Fischer Black, Myron Scholes, and Robert Merton in the early 1970s, is one of the foundational models in financial mathematics used for pricing options and other derivatives. The model provides a closed-form analytical solution for the price of European-style options and has significantly influenced the development of financial derivatives markets.
+The Black-Scholes Model, developed by Fischer Black, Myron Scholes, and Robert Merton in the early 1970s, is one of the foundational models in financial mathematics used for pricing options and other derivatives.
 
-**Key Assumptions**
+The model provides a closed-form analytical solution for European-style option prices and has significantly influenced the development of modern derivatives markets.
 
- * Efficient Markets: The market is frictionless, meaning no transaction costs, taxes, or arbitrage opportunities exist.
- * Constant Risk-Free Rate: The risk-free interest rate remains constant over the option's life.
- * Lognormal Distribution of Returns: The stock price follows a geometric Brownian motion with constant drift (expected return) and volatility.
- * No Dividends: The model assumes no dividends are paid during the life of the option.
- * European-Style Options: The option can only be exercised at maturity.
- * Continuous Trading: Trading occurs continuously, allowing perfect hedging of positions
+## Key Assumptions
 
-**Limitations of the Black-Scholes Model**
-Despite its widespread use, the Black-Scholes Model has notable limitations:
+* Efficient markets: no transaction costs, taxes, or arbitrage opportunities.
+* Constant risk-free rate over the option life.
+* Lognormal stock dynamics via geometric Brownian motion.
+* No dividends during the option life (in the original formulation).
+* European exercise only (exercise at maturity).
+* Continuous trading and dynamic hedging feasibility.
 
- * Constant Volatility Assumption: The assumption of constant volatility is unrealistic. In reality, volatility is often stochastic or exhibits patterns such as "volatility clustering" and the "volatility smile."
+## Limitations of the Black-Scholes Model
 
- * No Dividend Payments: While extensions to the model exist to handle dividends, the original Black-Scholes formula assumes no dividends, limiting its applicability for dividend-paying stocks.
+Despite its widespread use, the Black-Scholes framework has important limitations:
 
- * Assumption of Lognormal Distribution: Stock returns may not follow a lognormal distribution due to market factors, jumps, or heavy tails.
+* Constant volatility assumption: market volatility is often stochastic and may exhibit clustering or smile/skew effects.
+* No-dividend assumption in the original model can limit direct applicability for dividend-paying underlyings.
+* Lognormal return assumption may fail under jumps, fat tails, or stressed market regimes.
+* Perfect market assumptions (no frictions) are unrealistic in practice due to spreads, funding, and execution constraints.
 
- * Perfect Markets Assumption: In reality, transaction costs, bid-ask spreads, and trading constraints can impact hedging and pricing strategies.
+## Alternative Approaches
 
-
-**Alternative Approaches**
-  * Stochastic Volatility Models: Heston model, SABR model.
-  * Jump-Diffusion Models: Merton's jump-diffusion model incorporates sudden price jumps.
-  * Local Volatility Models: Allow volatility to vary with both time and stock price.
-  * Binomial and Trinomial Tree Models: Useful for pricing American options and capturing early exercise features.
+* Stochastic volatility models: Heston, SABR.
+* Jump-diffusion models: Merton's jump-diffusion framework.
+* Local volatility models: volatility varies by time and spot level.
+* Binomial/trinomial lattice methods: useful for early-exercise features (for example, American options).

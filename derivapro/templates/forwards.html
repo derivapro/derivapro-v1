@@ -2,8 +2,10 @@
 
 {% block content %}
 
-<h2>Forwards Contract</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Forward Contracts</h1>
+    <p>Price forward contracts, review profit and loss outcomes, and run supporting sensitivity and scenario analysis workflows.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -13,8 +15,11 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Forwards Pricing</h3>
+<div class="section-title">
+    <h3>Forwards Pricing</h3>
+</div>
 <form id="forwards-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
         <input type="text" step="0.01" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -104,7 +109,9 @@
 
 <!-- Analysis Tabs -->
 <div id="analysis-section">
-    <h3>Analysis</h3>
+    <div class="section-title">
+        <h3>Analysis</h3>
+    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
@@ -113,6 +120,7 @@
     <div id="sensitivity-analysis" class="tab-content" style="display: block;"> <!-- Default display is block -->
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
@@ -153,7 +161,7 @@
             {% if forward_sensitivity_analysis_results %}
             <div class="result">
                 <h4>Sensitivity Analysis Results</h4>
-                <img src="{{ url_for('static', filename=session['forward_sensitivity_analysis_results']['plot_filename']) }}" alt="Plot">
+                <img src="{{ url_for('static', filename=forward_sensitivity_analysis_results['plot_filename']) }}" alt="Plot">
             {% endif %}
             </div>
         </div>
@@ -163,6 +171,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">
@@ -234,13 +243,13 @@
                 <tbody>
                     <tr>
                         <td>Baseline</td>
-                        <td>{{ session['forward_scenario_results']['baseline_scenario_table']['baseline_forwardPrice'] }}</td>
-                        <td>{{ session['forward_scenario_results']['baseline_scenario_table']['baseline_forwardPL'] }}</td>
+                        <td>{{ forward_scenario_results['baseline_scenario_table']['baseline_forwardPrice'] }}</td>
+                        <td>{{ forward_scenario_results['baseline_scenario_table']['baseline_forwardPL'] }}</td>
                     </tr>
                     <tr>
                         <td>Stressed</td>
-                        <td>{{ session['forward_scenario_results']['stressed_scenario_table']['stressed_forwardPrice'] }}</td>
-                        <td>{{ session['forward_scenario_results']['stressed_scenario_table']['stressed_forwardPL'] }}</td>
+                        <td>{{ forward_scenario_results['stressed_scenario_table']['stressed_forwardPrice'] }}</td>
+                        <td>{{ forward_scenario_results['stressed_scenario_table']['stressed_forwardPL'] }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -251,6 +260,7 @@
     <div id="rbpl-analysis" class="tab-content">
         <h4>RBPL Analysis</h4>
         <form id="rbpl-form" method="post" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="risk_pl">
             <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
             <input type="hidden" name="risk_free_rate" value="{{ form_data.risk_free_rate }}">

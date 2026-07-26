@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Term Structure</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Term Structure</h1>
+    <p>Build yield curves, compare fitting quality, and analyse parallel and non-parallel shock scenarios from one page.</p>
+</div>
 
 <div id="markdown-content">
   {{ md_content|safe }}
@@ -13,9 +15,12 @@
 </div>
 
 
-<h3>Term Structure Calculator</h1>
+<div class="section-title">
+    <h3>Term Structure Calculator</h3>
+</div>
 
 <form id="term-structure-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <!--action="{{ url_for('term_structure.calculate_term_structure') }}" -->
     <div class = form-group>
       <label for="start_date">Start Date (YYYY-MM-DD):</label>
@@ -138,12 +143,12 @@
     </table>
   {% endif %}
 
-  {% if session.yield_curve_plot %}
+  {% if yield_curve_plot_filename %}
     <h2>Yield Curve Plots</h2>
-    <img src="{{ url_for('static', filename='plots/' + session.yield_curve_plot.filename) }}" alt="Yield Curve Plot" />
+    <img src="{{ url_for('static', filename='plots/' + yield_curve_plot_filename) }}" alt="Yield Curve Plot" />
   {% endif %}
   
-  {% if session.yield_curve_plot %}
+  {% if yield_curve_plot_filename %}
     <div id="Analysis">
       <h2>Analysis</h2>
       <div class="tabs">
@@ -153,8 +158,9 @@
 
       <div id="parallel-shock-generator" class="tab-content">
         <h3>Parallel Shocks</h3>
-        <form id="parallel-shock-form" onsubmit="return false;" class="form-grid">
-            <input type="hidden" name="analysis_type" value="parallel">
+      <form id="parallel-shock-form" onsubmit="return false;" class="form-grid">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="analysis_type" value="parallel">
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="forward_tenor_str" value="{{ form_data.forward_tenor_str }}">
             <input type="hidden" name="method_name" value="{{ form_data.method_name }}">
@@ -189,7 +195,7 @@
         </form>
 
         <div id="parallel-shock-results" class="result">
-          {% if session.shocked_yield_curve_plot_filename %}
+          {% if shocked_yield_curve_plot_filename %}
           {% if form_data.fit_selection == 'Yes' %}
             <h2>Shocked Fit Quality (R² Values)</h2>
 
@@ -228,7 +234,7 @@
           {% endif %}
 
           <h2>Shocked Yield Curve Plots</h2>
-            <img src="{{ url_for('static', filename='plots/' + session.shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
+            <img src="{{ url_for('static', filename='plots/' + shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
           {% endif %}
         </div>
       </div>
@@ -236,6 +242,7 @@
       <div id="non-parallel-shock-generator" class="tab-content">
         <h3>Non-Parallel Shocks</h3>
         <form id="non-parallel-shock-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="non-parallel">
             <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
             <input type="hidden" name="forward_tenor_str" value="{{ form_data.forward_tenor_str }}">
@@ -271,7 +278,7 @@
         </form>
 
         <div id="non-parallel-shock-results" class="result">
-          {% if session.shocked_yield_curve_plot_filename %}
+          {% if shocked_yield_curve_plot_filename %}
           {% if form_data.fit_selection == 'Yes' %}
             <h2>Shocked Fit Quality (R² Values)</h2>
 
@@ -309,7 +316,7 @@
             </table>
             {% endif %}
           <h2>Shocked Yield Curve Plots</h2>
-            <img src="{{ url_for('static', filename='plots/' + session.shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
+            <img src="{{ url_for('static', filename='plots/' + shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
           {% endif %}
         </div>
       </div>

@@ -31,37 +31,26 @@
 </div>
 
 <script>
+const csrfToken = "{{ csrf_token() }}";
+
 // Function to handle going back with form data preserved
 function goBackWithResults() {
-    const params = new URLSearchParams({
-        ticker: "{{ session.get('form_data', {}).get('ticker', '') }}",
-        strike_price: "{{ session.get('form_data', {}).get('strike_price', '') }}",
-        start_date: "{{ session.get('form_data', {}).get('start_date', '') }}",
-        end_date: "{{ session.get('form_data', {}).get('end_date', '') }}",
-        risk_free_rate: "{{ session.get('form_data', {}).get('risk_free_rate', '') }}",
-        volatility: "{{ session.get('form_data', {}).get('volatility', '') }}",
-        option_type: "{{ session.get('form_data', {}).get('option_type', '') }}",
-        model_type: "{{ session.get('form_data', {}).get('model_type', '') }}",
-        option_price: "{{ session.get('option_price', '') }}",
-        delta: "{{ session.get('delta', '') }}",
-        gamma: "{{ session.get('gamma', '') }}",
-        vega: "{{ session.get('vega', '') }}",
-        theta: "{{ session.get('theta', '') }}",
-        rho: "{{ session.get('rho', '') }}"
-    });
-
-    window.location.href = "{{ url_for('vanilla_options.european_options') }}" + "?" + params.toString();
+    window.location.href = "{{ url_for('vanilla_options.european_options') }}";
 }
 
 // Function to handle AI Assessment
 function runAiAssessment() {
     const params = new URLSearchParams({
         analysis_type: 'ai_assessment',
+        csrf_token: csrfToken,
     });
 
     fetch("{{ url_for('vanilla_options.model_governance') }}", {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
         body: params.toString()
     })
     .then(response => response.text())

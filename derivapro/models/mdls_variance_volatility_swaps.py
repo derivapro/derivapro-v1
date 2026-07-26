@@ -12,17 +12,6 @@ from dateutil.relativedelta import relativedelta
 from ..models.market_data import StockData
 
 
-# class StockData:
-#     def __init__(self, ticker, start_date=None, end_date=None):
-#         self.ticker = ticker
-#         if end_date is None:
-#             self.end_date = datetime.today().strftime('%Y-%m-%d')
-#         else:
-#             self.end_date = str(end_date)
-#         if start_date is None:
-#             self.start_date = self.get_previous_market_day(self.end_date)
-#         else:
-#             self.start_date = str(start_date)
       
 #     def get_years_difference(self):
 #         """
@@ -32,12 +21,6 @@ from ..models.market_data import StockData
 #         - start_date (str): Start date in 'YYYY-MM-DD' format.
 #         - end_date (str): End date in 'YYYY-MM-DD' format.
         
-#         Returns:
-#         - float: Difference between the dates in years.
-#         """
-#         start = datetime.strptime(self.start_date, '%Y-%m-%d')
-#         end = datetime.strptime(self.end_date, '%Y-%m-%d')
-#         difference = relativedelta(end, start)
         
 #         # Calculate the difference in years as a float
 #         years_difference = difference.years + difference.months / 12 + difference.days / 365.25
@@ -60,25 +43,8 @@ from ..models.market_data import StockData
 #         if self.end_date is None:
 #             end_date = datetime.today().strftime('%Y-%m-%d')
         
-#         if start_date is None:
-#             start_date = self.get_previous_market_day(end_date)
-#         """
-#         stock_data = yf.download(self.ticker, start=self.start_date, end=self.end_date)
-#         return stock_data
     
-#     def get_current_price(self):
-#         """
-#         Retrieve the current price of the stock.
-#         """
-#         stock_info = yf.Ticker(self.ticker)
-#         current_price = stock_info.history(period="1d").iloc[-1]['Close']
-#         return current_price
     
-#     def get_closing_price(self):
-#         """
-#         Retrieve the closing price of the stock given an input date.
-#         """               
-#         prev_date = (pd.to_datetime(self.start_date) - BDay(1)).strftime('%Y-%m-%d')
 
 #         stock = yf.Ticker(self.ticker)
 #         hist = stock.history(start=prev_date, end=self.start_date)
@@ -95,14 +61,6 @@ from ..models.market_data import StockData
 #         - strike (float): Strike price of the option.
 #         - option_type (str): Type of the option, 'call' or 'put'. Default is 'call'.
         
-#         Returns:
-#         - dict or str: Dictionary containing the nearest available contract parameters and the estimated implied volatility, 
-#                     or a message indicating that the strike price was not found exactly on any contract.
-#         """
-#         try:
-#             # Set default expiry date if not provided
-#             if expiry_date is None:
-#                 expiry_date = datetime.today() + timedelta(days=30)  # Default to next month's expiry
                 
 #             # Convert string expiry_date to datetime if needed
 #             if isinstance(expiry_date, str):
@@ -112,12 +70,6 @@ from ..models.market_data import StockData
 #             ticker_info = yf.Ticker(self.ticker)
 #             options = ticker_info.option_chain(expiry_date.strftime('%Y-%m-%d'))
             
-#             # Set default strike price if not provided
-#             if strike is None:
-#                 if option_type == 'call':
-#                     strike_options = options.calls['strike']
-#                 else:
-#                     strike_options = options.puts['strike']
                     
 #                 # Calculate default strike price as the one closest to 100
 #                 strike = strike_options.iloc[(strike_options - 100).abs().idxmin()]
@@ -125,44 +77,11 @@ from ..models.market_data import StockData
 #             # Select option chain based on option type
 #             option_chain = options.calls if option_type == 'call' else options.puts
             
-#             # Initialize variables for storing results
-#             exact_strike_found = False
-#             nearest_strike = None
-#             min_diff = float('inf')
-#             implied_volatility = None
             
-#             # Iterate over option chain data to find nearest strike price
-#             for _, option_data in option_chain.iterrows():
-#                 diff = abs(option_data['strike'] - strike)
-#                 if diff == 0:  # Strike found exactly
-#                     exact_strike_found = True
-#                     nearest_strike = option_data['strike']
-#                     implied_volatility = option_data['impliedVolatility']
-#                     break
-#                 elif diff < min_diff:
-#                     min_diff = diff
-#                     nearest_strike = option_data['strike']
-#                     implied_volatility = option_data['impliedVolatility']
             
 #             # Format expiry date
 #             nearest_expiry = expiry_date.strftime('%Y-%m-%d')
 
-#             # If exact strike price not found, return with a note
-#             if not exact_strike_found:
-#                 return {
-#                     'expiry_date': nearest_expiry,
-#                     'strike_price': nearest_strike,
-#                     'implied_volatility': implied_volatility,
-#                     'NOTE': "Implied volatility has been estimated for the nearest available option contract."
-#                 }
-#             else:  # If exact strike price found, return without a note
-#                 return {
-#                     'expiry_date': nearest_expiry,
-#                     'strike_price': nearest_strike,
-#                     'implied_volatility': implied_volatility
-#                 }
-#         except Exception as e:  # Catch any exceptions and return as string
-#             return str(e)
 
 class varianceSwaps:
     def __init__(self, ticker, start_date, end_date, as_of_date, strike_vol, new_strike_vol, vega_notional, risk_free_rate, position,
@@ -360,29 +279,6 @@ class varianceSwaps:
         return round(current_swap_value, 4)
 
 
-# # Assuming all other imports and StockData are defined
-# ticker = 'AAPL'
-# start_date = '2025-01-01'  
-# end_date = '2026-05-01'
-# as_of_date = '2025-05-10'  # Current date for the swap valuation 
-# strike_vol = 0.2 # this needs to be interpolated from the volatility surface later
-# new_strike_vol = None  # New strike volatility for the swap valuation
-# vega_notional = 50000  
-# risk_free_rate = 0.01
-# position = 'short'  # Position in the swap (long or short)
-# rho = -0.5  # Correlation
-# kappa = 2.0  # Rate of mean reversion
-# theta = 0.03  # Long-term mean variance
-# sigma = 0.3  # Volatility of volatility
-# calendar = ql.UnitedStates(ql.UnitedStates.NYSE)
-# need the daily, weekly, 
-# # Instantiate the varianceSwaps class
-# variance_swap = varianceSwaps(
-#     ticker, start_date, end_date, as_of_date, strike_vol, new_strike_vol, vega_notional, risk_free_rate, position, rho, kappa, theta, sigma, calendar
-# )
-# # Get variance notional and print with label
-# variance_notional = variance_swap.variance_notional()
-# print(f"Variance Notional: {variance_notional}")
 
 # # Get realized variance and print with label
 # realized_variance = variance_swap.realized_variance()

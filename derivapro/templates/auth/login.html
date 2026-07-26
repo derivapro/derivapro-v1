@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-card auth-card-enhanced">
+
+        <div class="auth-header">
+            <h2>Welcome Back</h2>
+            <p>Sign in to access your saved results, pricing analyses, and portfolios.</p>
+        </div>
+
+        {% if error %}
+        <div class="auth-alert auth-alert-error">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="auth-form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" required autofocus>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="password">Password</label>
+                <div class="auth-password-wrapper">
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <button type="button" class="auth-password-toggle" onclick="togglePassword('password', this)">
+                        Show
+                    </button>
+                </div>
+            </div>
+
+            <div class="auth-actions-row">
+                <a href="{{ url_for('auth.forgot_password') }}" class="auth-link">Forgot Password?</a>
+            </div>
+
+            <button type="submit" class="auth-button">Sign In</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Don’t have an account?</p>
+            <a href="{{ url_for('auth.register') }}" class="auth-secondary-link">Create one</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    function togglePassword(inputId, button) {
+        const input = document.getElementById(inputId);
+        if (input.type === "password") {
+            input.type = "text";
+            button.textContent = "Hide";
+        } else {
+            input.type = "password";
+            button.textContent = "Show";
+        }
+    }
+</script>
+{% endblock %}

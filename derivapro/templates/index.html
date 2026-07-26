@@ -1,9 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-<body>
-    <div id="markdown-content">
+<div class="home-hero">
+    <div class="page-title">
+        <h1>Quantitative Derivative Pricing Tool Box</h1>
+        <p>
+            A unified platform for derivative pricing, analytics, validation support,
+            and portfolio-oriented workflow management.
+        </p>
+    </div>
+</div>
+
+<div class="home-content-card">
+    <div id="markdown-content" class="home-markdown-content">
         {{ md_content|safe }}
     </div>
-</body>
+</div>
 {% endblock %}

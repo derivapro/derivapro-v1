@@ -31,18 +31,6 @@ class Prepayment:
         probability = round(1 / (1 + np.exp(-log_odds)) * 100, 2)
         return probability
 
-# odds = Prepayment(
-#     orig_rate = 5.875,
-#     market_rate = 4,
-#     orig_fico = 666,
-#     loan_age = 50,
-#     orig_ltv = 80,
-#     intercept = -6.0,
-#     beta_spread = 6.0,        # Strong incentive to prepay if rates drop
-#     beta_fico = 0.005,        # Higher credit → more likely to refinance
-#     beta_loan_age = 0.01,     # Older loans → higher prepayment likelihood
-#     beta_ltv = -0.03,         # Higher LTV → harder to refinance (inverse relationship)
-# )
 
 # print("Prepayment Probability: ", odds.prepayment_probability(), "%")
 

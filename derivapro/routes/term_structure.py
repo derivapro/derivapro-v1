@@ -4,7 +4,6 @@ from flask import (
     render_template,
     request,
     jsonify,
-    session,
     redirect,
     url_for,
 )
@@ -20,7 +19,7 @@ import QuantLib as ql
 import uuid
 import os
 import matplotlib.pyplot as plt
-from flask import session, current_app
+from flask import current_app
 import markdown
 import numpy as np
 import logging
@@ -49,6 +48,8 @@ def calculate_term_structure():
     ) = r2_ns_zero1 = r2_ns_df1 = r2_ns_fwd1 = r2_sv_zero1 = r2_sv_df1 = r2_sv_fwd1 = (
         None
     )
+    yield_curve_plot_filename = None
+    shocked_yield_curve_plot_filename = None
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -319,8 +320,7 @@ def calculate_term_structure():
                 )
                 fig1.savefig(plot1_path)
                 plt.close(fig1)
-                # session['shocked_yield_curve_plot'] = {'filename': plot1_filename}
-                session["shocked_yield_curve_plot_filename"] = plot1_filename
+                shocked_yield_curve_plot_filename = plot1_filename
 
                 # Bootstrap the curve
                 curve1 = ts_shocked.bootstrap_curve(start_date, method_name)
@@ -352,6 +352,7 @@ def calculate_term_structure():
                         plot=True,
                         market_rates=ts_shocked.market_rates,
                         md_content=md_content,
+                        shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
                         r2_ns_zero=r2_zero_ns1,
                         r2_ns_df=r2_df_ns1,
                         r2_ns_fwd=r2_fwd_ns1,
@@ -369,6 +370,7 @@ def calculate_term_structure():
                         form_data=form_data,
                         plot=True,
                         md_content=md_content,
+                        shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
                     )
 
             except Exception as e:
@@ -378,6 +380,7 @@ def calculate_term_structure():
                     form_data=form_data,
                     plot=True,
                     md_content=md_content,
+                    shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
                     error=str(e),
                 )
 
@@ -503,8 +506,7 @@ def calculate_term_structure():
                 )
                 fig2.savefig(plot2_path)
                 plt.close(fig2)
-                # session['shocked_yield_curve_plot'] = {'filename': plot1_filename}
-                session["shocked_yield_curve_plot_filename"] = plot2_filename
+                shocked_yield_curve_plot_filename = plot2_filename
 
                 # Bootstrap the curve
                 curve2 = ts_shocked.bootstrap_curve(start_date, method_name)
@@ -536,6 +538,7 @@ def calculate_term_structure():
                         market_rates=ts_shocked.market_rates,
                         plot=True,
                         md_content=md_content,
+                        shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
                         r2_ns_zero=r2_zero_ns2,
                         r2_ns_df=r2_df_ns2,
                         r2_ns_fwd=r2_fwd_ns2,
@@ -553,6 +556,7 @@ def calculate_term_structure():
                         form_data=form_data,
                         plot=True,
                         md_content=md_content,
+                        shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
                     )
             except Exception as e:
                 logger.exception("Non-parallel term structure analysis failed: %s", e)
@@ -561,6 +565,7 @@ def calculate_term_structure():
                     form_data=form_data,
                     plot=True,
                     md_content=md_content,
+                    shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
                     error=str(e),
                 )
 
@@ -575,18 +580,15 @@ def calculate_term_structure():
                 # ts.append_market_rates(treasury_rates, source="treasury")
                 # for tenor in treasury_rates:
 
-
                 logger.debug("Appending selected SOFR rates")
                 ts.append_market_rates(selected_sofr_rates, source="sofr")
                 # ts.append_market_rates(sofr_rates, source="sofr")
                 # for tenor in sofr_rates:
 
-
                 logger.debug("Appending selected swap rates")
                 ts.append_market_rates(selected_swap_rates, source="swap")
                 # ts.append_market_rates(swap_rates, source="swap")
                 # for tenor in swap_rates:
-
 
                 ts.average_duplicate_rates(start_date)
 
@@ -602,8 +604,7 @@ def calculate_term_structure():
                 fig.savefig(plot_path)
                 plt.close(fig)
 
-                # Save plot filename in session
-                session["yield_curve_plot"] = {"filename": plot_filename}
+                yield_curve_plot_filename = plot_filename
 
                 # Bootstrap the curve
                 curve = ts.bootstrap_curve(start_date, method_name)
@@ -624,6 +625,7 @@ def calculate_term_structure():
                         plot=True,
                         market_rates=ts.market_rates,
                         md_content=md_content,
+                        yield_curve_plot_filename=yield_curve_plot_filename,
                         r2_ns_zero=r2_zero_ns,
                         r2_ns_df=r2_df_ns,
                         r2_ns_fwd=r2_fwd_ns,
@@ -639,6 +641,7 @@ def calculate_term_structure():
                         form_data=form_data,
                         plot=True,
                         md_content=md_content,
+                        yield_curve_plot_filename=yield_curve_plot_filename,
                     )
 
             except Exception as e:
@@ -648,6 +651,8 @@ def calculate_term_structure():
                     form_data=form_data,
                     plot=None,
                     md_content=md_content,
+                    yield_curve_plot_filename=yield_curve_plot_filename,
+                    shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
                     error=str(e),
                 )
 
@@ -658,6 +663,8 @@ def calculate_term_structure():
             form_data=form_data,
             plot=None,
             md_content=md_content,
+            yield_curve_plot_filename=yield_curve_plot_filename,
+            shocked_yield_curve_plot_filename=shocked_yield_curve_plot_filename,
             forward_tenor="3M",
             method_name="PiecewiseFlatForward",
             fit_selection="yes",

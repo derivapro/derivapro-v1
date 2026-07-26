@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Credit Default Swap</h2>
-<h3>Introduction</h3>
+<div class="page-title compact">
+    <h1>Credit Default Swap</h1>
+    <p>Price CDS trades, review key credit metrics, and run supporting sensitivity and scenario analysis workflows.</p>
+</div>
 
 <div id="markdown-content">
     {{ md_content|safe }}
@@ -12,9 +14,12 @@
     <div class="spinner"></div>
 </div>
 
-<h3>Credit Default Swap</h3>
+<div class="section-title">
+    <h3>Credit Default Swap</h3>
+</div>
 
 <form id="cds-form" method="post" class="form-grid">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="nominal">Nominal ($):</label>
         <input type="number" step="0.01" id="nominal" name="nominal" value="{{ form_data.nominal }}" required>
@@ -94,7 +99,9 @@
 
 <!-- Analysis Tabs -->
 <div id="analysis-section">
-    <h3>Analysis</h3>
+    <div class="section-title">
+        <h3>Analysis</h3>
+    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
@@ -102,6 +109,7 @@
     <div id="sensitivity-analysis" class="tab-content" style="display: block;"> <!-- Default display is block -->
         <h4>Sensitivity Analysis</h4>
         <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="sensitivity">
             <input type="hidden" name="nominal" value="{{ form_data.nominal }}">
             <input type="hidden" name="spread" value="{{ form_data.spread }}">
@@ -137,7 +145,7 @@
             {% if cds_analysis_results %}
             <div class="result">
                 <h4>Sensitivity Analysis Results</h4>
-                <img src="{{ url_for('static', filename=session['cds_sensitivity_analysis_results']['plot_filename']) }}" alt="Plot">
+                <img src="{{ url_for('static', filename=cds_analysis_results['plot_filename']) }}" alt="Plot">
             {% endif %}
             </div>
         </div>
@@ -146,6 +154,7 @@
     <div id="scenario-analysis" class="tab-content">
         <h4>Scenario Analysis</h4>
         <form id="scenario-form" onsubmit="return false;" class="form-grid">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="analysis_type" value="scenario">
             <input type="hidden" name="nominal" value="{{ form_data.nominal }}">
             <input type="hidden" name="spread" value="{{ form_data.spread }}">

@@ -1,8 +1,9 @@
 # Last updated Sep 08
+from __future__ import annotations
 
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import Union, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple, Union
 from datetime import datetime
 from datetime import timedelta
 from numpy import floor, ceil
@@ -112,7 +113,7 @@ class SobolTimeDiscretization:
 
 
 # Step 2: Generating Normally Distributed Random Numbers (Moro's algorithm)
-def moro_inverse_cdf(u):
+def moro_inverse_cdf(u: np.ndarray) -> np.ndarray:
     """
     This implements the Moro algorithm to convert uniform random numbers
     U(0,1) to standard normal N(0,1) using inverse transform method.
@@ -173,8 +174,10 @@ def moro_inverse_cdf(u):
 
 # Step 3: Correlation Matrix Utilities for Multiple Assets
 def build_correlation_matrix(
-    n_assets, uniform_correlation=None, custom_correlations=None
-):
+    n_assets: int,
+    uniform_correlation: Optional[float] = None,
+    custom_correlations: Optional[Dict[Tuple[int, int], float]] = None,
+) -> np.ndarray:
     """
     Build a proper correlation matrix for multiple assets.
 
@@ -212,7 +215,9 @@ def build_correlation_matrix(
     return R
 
 
-def build_covariance_matrix(volatilities, correlation_matrix):
+def build_covariance_matrix(
+    volatilities: np.ndarray, correlation_matrix: np.ndarray
+) -> np.ndarray:
     """
     Build covariance matrix using Σ = D * R * D formula.
 
@@ -230,7 +235,7 @@ def build_covariance_matrix(volatilities, correlation_matrix):
     return D @ correlation_matrix @ D  # Σ = D * R * D
 
 
-def validate_correlation_matrix(R):
+def validate_correlation_matrix(R: np.ndarray) -> bool:
     """
     Validate that a correlation matrix is properly formed.
 
@@ -263,7 +268,9 @@ def validate_correlation_matrix(R):
 
 
 # Step 4: Generating Correlated Random Numbers (for Baskets of Assets)
-def generate_multivariate_normal(mean, cov, uniform_randoms):
+def generate_multivariate_normal(
+    mean: np.ndarray, cov: np.ndarray, uniform_randoms: np.ndarray
+) -> np.ndarray:
     """
     Generate correlated multivariate normal variables using Cholesky decomposition.
 
@@ -295,7 +302,14 @@ def generate_multivariate_normal(mean, cov, uniform_randoms):
 
 
 # Step 4: Time Discretization – Euler Scheme
-def euler_scheme(S0, r, sigma, paths_normals, dt, q=0.0):
+def euler_scheme(
+    S0: np.ndarray,
+    r: float,
+    sigma: np.ndarray,
+    paths_normals: np.ndarray,
+    dt: float,
+    q: float = 0.0,
+) -> np.ndarray:
     """
     Discretization Scheme:
     S(t+dt) = S(t) * exp((r - q - σ²/2)*dt + σ*√dt*Z)
@@ -365,7 +379,9 @@ def brownian_bridge_insert(times, path, randoms):
     interpolate(0, n_steps - 1)
 
 
-def get_year_fraction_dates(start_date, date_list):
+def get_year_fraction_dates(
+    start_date: datetime, date_list: List[datetime]
+) -> List[float]:
     """Convert list of datetimes to list of year-fraction offsets from start_date."""
     start = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
     return [(date - start).days / 365.25 for date in date_list]
@@ -394,7 +410,7 @@ class MonteCarloSimulationEngine:
         random_type: str = "sobol",
         basket: bool = False,
         cov_matrix: Optional[np.ndarray] = None,
-    ):
+    ) -> None:
         """
         Initialize Monte Carlo Engine
 
@@ -412,7 +428,7 @@ class MonteCarloSimulationEngine:
         self.basket = basket
         self.cov_matrix = cov_matrix if basket else None
 
-    def validate_parameters(self):
+    def validate_parameters(self) -> bool:
         validation_errors = []
 
         if np.any(self.S0 <= 0):
@@ -448,7 +464,7 @@ class MonteCarloSimulationEngine:
 
         return True
 
-    def generate_uniform_randoms(self):
+    def generate_uniform_randoms(self) -> np.ndarray:
         """
         Generate Uniform Random Numbers using Sobol Sequences
         """
@@ -498,7 +514,7 @@ class MonteCarloSimulationEngine:
                 0, 1, size=(self.num_paths, self.num_steps, self.n_assets)
             )
 
-    def generate_normal_randoms(self, uniform_randoms):
+    def generate_normal_randoms(self, uniform_randoms: np.ndarray) -> np.ndarray:
         """
         Convert Uniform to Normal using Moro Algorithm
         "Let Z~N(0,1), then μ+σZ~N(μ,σ²), which is the normal distribution
@@ -515,7 +531,7 @@ class MonteCarloSimulationEngine:
             normal_randoms = moro_inverse_cdf(uniform_randoms[..., 0])
             return normal_randoms[..., None]
 
-    def euler_paths(self, normal_randoms):
+    def euler_paths(self, normal_randoms: np.ndarray) -> np.ndarray:
         """
         Apply Euler Discretization Scheme
 
@@ -531,7 +547,9 @@ class MonteCarloSimulationEngine:
             getattr(self, "q", 0.0),
         )  # <--- pass q!
 
-    def brownian_bridge(self, paths, normals_to_insert=None):
+    def brownian_bridge(
+        self, paths: np.ndarray, normals_to_insert: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """
         Variance Reduction using Brownian Bridge
 
@@ -588,7 +606,9 @@ class MonteCarloSimulationEngine:
         else:
             plt.show()
 
-    def price_european_option(self, strike_price, option_type="call"):
+    def price_european_option(
+        self, strike_price: float, option_type: str = "call"
+    ) -> float:
         """
         Price European options using Monte Carlo simulation with production safety
 
@@ -640,12 +660,6 @@ class MonteCarloSimulationEngine:
 
     # def price_american_option(self, strike_price, option_type="call"):
 
-    #     """
-    #     Price American options using Least-Squares Monte Carlo (Longstaff-Schwartz Method).
-    #     Parameters:
-    #     - strike_price: Option strike price
-    #     - option_type: "call" or "put"
-
     #     Returns:
     #     - Option price (guaranteed non-negative)
     #     """
@@ -673,22 +687,10 @@ class MonteCarloSimulationEngine:
     #     # # Initialize option values at maturity
     #     # option_values = np.zeros_like(stock_paths)
 
-    #     # # Terminal payoff (guaranteed non-negative)
-    #     # if option_type.lower() == "call":
-    #     #     option_values[:, -1] = np.maximum(stock_paths[:, -1] - strike_price, 0)
-    #     # else:  # put
-    #     #     option_values[:, -1] = np.maximum(strike_price - stock_paths[:, -1], 0)
-
     #     # # Backward induction
     #     # for t in range(self.num_steps - 1, -1, -1):
     #     #     # Current stock prices
     #     #     current_prices = stock_paths[:, t]
-
-    #     #     # Immediate exercise value (guaranteed non-negative)
-    #     #     if option_type.lower() == "call":
-    #     #         exercise_value = np.maximum(current_prices - strike_price, 0)
-    #     #     else:  # put
-    #     #         exercise_value = np.maximum(strike_price - current_prices, 0)
 
     #     #     # Continuation value (discounted expected value from next period)
     #     #     continuation_value = discount_factor * option_values[:, t + 1]
@@ -702,33 +704,11 @@ class MonteCarloSimulationEngine:
     #     dt = self.T / self.num_steps
     #     discount_factor = np.exp(-self.r * dt)
 
-    #     # Payoff calculation
-    #     if option_type.lower() == "call":
-    #         payoff_func = lambda S: np.maximum(S - strike_price, 0)
-    #     else:
-    #         payoff_func = lambda S: np.maximum(strike_price - S, 0)
-
     #     num_paths, num_steps_plus1 = stock_paths.shape
     #     if num_steps_plus1 < 3:
     #         print("Warning: Too few time steps for LSMC. Consider increasing num_steps.")
 
     #     cashflows = payoff_func(stock_paths[:, -1])
-
-    #     # Work backwards in time
-    #     for t in range(num_steps_plus1 - 2, 0, -1):
-    #         # Find paths that are in the money at time t
-    #         itm_mask = payoff_func(stock_paths[:, t]) > 0
-    #         if not np.any(itm_mask):
-    #             # No in-the-money paths at this step, just discount cashflows
-    #             cashflows = discount_factor * cashflows
-    #             continue
-
-    #         # Regression to estimate continuation value
-    #         X = stock_paths[itm_mask, t]
-    #         Y = cashflows[itm_mask] * discount_factor
-    #         regression_inputs = np.vstack([np.ones_like(X), X, X ** 2]).T
-    #         coeffs, _, _, _ = np.linalg.lstsq(regression_inputs, Y, rcond=None)
-    #         continuation_value = coeffs[0] + coeffs[1] * X + coeffs[2] * X ** 2
 
     #         exercise_value = payoff_func(X)
     #         exercise = exercise_value > continuation_value
@@ -753,12 +733,12 @@ class MonteCarloSimulationEngine:
 
     def price_barrier_option(
         self,
-        strike_price,
-        barrier_level,
-        option_type="call",
-        barrier_type="up_and_out",
-        dividend_yield=0.0,
-    ):
+        strike_price: float,
+        barrier_level: float,
+        option_type: str = "call",
+        barrier_type: str = "up_and_out",
+        dividend_yield: float = 0.0,
+    ) -> float:
         """
         Price barrier options using Monte Carlo simulation with production safety
 
@@ -868,8 +848,12 @@ class MonteCarloSimulationEngine:
         return option_price
 
     def price_asian_option(
-        self, strike_price, averaging_dates, option_type="call", dividend_yield=0.0
-    ):
+        self,
+        strike_price: float,
+        averaging_dates: List[datetime],
+        option_type: str = "call",
+        dividend_yield: float = 0.0,
+    ) -> float:
         """
         Price Asian options using Monte Carlo simulation with production safety
 
@@ -1960,23 +1944,6 @@ def price_european_option_mc(
 # def price_american_option_mc(S0, strike_price, T, r, sigma, option_type="call", num_paths=10000, num_steps=252, random_type="sobol"):
 #     """
 #     Helper function to price American options using Monte Carlo
-
-#     Parameters:
-#     - S0: Initial stock price
-#     - strike_price: Option strike price
-#     - T: Time to maturity
-#     - r: Risk-free rate
-#     - sigma: Volatility
-#     - option_type: "call" or "put"
-#     - num_paths: Number of simulation paths
-#     - num_steps: Number of time steps
-#     - random_type: "sobol" or "pseudo"
-
-#     Returns:
-#     - Option price
-#     """
-#     mc_engine = create_monte_carlo_engine(S0, r, sigma, T, num_paths, num_steps, random_type)
-#     return mc_engine.price_american_option(strike_price, option_type)
 
 
 def price_american_option_mc(
