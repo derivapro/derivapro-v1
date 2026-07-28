@@ -523,11 +523,11 @@ $env:FLASK_APP = "run.py"
 | Date    | Batch                      | Result         | Commit/Reference | Notes                                                       |
 | ------- | -------------------------- | -------------- | ---------------- | ----------------------------------------------------------- |
 | 2026-07 | Baseline and Phase 2 audit | ✅ Completed   | —               | Findings documented; no backend pricing-model changes made. |
-|         | A1                         | ⬜ Not started |                  |                                                             |
-|         | A2                         | ⬜ Not started |                  |                                                             |
-|         | A3                         | ⬜ Not started |                  |                                                             |
-|         | A4                         | ⬜ Not started |                  |                                                             |
-|         | B                          | ⬜ Not started |                  |                                                             |
+| 2026-07 | A1                         | ✅ Completed   | pending commit    | Enabled SQLite FK enforcement, production cookie flags, full prepayment-v2 login enforcement, unsupported storage-backend startup guard, and direct curl_cffi dependency. |
+| 2026-07 | A2                         | ✅ Completed   | pending commit    | Added user-scoped upload folders, UUID server filenames, original filename metadata, upload path containment checks, CSV validation, max upload size, and user-specific model artifact folders. |
+| 2026-07 | A3                         | ✅ Completed   | pending commit    | Added model-level invariant enforcement so linked analyses and reports adopt the linked pricing result instrument and reject cross-user links. |
+| 2026-07 | A4                         | ✅ Completed   | pending commit    | Added and executed dry-run/apply repair script; backed up SQLite database and confirmed consistency counters are zero. |
+| 2026-07 | B                          | ✅ Completed   | pending commit    | Made logout POST-only, added password policy, in-memory auth throttling, security headers, audit logging, safe redirects, and expiring reset-token flow. |
 |         | C                          | ⬜ Not started |                  |                                                             |
 |         | D                          | ⬜ Not started |                  |                                                             |
 

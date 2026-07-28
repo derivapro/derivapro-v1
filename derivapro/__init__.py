@@ -11,6 +11,8 @@ import logging
 from dotenv import load_dotenv
 from curl_cffi.requests.exceptions import RequestException as CurlRequestException
 from flask import Flask, jsonify, request
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from werkzeug.exceptions import BadRequestKeyError
 
 load_dotenv()
@@ -22,6 +24,15 @@ from .logging_config import configure_logging
 logger = logging.getLogger(__name__)
 
 
+@event.listens_for(Engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    """Ensure SQLite enforces declared foreign-key constraints."""
+    if dbapi_connection.__class__.__module__.startswith("sqlite3"):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 def create_app():
     configure_logging()
 
@@ -30,6 +41,13 @@ def create_app():
     flask_env = os.getenv("FLASK_ENV", "development").strip().lower()
     config_class = config_by_name.get(flask_env, config_by_name["development"])
     app.config.from_object(config_class)
+
+    storage_backend = app.config.get("PREPAYMENT_MODEL_STORAGE_BACKEND", "local")
+    if storage_backend != "local":
+        raise RuntimeError(
+            "Unsupported PREPAYMENT_MODEL_STORAGE_BACKEND "
+            f"{storage_backend!r}. Only 'local' is implemented."
+        )
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -44,6 +62,22 @@ def create_app():
     from .models import db_models  # noqa: F401
 
     register_routes(app)
+
+    @app.after_request
+    def add_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=()",
+        )
+        if app.config.get("SESSION_COOKIE_SECURE"):
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
 
     @app.errorhandler(CurlRequestException)
     def handle_external_market_data_error(error):

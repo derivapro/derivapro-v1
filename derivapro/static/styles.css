@@ -275,6 +275,16 @@ a:hover {
     color: #991b1b !important;
 }
 
+.topbar-logout-form {
+    display: inline-flex;
+    margin: 0;
+}
+
+.topbar-link-button {
+    cursor: pointer;
+    font-family: inherit;
+}
+
 /* ===== App Shell ===== */
 .content.app-shell {
     display: flex;

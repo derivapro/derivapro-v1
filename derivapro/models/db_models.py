@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from flask_login import UserMixin
+from sqlalchemy import event
+from sqlalchemy.orm import object_session
 
 from ..extensions import bcrypt, db
 
@@ -281,3 +283,36 @@ class PrepaymentModelRegistry(db.Model):
             f"is_active={self.is_active} "
             f"is_temporary={self.is_temporary}>"
         )
+
+
+def _get_pricing_result_for_link(target):
+    if not getattr(target, "pricing_result_id", None):
+        return None
+
+    session = object_session(target) or db.session
+    pricing_result = session.get(PricingResult, target.pricing_result_id)
+    if pricing_result is None:
+        return None
+
+    if target.user_id != pricing_result.user_id:
+        raise ValueError(
+            "Linked pricing result must belong to the same user as the persisted record."
+        )
+
+    return pricing_result
+
+
+@event.listens_for(AnalysisResult, "before_insert")
+@event.listens_for(AnalysisResult, "before_update")
+def align_analysis_with_pricing_result(mapper, connection, target):
+    pricing_result = _get_pricing_result_for_link(target)
+    if pricing_result is not None:
+        target.instrument_id = pricing_result.instrument_id
+
+
+@event.listens_for(Report, "before_insert")
+@event.listens_for(Report, "before_update")
+def align_report_with_pricing_result(mapper, connection, target):
+    pricing_result = _get_pricing_result_for_link(target)
+    if pricing_result is not None:
+        target.instrument_id = pricing_result.instrument_id
