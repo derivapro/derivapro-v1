@@ -1,4 +1,5 @@
 import os
+import uuid
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -85,13 +86,28 @@ class PrepaymentDataUploader:
                 "error": "Invalid file type. Please upload CSV files only.",
             }
         try:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(self.upload_folder, filename)
+            original_filename = secure_filename(file.filename)
+            if not original_filename:
+                return {"success": False, "error": "Invalid file name"}
+
+            stored_filename = f"{uuid.uuid4().hex}_{original_filename}"
+            filepath = os.path.join(self.upload_folder, stored_filename)
             file.save(filepath)
+
+            try:
+                pd.read_csv(filepath, nrows=5)
+            except Exception:
+                os.remove(filepath)
+                return {
+                    "success": False,
+                    "error": "Invalid CSV file. Please upload a readable CSV file.",
+                }
+
             return {
                 "success": True,
                 "filepath": filepath,
-                "filename": filename,
+                "filename": original_filename,
+                "stored_filename": stored_filename,
                 "error": None,
             }
         except Exception as e:
@@ -1516,8 +1532,11 @@ class Validation:
             }
 
         try:
-            # Create model registry directory
-            registry_dir = current_app.config["PREPAYMENT_MODEL_REGISTRY_DIR"]
+            # Create a user-specific model registry directory.
+            registry_dir = os.path.join(
+                current_app.config["PREPAYMENT_MODEL_REGISTRY_DIR"],
+                f"user_{user_id}",
+            )
             os.makedirs(registry_dir, exist_ok=True)
 
             replaced_existing = False
@@ -1530,8 +1549,8 @@ class Validation:
             # Generate timestamp for the registration
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            # Save the registered model
-            model_filename = f"registered_model_{timestamp}.joblib"
+            # Save the registered model with a collision-safe server filename.
+            model_filename = f"registered_model_{uuid.uuid4().hex}_{timestamp}.joblib"
             model_path = os.path.join(registry_dir, model_filename)
 
             save_model_artifact(self.trained_model, model_path)
