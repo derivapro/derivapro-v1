@@ -171,7 +171,3 @@ myenv/
 .env
 __pycache__/
 *.pyc
-
-
-/DerivaPro_Development_Plan.md
-/PHASE_2_AUDIT_AND_REMEDIATION_PLAN.md
