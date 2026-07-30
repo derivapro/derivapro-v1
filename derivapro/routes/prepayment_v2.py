@@ -11,6 +11,9 @@ from flask import (
 )
 import os
 import logging
+from datetime import datetime
+from pathlib import Path
+
 import pandas as pd
 from werkzeug.utils import secure_filename
 from flask_login import current_user, login_required
@@ -36,13 +39,28 @@ def require_authenticated_user():
 
 def _current_user_upload_folder() -> str:
     upload_root = current_app.config.get("PREPAYMENT_UPLOAD_ROOT", DEFAULT_UPLOAD_ROOT)
-    return os.path.abspath(os.path.join(upload_root, f"user_{current_user.id}"))
+    return str(Path(upload_root, f"user_{current_user.id}").resolve())
+
+
+def _current_user_temp_model_folder() -> str:
+    return str(
+        Path(
+            current_app.config["PREPAYMENT_TEMP_MODEL_DIR"],
+            f"user_{current_user.id}",
+        ).resolve()
+    )
 
 
 def _is_path_inside(path: str, directory: str) -> bool:
     try:
-        return os.path.commonpath([os.path.abspath(path), directory]) == directory
-    except ValueError:
+        resolved_path = Path(path).resolve()
+        resolved_directory = Path(directory).resolve()
+        return (
+            os.path.commonpath([resolved_path, resolved_directory])
+            == str(resolved_directory)
+            and resolved_path != resolved_directory
+        )
+    except (OSError, ValueError):
         return False
 
 
@@ -780,10 +798,7 @@ def model_training():
             import uuid
 
             # Create a user-specific temp directory
-            temp_dir = os.path.join(
-                current_app.config["PREPAYMENT_TEMP_MODEL_DIR"],
-                f"user_{current_user.id}",
-            )
+            temp_dir = _current_user_temp_model_folder()
             os.makedirs(temp_dir, exist_ok=True)
 
             # Create a collision-safe server filename.
@@ -801,7 +816,7 @@ def model_training():
             }
 
             # Save to file instead of session
-            save_model_artifact(model_data, temp_model_file)
+            save_model_artifact(model_data, temp_model_file, temp_dir)
 
             logger.debug("Stored trained model in temp file: %s", temp_model_file)
 
@@ -918,7 +933,10 @@ def register_model():
         # Load the trained model from temp file
         try:
             logger.debug("Loading model from temp file: %s", temp_model_file)
-            model_data = load_model_artifact(temp_model_file)
+            model_data = load_model_artifact(
+                temp_model_file,
+                _current_user_temp_model_folder(),
+            )
 
             validator.trained_model = model_data["model"]
             validator.last_training_results = model_data["results"]
@@ -1044,7 +1062,10 @@ def reregister_model():
             })
 
         # Load the new model
-        model_data = load_model_artifact(temp_model_file)
+        model_data = load_model_artifact(
+            temp_model_file,
+            _current_user_temp_model_folder(),
+        )
 
         validator.trained_model = model_data["model"]
         validator.last_training_results = model_data["results"]

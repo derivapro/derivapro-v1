@@ -285,14 +285,21 @@ class PrepaymentModelRegistry(db.Model):
         )
 
 
+def _get_record_session(target):
+    return object_session(target) or db.session
+
+
 def _get_pricing_result_for_link(target):
-    if not getattr(target, "pricing_result_id", None):
+    pricing_result_id = getattr(target, "pricing_result_id", None)
+    if not pricing_result_id:
         return None
 
-    session = object_session(target) or db.session
-    pricing_result = session.get(PricingResult, target.pricing_result_id)
+    pricing_result = _get_record_session(target).get(
+        PricingResult,
+        pricing_result_id,
+    )
     if pricing_result is None:
-        return None
+        raise ValueError("Linked pricing result does not exist.")
 
     if target.user_id != pricing_result.user_id:
         raise ValueError(
@@ -302,6 +309,41 @@ def _get_pricing_result_for_link(target):
     return pricing_result
 
 
+def _get_analysis_result_for_link(target):
+    analysis_result_id = getattr(target, "analysis_result_id", None)
+    if not analysis_result_id:
+        return None
+
+    analysis_result = _get_record_session(target).get(
+        AnalysisResult,
+        analysis_result_id,
+    )
+    if analysis_result is None:
+        raise ValueError("Linked analysis result does not exist.")
+
+    if target.user_id != analysis_result.user_id:
+        raise ValueError(
+            "Linked analysis result must belong to the same user as the persisted record."
+        )
+
+    return analysis_result
+
+
+def _validate_instrument_owner(target):
+    instrument_id = getattr(target, "instrument_id", None)
+    if not instrument_id:
+        return
+
+    instrument = _get_record_session(target).get(Instrument, instrument_id)
+    if instrument is None:
+        raise ValueError("Linked instrument does not exist.")
+
+    if target.user_id != instrument.user_id:
+        raise ValueError(
+            "Linked instrument must belong to the same user as the persisted record."
+        )
+
+
 @event.listens_for(AnalysisResult, "before_insert")
 @event.listens_for(AnalysisResult, "before_update")
 def align_analysis_with_pricing_result(mapper, connection, target):
@@ -309,10 +351,46 @@ def align_analysis_with_pricing_result(mapper, connection, target):
     if pricing_result is not None:
         target.instrument_id = pricing_result.instrument_id
 
+    _validate_instrument_owner(target)
+
+
+@event.listens_for(Plot, "before_insert")
+@event.listens_for(Plot, "before_update")
+def align_plot_links(mapper, connection, target):
+    analysis_result = _get_analysis_result_for_link(target)
+
+    if analysis_result is not None:
+        if (
+            target.pricing_result_id is not None
+            and target.pricing_result_id != analysis_result.pricing_result_id
+        ):
+            raise ValueError(
+                "Plot pricing result must match the linked analysis result."
+            )
+        target.pricing_result_id = analysis_result.pricing_result_id
+
+    _get_pricing_result_for_link(target)
+
 
 @event.listens_for(Report, "before_insert")
 @event.listens_for(Report, "before_update")
-def align_report_with_pricing_result(mapper, connection, target):
+def align_report_links(mapper, connection, target):
+    analysis_result = _get_analysis_result_for_link(target)
+
+    if analysis_result is not None:
+        if (
+            target.pricing_result_id is not None
+            and target.pricing_result_id != analysis_result.pricing_result_id
+        ):
+            raise ValueError(
+                "Report pricing result must match the linked analysis result."
+            )
+
+        target.pricing_result_id = analysis_result.pricing_result_id
+        target.instrument_id = analysis_result.instrument_id
+
     pricing_result = _get_pricing_result_for_link(target)
     if pricing_result is not None:
         target.instrument_id = pricing_result.instrument_id
+
+    _validate_instrument_owner(target)

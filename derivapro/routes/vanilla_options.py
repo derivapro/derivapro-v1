@@ -78,6 +78,17 @@ def _get_latest_pricing_result_for_user(product_type):
     )
 
 
+def _resolve_analysis_instrument(product_type, standalone_instrument):
+    linked_pricing_result = _get_latest_pricing_result_for_user(product_type)
+
+    if linked_pricing_result is not None:
+        return linked_pricing_result.instrument, linked_pricing_result
+
+    db.session.add(standalone_instrument)
+    db.session.flush()
+    return standalone_instrument, None
+
+
 def _get_latest_analysis_by_type_for_user(product_type, analysis_type):
     if not current_user.is_authenticated:
         return None
@@ -410,11 +421,11 @@ def european_options():
                             "option_type": form_data["option_type"],
                         },
                     )
-                    db.session.add(instrument)
-                    db.session.flush()
-
-                    linked_pricing_result = _get_latest_pricing_result_for_user(
-                        "european_option"
+                    instrument, linked_pricing_result = (
+                        _resolve_analysis_instrument(
+                            "european_option",
+                            instrument,
+                        )
                     )
 
                     analysis_result = AnalysisResult(
@@ -890,11 +901,11 @@ def model_performance():
                                 "option_type": form_data["option_type"],
                             },
                         )
-                        db.session.add(instrument)
-                        db.session.flush()
-
-                        linked_pricing_result = _get_latest_pricing_result_for_user(
-                            "european_option"
+                        instrument, linked_pricing_result = (
+                            _resolve_analysis_instrument(
+                                "european_option",
+                                instrument,
+                            )
                         )
 
                         analysis_result = AnalysisResult(
@@ -1184,11 +1195,11 @@ def model_performance():
                                 "num_steps": num_steps,
                             },
                         )
-                        db.session.add(instrument)
-                        db.session.flush()
-
-                        linked_pricing_result = _get_latest_pricing_result_for_user(
-                            "european_option"
+                        instrument, linked_pricing_result = (
+                            _resolve_analysis_instrument(
+                                "european_option",
+                                instrument,
+                            )
                         )
 
                         analysis_result = AnalysisResult(
@@ -1395,11 +1406,11 @@ def model_performance():
                                 "option_type": option_type,
                             },
                         )
-                        db.session.add(instrument)
-                        db.session.flush()
-
-                        linked_pricing_result = _get_latest_pricing_result_for_user(
-                            "european_option"
+                        instrument, linked_pricing_result = (
+                            _resolve_analysis_instrument(
+                                "european_option",
+                                instrument,
+                            )
                         )
 
                         analysis_result = AnalysisResult(
@@ -2026,11 +2037,11 @@ def american_options():
                                 "mc_steps": form_data.get("mc_steps"),
                             },
                         )
-                        db.session.add(instrument)
-                        db.session.flush()
-
-                        linked_pricing_result = _get_latest_pricing_result_for_user(
-                            "american_option"
+                        instrument, linked_pricing_result = (
+                            _resolve_analysis_instrument(
+                                "american_option",
+                                instrument,
+                            )
                         )
 
                         analysis_result = AnalysisResult(
@@ -2132,11 +2143,11 @@ def american_options():
                                 "num_steps": form_data.get("num_steps"),
                             },
                         )
-                        db.session.add(instrument)
-                        db.session.flush()
-
-                        linked_pricing_result = _get_latest_pricing_result_for_user(
-                            "american_option"
+                        instrument, linked_pricing_result = (
+                            _resolve_analysis_instrument(
+                                "american_option",
+                                instrument,
+                            )
                         )
 
                         analysis_result = AnalysisResult(
@@ -2284,11 +2295,11 @@ def american_options():
                             "num_steps": form_data.get("num_steps"),
                         },
                     )
-                    db.session.add(instrument)
-                    db.session.flush()
-
-                    linked_pricing_result = _get_latest_pricing_result_for_user(
-                        "american_option"
+                    instrument, linked_pricing_result = (
+                        _resolve_analysis_instrument(
+                            "american_option",
+                            instrument,
+                        )
                     )
 
                     analysis_result = AnalysisResult(
@@ -2498,11 +2509,11 @@ def american_options():
                                     "mc_steps": mc_steps,
                                 },
                             )
-                            db.session.add(instrument)
-                            db.session.flush()
-
-                            linked_pricing_result = _get_latest_pricing_result_for_user(
-                                "american_option"
+                            instrument, linked_pricing_result = (
+                                _resolve_analysis_instrument(
+                                    "american_option",
+                                    instrument,
+                                )
                             )
 
                             analysis_result = AnalysisResult(
@@ -2603,11 +2614,11 @@ def american_options():
                                 "obs": obs,
                             },
                         )
-                        db.session.add(instrument)
-                        db.session.flush()
-
-                        linked_pricing_result = _get_latest_pricing_result_for_user(
-                            "american_option"
+                        instrument, linked_pricing_result = (
+                            _resolve_analysis_instrument(
+                                "american_option",
+                                instrument,
+                            )
                         )
 
                         analysis_result = AnalysisResult(
@@ -2681,11 +2692,11 @@ def american_options():
                                 "obs": obs,
                             },
                         )
-                        db.session.add(instrument)
-                        db.session.flush()
-
-                        linked_pricing_result = _get_latest_pricing_result_for_user(
-                            "american_option"
+                        instrument, linked_pricing_result = (
+                            _resolve_analysis_instrument(
+                                "american_option",
+                                instrument,
+                            )
                         )
 
                         analysis_result = AnalysisResult(
@@ -2923,11 +2934,11 @@ def american_options():
                             "num_steps": form_data.get("num_steps"),
                         },
                     )
-                    db.session.add(instrument)
-                    db.session.flush()
-
-                    linked_pricing_result = _get_latest_pricing_result_for_user(
-                        "american_option"
+                    instrument, linked_pricing_result = (
+                        _resolve_analysis_instrument(
+                            "american_option",
+                            instrument,
+                        )
                     )
 
                     analysis_result = AnalysisResult(
