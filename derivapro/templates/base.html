@@ -50,7 +50,7 @@
                 {% if current_user.is_authenticated %}
                 <div class="auth-user-badge">
                     <span class="auth-user-label">Signed in as</span>
-                    <span class="auth-user-name">{{ current_user.username }}</span>
+                    <span class="auth-user-name">{{ current_user.full_name or current_user.username }}</span>
                 </div>
                 <a href="{{ url_for('auth.change_password') }}" class="topbar-link">Change Password</a>
                 <a href="{{ url_for('auth.logout') }}" class="topbar-link topbar-link-danger">Logout</a>
@@ -68,140 +68,105 @@
                     <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="nav-logo">
                 </div>
 
-                <ul>
-                    <li><a href="{{ url_for('index.index') }}">Home</a></li>
-
-                    <li>
-                        <a href="{{ url_for('index.products') }}">Products</a>
-                        <ul>
-                            <li>
-                                <a href="#">Options</a>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('vanilla_options.vanilla_options') }}">Vanilla Options</a>
-                                        <ul>
-                                            <li><a href="{{ url_for('vanilla_options.european_options') }}">European</a>
-                                            </li>
-                                            <li><a href="{{ url_for('vanilla_options.american_options') }}">American</a>
-                                            </li>
-                                        </ul>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('exotic_options.exotic_options') }}">Exotic Options</a>
-                                        <ul>
-                                            <li><a href="{{ url_for('exotic_options.barrier_options') }}">Barrier</a>
-                                            </li>
-                                            <li><a href="{{ url_for('exotic_options.asian_options') }}">Asian</a></li>
-                                            <li><a
-                                                    href="{{ url_for('exotic_options.autocallable_options') }}">Autocallable</a>
-                                            </li>
-                                        </ul>
-                                    </li>
-                                </ul>
-                            </li>
-
-                            <li>
-                                <a href="#">Bonds / Fixed Income</a>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('nc_bonds.nc_bonds') }}">Non-Callable Bonds</a>
-                                        <ul>
-                                            <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}">Fixed Rate</a></li>
-                                            <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Fixed Rate
-                                                    Amortizing</a></li>
-                                            <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}">Floating Rate</a>
-                                            </li>
-                                            <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Floating
-                                                    Rate
-                                                    Amortizing</a></li>
-                                        </ul>
-                                    </li>
-                                </ul>
-                            </li>
-
-                            <li>
-                                <a href="#">Interest Rate Derivatives</a>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('swap_swaptions.swap_swaptions') }}">Swaps / Swaptions</a>
-                                        <ul>
-                                            <li><a href="{{ url_for('rates.swap_page') }}">Swaps Analytical</a></li>
-                                            <li><a href="{{ url_for('swaps.swaps') }}">Swaps M2M</a></li>
-                                            <li><a href="{{ url_for('rates.swaption_page') }}">Swaptions Analytical</a>
-                                            </li>
-                                            <li><a href="{{ url_for('swaptions.swaptions') }}">Swaptions M2M</a></li>
-                                        </ul>
-                                    </li>
-                                    <li>
-                                        <a href="{{ url_for('futures_forwards.futures_forwards') }}">Futures /
-                                            Forwards</a>
-                                        <ul>
-                                            <li><a href="{{ url_for('futures_forwards.forwards') }}">Forwards</a></li>
-                                            <li><a href="{{ url_for('futures_forwards.futures') }}">Futures</a></li>
-                                        </ul>
-                                    </li>
-                                </ul>
-                            </li>
-
-                            <li>
-                                <a href="#">Credit Derivatives</a>
-                                <ul>
-                                    <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">CDS (Credit
-                                            Default
-                                            Swap)</a></li>
-                                    <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}">Synthetic CDO</a>
-                                    </li>
-                                    <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}">CLN
-                                            (Credit-Linked
-                                            Note)</a></li>
-                                </ul>
-                            </li>
-
-                            <li>
-                                <a href="#">Volatility / Risk Products</a>
-                                <ul>
-                                    <li>
-                                        <a href="{{ url_for('volatility_derivatives.volatility_derivatives') }}">Volatility
-                                            Derivatives</a>
-                                        <ul>
-                                            <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}">Variance
-                                                    Swaps</a></li>
-                                        </ul>
-                                    </li>
-                                    <li><a href="{{ url_for('volatility_surface.volatility_surface') }}">Volatility
-                                            Surface</a></li>
-                                </ul>
-                            </li>
-
-                            <li><a href="{{ url_for('term_structure.calculate_term_structure') }}">Term Structure</a>
-                            </li>
-
-                            <li>
-                                <a href="#">Prepayment Products</a>
-                                <ul>
-                                    <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment</a>
-                                    </li>
-                                    <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}"
-                                            class="nav-link">Prepayment Model Validator</a></li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </li>
-
-                    <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market
-                            Data</a>
-                    </li>
-
-                    {% if current_user.is_authenticated %}
-                    <li><a href="{{ url_for('saved_results.saved_results') }}" class="nav-link">Saved Results</a></li>
-                    <li><a href="{{ url_for('analysis_history.analysis_history') }}" class="nav-link">Analysis
-                            History</a>
-                    </li>
-                    <li><a href="{{ url_for('portfolios.portfolios') }}" class="nav-link">Portfolios</a></li>
+                <div class="nav-section-label">DerivaPro</div>
+                <ul class="nav-tree">
+                    <li><a href="{{ url_for('index.index') }}" class="nav-link">Overview</a></li>
+                    <li><a href="{{ url_for('index.products') }}" class="nav-link">Product Map</a></li>
+                    <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">Free Preview: European Option</a></li>
+                    {% if not current_user.is_authenticated %}
+                    <li><a href="{{ url_for('auth.login') }}" class="nav-link">Sign In</a></li>
+                    <li><a href="{{ url_for('auth.register') }}" class="nav-link nav-callout">Create Free Account</a></li>
                     {% endif %}
+                </ul>
 
+                {% if current_user.is_authenticated %}
+                <div class="nav-section-label">Workspace</div>
+                <ul class="nav-tree">
+                    <li><a href="{{ url_for('saved_results.saved_results') }}" class="nav-link">Saved Results</a></li>
+                    <li><a href="{{ url_for('analysis_history.analysis_history') }}" class="nav-link">Analysis History</a></li>
+                    <li><a href="{{ url_for('portfolios.portfolios') }}" class="nav-link">Portfolios</a></li>
                     <li><a href="{{ url_for('reports_generated.reports_generated') }}" class="nav-link">Reports</a></li>
                 </ul>
+
+                <div class="nav-section-label">Products</div>
+                <div class="nav-accordion">
+                    <details class="nav-group" open>
+                        <summary>Equity & Options</summary>
+                        <ul>
+                            <li><a href="{{ url_for('vanilla_options.vanilla_options') }}" class="nav-link">Vanilla Options</a></li>
+                            <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options</a></li>
+                            <li><a href="{{ url_for('vanilla_options.american_options') }}" class="nav-link">American Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.exotic_options') }}" class="nav-link">Exotic Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.barrier_options') }}" class="nav-link">Barrier Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.asian_options') }}" class="nav-link">Asian Options</a></li>
+                        </ul>
+                    </details>
+
+                    <details class="nav-group" open>
+                        <summary>Structured Products</summary>
+                        <ul>
+                            <li><a href="{{ url_for('exotic_options.autocallable_options') }}" class="nav-link">Autocallables / Phoenix</a></li>
+                        </ul>
+                    </details>
+
+                    <details class="nav-group">
+                        <summary>Fixed Income</summary>
+                        <ul>
+                            <li><a href="{{ url_for('nc_bonds.nc_bonds') }}" class="nav-link">Bond Analytics</a></li>
+                            <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}" class="nav-link">Fixed Rate Bonds</a></li>
+                            <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}" class="nav-link">Fixed Amortizing Bonds</a></li>
+                            <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}" class="nav-link">Floating Rate Bonds</a></li>
+                            <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}" class="nav-link">Floating Amortizing Bonds</a></li>
+                        </ul>
+                    </details>
+
+                    <details class="nav-group">
+                        <summary>Rates & Forwards</summary>
+                        <ul>
+                            <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Swap Pricing</a></li>
+                            <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swap M2M</a></li>
+                            <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">Swaption Pricing</a></li>
+                            <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaption M2M</a></li>
+                            <li><a href="{{ url_for('futures_forwards.forwards') }}" class="nav-link">Forwards</a></li>
+                            <li><a href="{{ url_for('futures_forwards.futures') }}" class="nav-link">Futures</a></li>
+                            <li><a href="{{ url_for('term_structure.calculate_term_structure') }}" class="nav-link">Term Structure</a></li>
+                        </ul>
+                    </details>
+
+                    <details class="nav-group">
+                        <summary>Credit</summary>
+                        <ul>
+                            <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}" class="nav-link">Credit Default Swaps</a></li>
+                            <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}" class="nav-link">Synthetic CDO</a></li>
+                            <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}" class="nav-link">Credit-Linked Notes</a></li>
+                        </ul>
+                    </details>
+
+                    <details class="nav-group">
+                        <summary>Volatility & Market Data</summary>
+                        <ul>
+                            <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}" class="nav-link">Variance Swaps</a></li>
+                            <li><a href="{{ url_for('volatility_surface.volatility_surface') }}" class="nav-link">Volatility Surface</a></li>
+                            <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market Data</a></li>
+                        </ul>
+                    </details>
+
+                    <details class="nav-group">
+                        <summary>Model Validation</summary>
+                        <ul>
+                            <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment Calculator</a></li>
+                            <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}" class="nav-link">Prepayment Model Validator</a></li>
+                            <li><a href="{{ url_for('vanilla_options.model_governance') }}" class="nav-link">Model Governance</a></li>
+                            <li><a href="{{ url_for('vanilla_options.model_performance') }}" class="nav-link">Model Performance</a></li>
+                        </ul>
+                    </details>
+                </div>
+                {% else %}
+                <div class="nav-public-note">
+                    <strong>Core analytics require sign-in.</strong>
+                    <span>Create a free account to access pricing, portfolios, reports, and saved analysis history.</span>
+                </div>
+                {% endif %}
             </nav>
         </div>
         <main class="app-main">
@@ -270,83 +235,13 @@
             document.querySelectorAll('.nav-link').forEach(function (link) {
                 if (link.href === currentUrl) {
                     link.classList.add('selected');
+                    var parentGroup = link.closest('details.nav-group');
+                    if (parentGroup) {
+                        parentGroup.open = true;
+                    }
                 }
             });
         });
-    </script>
-
-    <script>
-        // Reposition flyout submenus so they align vertically with their parent menu items
-        (function () {
-            const nav = document.getElementById('navPanel');
-            if (!nav) return;
-
-            function attach(li) {
-                const submenu = li.querySelector(':scope > ul');
-                if (!submenu) return;
-
-                const show = () => {
-                    const linkEl = li.querySelector('a');
-                    const rect = linkEl ? linkEl.getBoundingClientRect() : li.getBoundingClientRect();
-                    const navRect = nav.getBoundingClientRect();
-                    const isTopLevel = li.parentElement === nav.querySelector('ul');
-                    // For top-level items place submenu to the right of the nav panel.
-                    // For nested items place submenu immediately adjacent to the parent li (slight overlap) to avoid a hover gap.
-                    const left = isTopLevel ? (navRect.right + 6) : (rect.right - 2);
-                    submenu.style.position = 'fixed';
-                    submenu.style.left = left + 'px';
-                    // account for submenu's own top padding and border so its first item lines up with the parent
-                    const sStyle = window.getComputedStyle(submenu);
-                    const padTop = parseFloat(sStyle.paddingTop) || 0;
-                    const borderTop = parseFloat(sStyle.borderTopWidth) || 0;
-                    // center the submenu's first item vertically with the parent li so hover transitions are smooth
-                    const firstItem = submenu.querySelector('li');
-                    const firstH = firstItem ? firstItem.getBoundingClientRect().height : 0;
-                    const centeredTop = rect.top + (rect.height / 2) - (firstH / 2) - padTop - borderTop;
-                    const extraOffset = -2; // nudge up to remove micro-gap
-                    submenu.style.top = (centeredTop + extraOffset) + 'px';
-                    submenu.style.display = 'block';
-                };
-
-                const hide = () => {
-                    setTimeout(() => {
-                        if (!li.matches(':hover') && !submenu.matches(':hover')) {
-                            submenu.style.display = 'none';
-                        }
-                    }, 50);
-                };
-
-                li.addEventListener('mouseenter', show);
-                li.addEventListener('mouseleave', hide);
-                submenu.addEventListener('mouseenter', () => submenu.style.display = 'block');
-                submenu.addEventListener('mouseleave', () => submenu.style.display = 'none');
-
-                // recurse for nested lists
-                Array.from(submenu.children).forEach(child => { if (child.tagName === 'LI') attach(child); });
-            }
-
-            Array.from(nav.querySelectorAll('li')).forEach(li => attach(li));
-
-            window.addEventListener('resize', () => {
-                document.querySelectorAll('#navPanel ul ul').forEach(ul => {
-                    if (getComputedStyle(ul).display !== 'none') {
-                        const parent = ul.parentElement;
-                        const parentLink = parent ? parent.querySelector('a') : null;
-                        const rect = parentLink ? parentLink.getBoundingClientRect() : parent.getBoundingClientRect();
-                        const navRect = nav.getBoundingClientRect();
-                        const isTopLevel = parent.parentElement === nav.querySelector('ul');
-                        const sStyle = window.getComputedStyle(ul);
-                        const padTop = parseFloat(sStyle.paddingTop) || 0;
-                        const borderTop = parseFloat(sStyle.borderTopWidth) || 0;
-                        const firstItem = ul.querySelector('li');
-                        const firstH = firstItem ? firstItem.getBoundingClientRect().height : 0;
-                        ul.style.left = (isTopLevel ? (navRect.right + 6) : (rect.right - 2)) + 'px';
-                        const extraOffset = -2;
-                        ul.style.top = (rect.top + (rect.height / 2) - (firstH / 2) - padTop - borderTop + extraOffset) + 'px';
-                    }
-                });
-            });
-        })();
     </script>
 
 <script>

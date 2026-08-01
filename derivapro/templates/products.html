@@ -5,8 +5,22 @@
 {% block content %}
 <div class="page-title compact">
     <h1>Products</h1>
-    <p>Browse all product categories and open each pricing or analytics workflow directly from this page.</p>
+    <p>
+        Browse DerivaPro product coverage. Core workflows require sign-in; the European option pricer is available
+        as a free preview.
+    </p>
 </div>
+
+{% if not current_user.is_authenticated %}
+<div class="preview-gate-card">
+    <strong>Free account required for core analytics</strong>
+    <p>Create an account to access full pricing workflows, saved results, portfolios, reports, and analysis history.</p>
+    <div class="landing-actions">
+        <a href="{{ url_for('auth.register') }}" class="landing-button primary">Create Free Account</a>
+        <a href="{{ url_for('vanilla_options.european_options') }}" class="landing-button secondary">Open Free Preview</a>
+    </div>
+</div>
+{% endif %}
 
 <div class="history-table-card" style="padding: 22px;">
     <div class="detail-section-card" style="margin-bottom: 18px;">

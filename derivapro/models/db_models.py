@@ -10,10 +10,16 @@ class User(UserMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False, index=True)
+    full_name = db.Column(db.String(150), nullable=True)
+    email = db.Column(db.String(255), unique=True, nullable=True, index=True)
+    organization = db.Column(db.String(255), nullable=True)
+    intended_use = db.Column(db.String(255), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     security_question = db.Column(db.String(255), nullable=True)
     security_answer_hash = db.Column(db.String(255), nullable=True)
     role = db.Column(db.String(50), nullable=False, default="user")
+    accepted_terms = db.Column(db.Boolean, nullable=False, default=False)
+    accepted_terms_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     instruments = db.relationship("Instrument", back_populates="user", lazy=True)

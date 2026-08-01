@@ -7,8 +7,8 @@
     <div class="auth-card auth-card-enhanced">
 
         <div class="auth-header">
-            <h2>Create Account</h2>
-            <p>Set up your account to save pricing results, analyses, and portfolio positions.</p>
+            <h2>Create a Free DerivaPro Account</h2>
+            <p>Registration unlocks pricing workflows, saved results, portfolio tools, and user-specific analysis history.</p>
         </div>
 
         {% if error %}
@@ -20,8 +20,39 @@
         <form method="post" class="auth-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="auth-form-group">
+                <label for="full_name">Full Name</label>
+                <input type="text" id="full_name" name="full_name" placeholder="Jane Smith"
+                    value="{{ form_data.get('full_name', '') if form_data else '' }}" required autofocus>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="name@example.com"
+                    value="{{ form_data.get('email', '') if form_data else '' }}" required>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="organization">Organization</label>
+                <input type="text" id="organization" name="organization" placeholder="Company, school, or independent"
+                    value="{{ form_data.get('organization', '') if form_data else '' }}" required>
+            </div>
+
+            <div class="auth-form-group">
+                <label for="intended_use">Intended Use</label>
+                <select id="intended_use" name="intended_use" required>
+                    <option value="">Select intended use</option>
+                    {% set selected_use = form_data.get('intended_use', '') if form_data else '' %}
+                    <option value="Personal research" {% if selected_use == 'Personal research' %}selected{% endif %}>Personal research</option>
+                    <option value="Education / training" {% if selected_use == 'Education / training' %}selected{% endif %}>Education / training</option>
+                    <option value="Internal evaluation" {% if selected_use == 'Internal evaluation' %}selected{% endif %}>Internal evaluation</option>
+                    <option value="Model exploration" {% if selected_use == 'Model exploration' %}selected{% endif %}>Model exploration</option>
+                </select>
+            </div>
+
+            <div class="auth-form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="Choose a username" required autofocus>
+                <input type="text" id="username" name="username" placeholder="Choose a username"
+                    value="{{ form_data.get('username', '') if form_data else '' }}" required>
             </div>
 
             <div class="auth-form-group">
@@ -50,12 +81,13 @@
             <div class="auth-form-group">
                 <label for="security_question">Security Question</label>
                 <select id="security_question" name="security_question" required>
+                    {% set selected_question = form_data.get('security_question', '') if form_data else '' %}
                     <option value="">Select a security question</option>
-                    <option value="What was the name of your first school?">What was the name of your first school?
+                    <option value="What was the name of your first school?" {% if selected_question == 'What was the name of your first school?' %}selected{% endif %}>What was the name of your first school?
                     </option>
-                    <option value="What is your mother’s maiden name?">What is your mother’s maiden name?</option>
-                    <option value="What was the name of your first pet?">What was the name of your first pet?</option>
-                    <option value="What city were you born in?">What city were you born in?</option>
+                    <option value="What is your mother’s maiden name?" {% if selected_question == 'What is your mother’s maiden name?' %}selected{% endif %}>What is your mother's maiden name?</option>
+                    <option value="What was the name of your first pet?" {% if selected_question == 'What was the name of your first pet?' %}selected{% endif %}>What was the name of your first pet?</option>
+                    <option value="What city were you born in?" {% if selected_question == 'What city were you born in?' %}selected{% endif %}>What city were you born in?</option>
                 </select>
                 <small class="auth-help-text">This will be used to verify your identity if you need to reset your
                     password.</small>
@@ -71,6 +103,23 @@
                         Show
                     </button>
                 </div>
+            </div>
+
+            <div class="auth-disclaimer-box">
+                <strong>Usage disclaimer</strong>
+                <p>
+                    DerivaPro is provided for personal research, education, and internal evaluation only.
+                    It is not financial, investment, trading, accounting, tax, legal, or risk-management advice.
+                    Model outputs are estimates and may be incomplete or inaccurate. Do not use outputs for
+                    production trading, client recommendations, commercial redistribution, or regulated decisions
+                    without independent validation.
+                </p>
+                <label class="auth-checkbox-row" for="accepted_terms">
+                    <input type="checkbox" id="accepted_terms" name="accepted_terms" required
+                        {% if form_data and form_data.get('accepted_terms') == 'on' %}checked{% endif %}>
+                    <span>I understand and accept the DerivaPro terms and disclaimer.</span>
+                </label>
+                <a href="{{ url_for('auth.terms') }}" class="auth-link">Read full terms and disclaimer</a>
             </div>
 
             <button type="submit" class="auth-button">Create Account</button>

@@ -1,7 +1,9 @@
+from datetime import datetime
 from urllib.parse import urlsplit
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy import or_
 
 from ..extensions import db
 from ..models.db_models import User
@@ -25,28 +27,49 @@ def register():
     error = None
 
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
+        full_name = request.form.get("full_name", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        organization = request.form.get("organization", "").strip()
+        intended_use = request.form.get("intended_use", "").strip()
+        username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "")
         confirm_password = request.form.get("confirm_password", "")
         security_question = request.form.get("security_question", "").strip()
         security_answer = request.form.get("security_answer", "").strip()
+        accepted_terms = request.form.get("accepted_terms") == "on"
 
         if (
-            not username
+            not full_name
+            or not email
+            or not organization
+            or not intended_use
+            or not username
             or not password
             or not confirm_password
             or not security_question
             or not security_answer
         ):
             error = "All fields are required."
+        elif "@" not in email or "." not in email:
+            error = "Please enter a valid email address."
         elif password != confirm_password:
             error = "Passwords do not match."
+        elif not accepted_terms:
+            error = "You must accept the terms and disclaimer to create an account."
         elif User.query.filter_by(username=username).first():
             error = "Username already exists."
+        elif User.query.filter_by(email=email).first():
+            error = "Email is already registered."
         else:
             user = User(
                 username=username,
+                full_name=full_name,
+                email=email,
+                organization=organization,
+                intended_use=intended_use,
                 security_question=security_question,
+                accepted_terms=True,
+                accepted_terms_at=datetime.utcnow(),
             )
             user.set_password(password)
             user.set_security_answer(security_answer)
@@ -57,7 +80,7 @@ def register():
             flash("Registration successful. Please log in.", "success")
             return redirect(url_for("auth.login"))
 
-    return render_template("auth/register.html", error=error)
+    return render_template("auth/register.html", error=error, form_data=request.form)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -68,10 +91,15 @@ def login():
     error = None
 
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
+        username = request.form.get("username", "").strip().lower()
         password = request.form.get("password", "")
 
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter(
+            or_(
+                User.username == username,
+                User.email == username,
+            )
+        ).first()
 
         if user is None or not user.check_password(password):
             error = "Invalid username or password."
@@ -84,6 +112,11 @@ def login():
             return redirect(next_page)
 
     return render_template("auth/login.html", error=error)
+
+
+@auth_bp.route("/terms", methods=["GET"])
+def terms():
+    return render_template("auth/terms.html")
 
 
 @auth_bp.route("/forgot-password", methods=["GET", "POST"])
