@@ -1,20 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}Products{% endblock %}
+{% block title %}DerivaPro | Product Workspace{% endblock %}
 
 {% block content %}
 <div class="page-title compact">
-    <h1>Products</h1>
+    <p class="section-kicker">Product workspace</p>
+    <h1>Instrument coverage and analytics workflows</h1>
     <p>
-        Browse DerivaPro product coverage. Core workflows require sign-in; the European option pricer is available
-        as a free preview.
+        DerivaPro groups pricing tools by asset class and workflow. Registered users can open the full product
+        workspace from the left navigation; public visitors can use the European option preview.
     </p>
 </div>
 
 {% if not current_user.is_authenticated %}
 <div class="preview-gate-card">
-    <strong>Free account required for core analytics</strong>
-    <p>Create an account to access full pricing workflows, saved results, portfolios, reports, and analysis history.</p>
+    <strong>Free account required for the full product workspace</strong>
+    <p>
+        The product map below summarizes current platform direction. Core workflows require sign-in so analysis
+        history, saved results, portfolio context, and reports can be associated with a user workspace.
+    </p>
     <div class="landing-actions">
         <a href="{{ url_for('auth.register') }}" class="landing-button primary">Create Free Account</a>
         <a href="{{ url_for('vanilla_options.european_options') }}" class="landing-button secondary">Open Free Preview</a>
@@ -22,76 +26,54 @@
 </div>
 {% endif %}
 
-<div class="history-table-card" style="padding: 22px;">
-    <div class="detail-section-card" style="margin-bottom: 18px;">
-        <h3>Vanilla Options</h3>
-        <ul>
-            <li><a href="{{ url_for('vanilla_options.european_options') }}">European Options</a></li>
-            <li><a href="{{ url_for('vanilla_options.american_options') }}">American Options</a></li>
-        </ul>
-    </div>
-
-    <div class="detail-section-card" style="margin-bottom: 18px;">
-        <h3>NonCallable Bonds</h3>
-        <ul>
-            <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}">Fixed Rate Bonds</a></li>
-            <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Fixed Rate Amortizing Bonds</a></li>
-            <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}">Floating Rate Bonds</a></li>
-            <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Floating Rate Amortizing Bonds</a></li>
-        </ul>
-    </div>
-
-    <div class="detail-section-card" style="margin-bottom: 18px;">
-        <h3>Exotic Options</h3>
-        <ul>
-            <li><a href="{{ url_for('exotic_options.barrier_options') }}">Barrier Options</a></li>
-            <li><a href="{{ url_for('exotic_options.asian_options') }}">Asian Options</a></li>
-            <li><a href="{{ url_for('exotic_options.autocallable_options') }}">AutoCallable</a></li>
-        </ul>
-    </div>
-
-    <div class="detail-section-card" style="margin-bottom: 18px;">
-        <h3>Futures &amp; Forwards</h3>
-        <ul>
-            <li><a href="{{ url_for('futures_forwards.forwards') }}">Forwards</a></li>
-            <li><a href="{{ url_for('futures_forwards.futures') }}">Futures</a></li>
-        </ul>
-    </div>
-
-    <div class="detail-section-card" style="margin-bottom: 18px;">
-        <h3>Interest Rate Derivatives</h3>
-        <ul>
-            <li><a href="{{ url_for('rates.swap_page') }}">Swaps Analytical</a></li>
-            <li><a href="{{ url_for('swaps.swaps') }}">Swaps M2M</a></li>
-            <li><a href="{{ url_for('rates.swaption_page') }}">Swaptions Analytical</a></li>
-            <li><a href="{{ url_for('swaptions.swaptions') }}">Swaptions M2M</a></li>
-            <li><a href="{{ url_for('term_structure.calculate_term_structure') }}">Term Structure</a></li>
-        </ul>
-    </div>
-
-    <div class="detail-section-card" style="margin-bottom: 18px;">
-        <h3>Credit Derivatives</h3>
-        <ul>
-            <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">Credit Default Swaps</a></li>
-            <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}">Synthetic Collateralized Debt Obligations</a></li>
-            <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}">Credit Linked Notes</a></li>
-        </ul>
-    </div>
-
-    <div class="detail-section-card" style="margin-bottom: 18px;">
-        <h3>Volatility / Risk Products</h3>
-        <ul>
-            <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}">Variance Swaps</a></li>
-            <li><a href="{{ url_for('volatility_surface.volatility_surface') }}">Volatility Surface</a></li>
-        </ul>
-    </div>
-
-    <div class="detail-section-card" style="margin-bottom: 0;">
-        <h3>Prepayment Products</h3>
-        <ul>
-            <li><a href="{{ url_for('prepayment.prepayment') }}">Prepayment</a></li>
-            <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}">Prepayment Model Validator</a></li>
-        </ul>
-    </div>
-</div>
+<section class="product-workspace-grid">
+    <article class="product-workspace-card">
+        <span>Equity & Options</span>
+        <h3>Vanilla and exotic payoff analytics</h3>
+        <p>European, American, barrier, Asian, and structured equity-linked products.</p>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('vanilla_options.european_options') }}">Open equity workflow</a>
+        {% endif %}
+    </article>
+    <article class="product-workspace-card">
+        <span>Structured Products</span>
+        <h3>Autocallables and basket notes</h3>
+        <p>Single- or basket-underlying notes with barriers, coupon logic, and observation schedules.</p>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('exotic_options.autocallable_options') }}">Open structured workflow</a>
+        {% endif %}
+    </article>
+    <article class="product-workspace-card">
+        <span>Fixed Income</span>
+        <h3>Bond cash flow and yield analysis</h3>
+        <p>Fixed, floating, amortizing, and non-callable bond workflows.</p>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('nc_bonds.nc_bonds') }}">Open fixed-income workflow</a>
+        {% endif %}
+    </article>
+    <article class="product-workspace-card">
+        <span>Rates & Forwards</span>
+        <h3>Curve, swap, swaption, and forward workflows</h3>
+        <p>Interest-rate analytics, term structures, forwards, futures, swaps, and swaptions.</p>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('term_structure.calculate_term_structure') }}">Open rates workflow</a>
+        {% endif %}
+    </article>
+    <article class="product-workspace-card">
+        <span>Credit</span>
+        <h3>Credit derivative evaluation</h3>
+        <p>CDS, synthetic CDO, and credit-linked-note analysis.</p>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}">Open credit workflow</a>
+        {% endif %}
+    </article>
+    <article class="product-workspace-card">
+        <span>Market Data & Model Review</span>
+        <h3>Volatility, scenarios, and governance</h3>
+        <p>Volatility surface, variance swaps, market data extraction, model governance, and monitoring.</p>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('volatility_surface.volatility_surface') }}">Open market-data workflow</a>
+        {% endif %}
+    </article>
+</section>
 {% endblock %}

@@ -1,7 +1,22 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>{{ title or "European Swaption (New)" }}</h2>
+{% import "components/product_sections.html" as product %}
 
+{% block content %}
+{{ product.header(
+    title or "European Swaption",
+    "Price European payer and receiver swaptions using curve and volatility-surface assumptions.",
+    "Rates & Forwards",
+    "Pricing Workflow"
+) }}
+
+{{ product.description(
+    "Options on interest rate swaps with payer or receiver exercise rights.",
+    "This workflow supports European swaption pricing using Black, Bachelier, and Hull-White Monte Carlo methods. Inputs include valuation date, expiry, swap start, tenor, strike, notional, discount curve, volatility surface, and model parameters.",
+    ["Payer swaption", "Receiver swaption", "Black", "Bachelier", "Hull-White MC"],
+    "A full methodology link will be added here once the swaption documentation is published in the repository."
+) }}
+
+{% call product.section("Pricing", "Enter option terms, swap economics, curve inputs, and volatility or model parameters.") %}
 <div class="form-wrap">
   <div class="form-card">
     <form id="swpt-form" enctype="multipart/form-data" class="form-grid">
@@ -115,6 +130,16 @@
     </div>
   </div>
 </div>
+{% endcall %}
+
+{% call product.section("Analysis", "Review PV, forward Greeks, annuity, forward rate, volatility usage, and Monte Carlo error where applicable.") %}
+<p class="inline-muted-text">
+  The swaption workflow currently presents model diagnostics in the pricing result panel. Dedicated rates
+  sensitivity and scenario analysis sections will be added as the module matures.
+</p>
+{% endcall %}
+
+{{ product.reporting("swaption") }}
 
 <script>
 const csrfToken = "{{ csrf_token() }}";

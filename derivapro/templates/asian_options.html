@@ -1,22 +1,26 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>Asian Options</h1>
-    <p>Price Asian-style options, review analytics, and explore supporting validation workflows from a single page.</p>
-</div>
+{{ product.header(
+    "Asian Options",
+    "Price Asian-style options, review analytics, and explore supporting validation workflows from a single page.",
+    "Equity & Options",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
-</div>
+{{ product.description(
+    "Path-dependent options whose payoff depends on an average underlying level.",
+    "This workflow supports Asian option pricing where the payoff is driven by averaging dates rather than only the terminal spot. It is useful for evaluating path dependence, volatility assumptions, and sensitivity of average-price structures.",
+    ["Arithmetic averaging", "Call / put payoff", "Monte Carlo", "Averaging schedule"],
+    "A full methodology link will be added here once the Asian option documentation is published in the repository."
+) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Option Pricing</h3>
-</div>
+{% call product.section("Pricing", "Enter payoff terms, averaging schedule, market assumptions, and simulation settings.") %}
 
 <form id="options-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -78,8 +82,10 @@
     <h2>Asian Option Price: {{ option_price }}</h2>
 </div>
 {% endif %}
+{% endcall %}
 
 <!-- Analysis Tabs -->
+{% call product.section("Analysis", "Run sensitivity, scenario, convergence, and risk-based P&L analysis for Asian option assumptions.") %}
 <div id="analysis-section">
     <div class="section-title">
         <h3>Analysis</h3>
@@ -400,6 +406,9 @@
         </div>
     </div>
 </div>
+{% endcall %}
+
+{{ product.reporting("Asian option") }}
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>

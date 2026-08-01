@@ -10,7 +10,7 @@
         (function () {
             const storedTheme = localStorage.getItem('derivaProTheme');
             const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = storedTheme || (prefersDark ? 'dark' : 'light');
+            const theme = storedTheme || 'light';
             document.documentElement.dataset.theme = theme;
         })();
     </script>
@@ -38,7 +38,7 @@
 <body>
     <header class="top-bar">
         <div class="top-bar-left">
-            <button id="toggleMenu">Hide Menu</button>
+            <button id="toggleMenu">Collapse Navigation</button>
         </div>
 
         <div class="top-bar-right">
@@ -68,61 +68,85 @@
                     <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="nav-logo">
                 </div>
 
-                <div class="nav-section-label">DerivaPro</div>
-                <ul class="nav-tree">
-                    <li><a href="{{ url_for('index.index') }}" class="nav-link">Overview</a></li>
-                    <li><a href="{{ url_for('index.products') }}" class="nav-link">Product Map</a></li>
-                    <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">Free Preview: European Option</a></li>
-                    {% if not current_user.is_authenticated %}
-                    <li><a href="{{ url_for('auth.login') }}" class="nav-link">Sign In</a></li>
-                    <li><a href="{{ url_for('auth.register') }}" class="nav-link nav-callout">Create Free Account</a></li>
-                    {% endif %}
-                </ul>
-
-                {% if current_user.is_authenticated %}
-                <div class="nav-section-label">Workspace</div>
-                <ul class="nav-tree">
-                    <li><a href="{{ url_for('saved_results.saved_results') }}" class="nav-link">Saved Results</a></li>
-                    <li><a href="{{ url_for('analysis_history.analysis_history') }}" class="nav-link">Analysis History</a></li>
-                    <li><a href="{{ url_for('portfolios.portfolios') }}" class="nav-link">Portfolios</a></li>
-                    <li><a href="{{ url_for('reports_generated.reports_generated') }}" class="nav-link">Reports</a></li>
-                </ul>
-
-                <div class="nav-section-label">Products</div>
+                <div class="nav-section-label">Navigation</div>
                 <div class="nav-accordion">
+                    <details class="nav-group" open>
+                        <summary>Platform</summary>
+                        <ul>
+                            <li><a href="{{ url_for('index.index') }}" class="nav-link">Overview</a></li>
+                            <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">Free Preview: European Option</a></li>
+                            {% if current_user.is_authenticated %}
+                            <li><a href="{{ url_for('index.products') }}" class="nav-link">Product Workspace</a></li>
+                            {% else %}
+                            <li><a href="{{ url_for('auth.login') }}" class="nav-link">Sign In</a></li>
+                            <li><a href="{{ url_for('auth.register') }}" class="nav-link nav-callout">Create Free Account</a></li>
+                            {% endif %}
+                        </ul>
+                    </details>
+
+                    {% if current_user.is_authenticated %}
+                    <details class="nav-group" open>
+                        <summary>Workspace</summary>
+                        <ul>
+                            <li><a href="{{ url_for('saved_results.saved_results') }}" class="nav-link">Saved Results</a></li>
+                            <li><a href="{{ url_for('analysis_history.analysis_history') }}" class="nav-link">Analysis History</a></li>
+                            <li><a href="{{ url_for('portfolios.portfolios') }}" class="nav-link">Portfolios</a></li>
+                            <li><a href="{{ url_for('reports_generated.reports_generated') }}" class="nav-link">Reports</a></li>
+                        </ul>
+                    </details>
+                    {% endif %}
+
                     <details class="nav-group" open>
                         <summary>Equity & Options</summary>
                         <ul>
-                            <li><a href="{{ url_for('vanilla_options.vanilla_options') }}" class="nav-link">Vanilla Options</a></li>
+                            {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options</a></li>
                             <li><a href="{{ url_for('vanilla_options.american_options') }}" class="nav-link">American Options</a></li>
                             <li><a href="{{ url_for('exotic_options.exotic_options') }}" class="nav-link">Exotic Options</a></li>
                             <li><a href="{{ url_for('exotic_options.barrier_options') }}" class="nav-link">Barrier Options</a></li>
                             <li><a href="{{ url_for('exotic_options.asian_options') }}" class="nav-link">Asian Options</a></li>
+                            {% else %}
+                            <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options Preview</a></li>
+                            <li><span class="nav-link nav-link-locked">American Options</span></li>
+                            <li><span class="nav-link nav-link-locked">Barrier Options</span></li>
+                            <li><span class="nav-link nav-link-locked">Asian Options</span></li>
+                            {% endif %}
                         </ul>
                     </details>
 
-                    <details class="nav-group" open>
+                    <details class="nav-group">
                         <summary>Structured Products</summary>
                         <ul>
+                            {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('exotic_options.autocallable_options') }}" class="nav-link">Autocallables / Phoenix</a></li>
+                            {% else %}
+                            <li><span class="nav-link nav-link-locked">Autocallables / Phoenix</span></li>
+                            <li><span class="nav-link nav-link-locked">Basket Notes</span></li>
+                            {% endif %}
                         </ul>
                     </details>
 
                     <details class="nav-group">
                         <summary>Fixed Income</summary>
                         <ul>
+                            {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('nc_bonds.nc_bonds') }}" class="nav-link">Bond Analytics</a></li>
                             <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}" class="nav-link">Fixed Rate Bonds</a></li>
                             <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}" class="nav-link">Fixed Amortizing Bonds</a></li>
                             <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}" class="nav-link">Floating Rate Bonds</a></li>
                             <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}" class="nav-link">Floating Amortizing Bonds</a></li>
+                            {% else %}
+                            <li><span class="nav-link nav-link-locked">Bond Analytics</span></li>
+                            <li><span class="nav-link nav-link-locked">Fixed / Floating Bonds</span></li>
+                            <li><span class="nav-link nav-link-locked">Amortizing Bonds</span></li>
+                            {% endif %}
                         </ul>
                     </details>
 
                     <details class="nav-group">
                         <summary>Rates & Forwards</summary>
                         <ul>
+                            {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Swap Pricing</a></li>
                             <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swap M2M</a></li>
                             <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">Swaption Pricing</a></li>
@@ -130,38 +154,62 @@
                             <li><a href="{{ url_for('futures_forwards.forwards') }}" class="nav-link">Forwards</a></li>
                             <li><a href="{{ url_for('futures_forwards.futures') }}" class="nav-link">Futures</a></li>
                             <li><a href="{{ url_for('term_structure.calculate_term_structure') }}" class="nav-link">Term Structure</a></li>
+                            {% else %}
+                            <li><span class="nav-link nav-link-locked">Swaps / Swaptions</span></li>
+                            <li><span class="nav-link nav-link-locked">Forwards / Futures</span></li>
+                            <li><span class="nav-link nav-link-locked">Term Structure</span></li>
+                            {% endif %}
                         </ul>
                     </details>
 
                     <details class="nav-group">
                         <summary>Credit</summary>
                         <ul>
+                            {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('credit_derivatives.creditDefaultSwaps') }}" class="nav-link">Credit Default Swaps</a></li>
                             <li><a href="{{ url_for('credit_derivatives.syntheticCDO') }}" class="nav-link">Synthetic CDO</a></li>
                             <li><a href="{{ url_for('credit_derivatives.creditLinkedNotes') }}" class="nav-link">Credit-Linked Notes</a></li>
+                            {% else %}
+                            <li><span class="nav-link nav-link-locked">Credit Default Swaps</span></li>
+                            <li><span class="nav-link nav-link-locked">Synthetic CDO</span></li>
+                            <li><span class="nav-link nav-link-locked">Credit-Linked Notes</span></li>
+                            {% endif %}
                         </ul>
                     </details>
 
                     <details class="nav-group">
                         <summary>Volatility & Market Data</summary>
                         <ul>
+                            {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}" class="nav-link">Variance Swaps</a></li>
                             <li><a href="{{ url_for('volatility_surface.volatility_surface') }}" class="nav-link">Volatility Surface</a></li>
                             <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market Data</a></li>
+                            {% else %}
+                            <li><span class="nav-link nav-link-locked">Variance Swaps</span></li>
+                            <li><span class="nav-link nav-link-locked">Volatility Surface</span></li>
+                            <li><span class="nav-link nav-link-locked">Market Data</span></li>
+                            {% endif %}
                         </ul>
                     </details>
 
                     <details class="nav-group">
                         <summary>Model Validation</summary>
                         <ul>
+                            {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('prepayment.prepayment') }}" class="nav-link">Prepayment Calculator</a></li>
                             <li><a href="{{ url_for('prepayment_v2.prepayment_model_validator') }}" class="nav-link">Prepayment Model Validator</a></li>
                             <li><a href="{{ url_for('vanilla_options.model_governance') }}" class="nav-link">Model Governance</a></li>
                             <li><a href="{{ url_for('vanilla_options.model_performance') }}" class="nav-link">Model Performance</a></li>
+                            {% else %}
+                            <li><span class="nav-link nav-link-locked">Prepayment Analytics</span></li>
+                            <li><span class="nav-link nav-link-locked">Model Governance</span></li>
+                            <li><span class="nav-link nav-link-locked">Model Performance</span></li>
+                            {% endif %}
                         </ul>
                     </details>
                 </div>
-                {% else %}
+
+                {% if not current_user.is_authenticated %}
                 <div class="nav-public-note">
                     <strong>Core analytics require sign-in.</strong>
                     <span>Create a free account to access pricing, portfolios, reports, and saved analysis history.</span>
@@ -190,10 +238,10 @@
             var navPanel = document.getElementById('navPanel');
             if (navPanel.classList.contains('hidden')) {
                 navPanel.classList.remove('hidden');
-                this.textContent = 'Hide Menu';
+                this.textContent = 'Collapse Navigation';
             } else {
                 navPanel.classList.add('hidden');
-                this.textContent = 'Show Menu';
+                this.textContent = 'Show Navigation';
             }
         });
 

@@ -1,23 +1,27 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>Variance Swaps</h1>
-    <p>Calculate variance swap metrics, review realized and expected variance, and assess current and simulated settlement outcomes.</p>
-</div>
+{{ product.header(
+    "Variance Swaps",
+    "Calculate variance swap metrics, review realized and expected variance, and assess current and simulated settlement outcomes.",
+    "Volatility & Market Data",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ content|safe }}
-</div>
+{{ product.description(
+    "Forward contracts on realized variance over a defined observation period.",
+    "This workflow supports variance swap valuation using realized variance inputs, strike volatility, vega notional, risk-free assumptions, position direction, and stochastic-volatility parameters for simulated settlement outcomes.",
+    ["Realized variance", "Variance notional", "Settlement amount", "Expected realized variance"],
+    "A full methodology link will be added here once the variance swap documentation is published in the repository."
+) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Variance Swap</h3>
-</div>
-<form method="post" class="form-grid">
+{% call product.section("Pricing", "Enter observation dates, variance strike assumptions, position, and model parameters.") %}
+<form id="variance-swap-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
@@ -113,10 +117,22 @@
     <div class="result-value">{{ current_value }}</div>
 </div>
 {% endif %}
+{% endcall %}
+
+{% call product.section("Analysis", "Review realized variance, expected realized variance, settlement amount, and simulated settlement outcome.") %}
+<p class="inline-muted-text">
+    The variance swap workflow currently presents analysis metrics directly in the pricing results area. A fuller
+    sensitivity/scenario analysis layout will be added when the volatility analytics module is expanded.
+</p>
+{% endcall %}
+
+{{ product.reporting("variance swap") }}
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>
-document.getElementById('options-form').addEventListener('submit', function(event) {
+const varianceSwapForm = document.getElementById('variance-swap-form');
+if (varianceSwapForm) {
+varianceSwapForm.addEventListener('submit', function(event) {
     var loadingSpinner = document.getElementById('loadingSpinner');
     loadingSpinner.style.display = 'block';  // Show spinner on form submit
 
@@ -124,6 +140,7 @@ document.getElementById('options-form').addEventListener('submit', function(even
         loadingSpinner.style.display = 'none';  // Hide spinner on page load
     });
 });
+}
 
 // JavaScript for AJAX Form Submission
 function submitForm(formId, url, updateId) {

@@ -1,60 +1,131 @@
 {% extends "base.html" %}
 
-{% block title %}DerivaPro | Pricing and Risk Platform{% endblock %}
+{% block title %}DerivaPro | Financial Instrument Pricing and Risk{% endblock %}
 
 {% block content %}
-<section class="landing-hero">
-    <div class="landing-copy">
-        <p class="eyebrow">DerivaPro Platform</p>
-        <h1>Financial instrument pricing, analytics, and risk workflows in one browser app.</h1>
-        <p>
-            DerivaPro combines derivatives pricing, market data workflows, saved analysis history,
-            portfolio tools, and reporting into a user-scoped quantitative finance workspace.
+<section class="platform-hero">
+    <div class="platform-hero-copy">
+        <p class="eyebrow">DerivaPro analytics workspace</p>
+        <h1>Pricing, evaluation, and risk workflows for modern financial instruments.</h1>
+        <p class="hero-lede">
+            DerivaPro is a browser-based quantitative finance platform for exploring instrument valuation,
+            model behavior, sensitivities, market assumptions, and portfolio context in one controlled workspace.
         </p>
         <div class="landing-actions">
             {% if current_user.is_authenticated %}
-            <a href="{{ url_for('index.products') }}" class="landing-button primary">Open Product Map</a>
-            <a href="{{ url_for('portfolios.portfolios') }}" class="landing-button secondary">View Portfolios</a>
+            <a href="{{ url_for('index.products') }}" class="landing-button primary">Open Product Workspace</a>
+            <a href="{{ url_for('portfolios.portfolios') }}" class="landing-button secondary">Review Portfolios</a>
             {% else %}
             <a href="{{ url_for('auth.register') }}" class="landing-button primary">Create Free Account</a>
-            <a href="{{ url_for('vanilla_options.european_options') }}" class="landing-button secondary">Try Free Preview</a>
+            <a href="{{ url_for('vanilla_options.european_options') }}" class="landing-button secondary">Try European Option Preview</a>
             {% endif %}
         </div>
     </div>
-    <div class="landing-panel">
-        <div class="landing-metric">
-            <span>Coverage</span>
-            <strong>Multi-Asset</strong>
+
+    <aside class="platform-status-panel" aria-label="Platform status summary">
+        <div class="status-header">
+            <span>Platform Scope</span>
+            <strong>{% if current_user.is_authenticated %}Workspace Access Enabled{% else %}Preview Mode{% endif %}</strong>
         </div>
-        <div class="landing-metric">
-            <span>Workflows</span>
-            <strong>Pricing + Risk</strong>
+        <div class="status-grid">
+            <div>
+                <span>Coverage</span>
+                <strong>Equity, Rates, Credit, Fixed Income</strong>
+            </div>
+            <div>
+                <span>Analytics</span>
+                <strong>Pricing, Greeks, Scenarios</strong>
+            </div>
+            <div>
+                <span>Workflow</span>
+                <strong>Save, Review, Report</strong>
+            </div>
+            <div>
+                <span>Access</span>
+                <strong>Account-Gated Core</strong>
+            </div>
         </div>
-        <div class="landing-metric">
-            <span>Access</span>
-            <strong>{% if current_user.is_authenticated %}Signed In{% else %}Free Registration{% endif %}</strong>
-        </div>
+    </aside>
+</section>
+
+<section class="platform-section platform-purpose">
+    <div>
+        <p class="section-kicker">Purpose</p>
+        <h2>Built for disciplined valuation workflows, not one-off calculators.</h2>
+    </div>
+    <p>
+        The platform is intended to help users compare pricing methods, inspect assumptions, evaluate payoff
+        behavior, and build a repeatable path from individual instrument analysis toward portfolio-level risk
+        management. The current app includes working pricing modules and the foundation for saved analysis,
+        portfolio tracking, reporting, and model governance workflows.
+    </p>
+</section>
+
+<section class="workflow-grid" aria-label="DerivaPro capabilities">
+    <article class="workflow-card">
+        <span class="workflow-label">Instrument Valuation</span>
+        <h3>Product-level pricing</h3>
+        <p>
+            Run workflows across vanilla options, exotic options, structured products, bonds, rates,
+            forwards/futures, volatility products, and credit instruments.
+        </p>
+    </article>
+    <article class="workflow-card">
+        <span class="workflow-label">Market Assumptions</span>
+        <h3>Inputs and model context</h3>
+        <p>
+            Review spot, rate, volatility, dividend, credit, correlation, and scenario assumptions as the
+            platform evolves toward richer market data and calibration support.
+        </p>
+    </article>
+    <article class="workflow-card">
+        <span class="workflow-label">Risk Review</span>
+        <h3>Sensitivities and explainability</h3>
+        <p>
+            Inspect outputs such as present value, Greeks, payoff behavior, model diagnostics, and portfolio
+            context to support evaluation and model review.
+        </p>
+    </article>
+    <article class="workflow-card">
+        <span class="workflow-label">User Workspace</span>
+        <h3>Saved analysis path</h3>
+        <p>
+            Account access supports a cleaner workflow for saving results, maintaining analysis history,
+            managing portfolios, and preparing reports.
+        </p>
+    </article>
+</section>
+
+<section class="platform-two-column">
+    <div class="platform-panel">
+        <p class="section-kicker">Who should use it</p>
+        <h2>Designed for quantitative finance learning, prototyping, and internal evaluation.</h2>
+        <p>
+            DerivaPro is most useful for students, researchers, model developers, risk analysts, product
+            specialists, and finance professionals who want to inspect pricing mechanics and prototype
+            analytics workflows in a browser.
+        </p>
+    </div>
+    <div class="platform-panel">
+        <p class="section-kicker">How to use it</p>
+        <h2>Start with a preview, then sign in for the full workspace.</h2>
+        <p>
+            Anonymous users can review the platform overview and try the European option preview. Registered
+            users can access the broader product workspace, enter instrument assumptions, run analytics, and
+            build toward saved analysis and reporting workflows.
+        </p>
     </div>
 </section>
 
-<section class="landing-capabilities">
-    <div class="capability-card">
-        <h3>Price Instruments</h3>
-        <p>Run option, rates, credit, fixed-income, volatility, structured-product, and prepayment workflows.</p>
+<section class="platform-disclaimer">
+    <div>
+        <p class="section-kicker">Important use limitation</p>
+        <h2>Research and evaluation only.</h2>
     </div>
-    <div class="capability-card">
-        <h3>Save Analysis</h3>
-        <p>Use accounts to preserve pricing runs, model analysis, reports, and portfolio context.</p>
-    </div>
-    <div class="capability-card">
-        <h3>Review Risk</h3>
-        <p>Build toward portfolio-level views with scenario, sensitivity, and reporting workflows.</p>
-    </div>
+    <p>
+        DerivaPro is provided for personal research, education, prototyping, and internal evaluation. It is not
+        financial, investment, trading, accounting, tax, legal, or regulated risk-management advice. Outputs
+        must be independently validated before any production, client-facing, commercial, or trading use.
+    </p>
 </section>
-
-<div class="home-content-card compact-info">
-    <div id="markdown-content" class="home-markdown-content">
-        {{ md_content|safe }}
-    </div>
-</div>
 {% endblock %}

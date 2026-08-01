@@ -1,0 +1,70 @@
+{% macro header(title, subtitle, asset_class=None, workflow_status=None) -%}
+<div class="product-page-header">
+    <div>
+        {% if asset_class %}<p class="section-kicker">{{ asset_class }}</p>{% endif %}
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    {% if workflow_status %}
+    <span class="product-status-pill">{{ workflow_status }}</span>
+    {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro description(title, body, instruments=None, methodology_note=None) -%}
+<section class="product-section-card product-description-section">
+    <div class="product-section-header">
+        <span>Product Description</span>
+        <h2>{{ title }}</h2>
+        <p>{{ body }}</p>
+    </div>
+    {% if instruments %}
+    <div class="product-chip-row" aria-label="In-scope instruments">
+        {% for item in instruments %}
+        <span>{{ item }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="methodology-note">
+        {{ methodology_note or "Full methodology documentation will be linked here once the product documentation page is available in the repository." }}
+    </div>
+</section>
+{%- endmacro %}
+
+{% macro section(title, subtitle=None, section_class="") -%}
+<section class="product-section-card {{ section_class }}">
+    <div class="product-section-header">
+        <span>{{ title }}</span>
+        <h2>{{ title }}</h2>
+        {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
+    </div>
+    <div class="product-section-body">
+        {{ caller() }}
+    </div>
+</section>
+{%- endmacro %}
+
+{% macro reporting(product_name, has_report=False, view_url=None, download_url=None) -%}
+<section class="product-section-card product-reporting-section">
+    <div class="product-section-header">
+        <span>Reporting</span>
+        <h2>Reporting</h2>
+        {% if has_report %}
+        <p>Generate and export a pricing report for the latest {{ product_name }} run.</p>
+        {% else %}
+        <p>Standardized report generation for {{ product_name }} is planned. Current outputs can be reviewed on screen and will be aligned to the report framework.</p>
+        {% endif %}
+    </div>
+    <div class="product-reporting-actions">
+        {% if has_report and view_url %}
+        <a href="{{ view_url }}" class="btn btn-primary reporting-btn" target="_blank">View Report</a>
+        {% endif %}
+        {% if has_report and download_url %}
+        <a href="{{ download_url }}" class="btn btn-secondary reporting-btn" target="_blank">Download PDF</a>
+        {% endif %}
+        {% if not has_report %}
+        <span class="reporting-placeholder">Report template pending</span>
+        {% endif %}
+    </div>
+</section>
+{%- endmacro %}

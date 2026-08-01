@@ -1,6 +1,37 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | Vanilla Options{% endblock %}
 
 {% block content %}
-<h2>Vanilla Equity Option Models</h2>
-<embed src="{{ url_for('static', filename='Quant Toolbox Vanilla Option Documentation 20240722.pdf') }}" width="100%" height="800px" type="application/pdf">
+{{ product.header(
+    "Vanilla Options",
+    "Use the option pricers below to value standard call and put structures and review model outputs.",
+    "Equity & Options",
+    "Product Family"
+) }}
+
+{{ product.description(
+    "Standard option contracts with transparent payoff mechanics.",
+    "Vanilla options provide the baseline workflow for option pricing, Greeks, scenario testing, and model comparison. DerivaPro currently supports European and American-style vanilla options with model-specific analytics.",
+    ["European calls and puts", "American calls and puts", "Black-Scholes", "Tree models", "Monte Carlo"],
+    "Methodology documentation will be linked from this page once the repository documentation is finalized."
+) }}
+
+<section class="product-workspace-grid">
+    <article class="product-workspace-card">
+        <span>European Options</span>
+        <h3>Closed-form and Monte Carlo pricing</h3>
+        <p>Price European-style calls and puts, review Greeks, and access reporting for the latest run.</p>
+        <a href="{{ url_for('vanilla_options.european_options') }}">Open European pricer</a>
+    </article>
+    <article class="product-workspace-card">
+        <span>American Options</span>
+        <h3>Early-exercise option analytics</h3>
+        <p>Price American-style options with tree and simulation workflows, then run sensitivity and scenario analysis.</p>
+        <a href="{{ url_for('vanilla_options.american_options') }}">Open American pricer</a>
+    </article>
+</section>
+
+{{ product.reporting("vanilla option family") }}
 {% endblock %}

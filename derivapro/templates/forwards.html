@@ -1,23 +1,27 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
 
-<div class="page-title compact">
-    <h1>Forward Contracts</h1>
-    <p>Price forward contracts, review profit and loss outcomes, and run supporting sensitivity and scenario analysis workflows.</p>
-</div>
+{{ product.header(
+    "Forward Contracts",
+    "Price forward contracts, review profit and loss outcomes, and run supporting sensitivity and scenario analysis workflows.",
+    "Rates & Forwards",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
-</div>
+{{ product.description(
+    "Bilateral agreements to buy or sell an underlying at a future settlement date.",
+    "This workflow supports forward valuation using risk-adjusted and cost-of-carry assumptions, including settlement terms, position direction, dividend yield, convenience yield, storage cost, contract fee, multiplier, and contract count.",
+    ["Long / short forward", "Cost of carry", "Risk-adjusted model", "P&L"],
+    "A full methodology link will be added here once the forward contract documentation is published in the repository."
+) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Forwards Pricing</h3>
-</div>
+{% call product.section("Pricing", "Enter contract terms, carry assumptions, and settlement assumptions to calculate forward value and P&L.") %}
 <form id="forwards-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
@@ -103,11 +107,13 @@
     </div>
     {% endif %}
 </div>
+{% endcall %}
 
 
 
 
 <!-- Analysis Tabs -->
+{% call product.section("Analysis", "Run sensitivity, scenario, and risk-based P&L analysis for the latest forward assumptions.") %}
 <div id="analysis-section">
     <div class="section-title">
         <h3>Analysis</h3>
@@ -314,6 +320,9 @@
         {% endif %}
     </div>
 </div>
+{% endcall %}
+
+{{ product.reporting("forward contract") }}
 
 
 <!-- JavaScript for Form Submission and Loading Spinner -->

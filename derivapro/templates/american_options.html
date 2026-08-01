@@ -1,24 +1,28 @@
 <!-- Note: last updated on Aug 26 -->
 
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>American Vanilla Options</h1>
-    <p>Price American-style vanilla options, review analytics, and explore validation and reporting workflows in one place.</p>
-</div>
+{{ product.header(
+    "American Vanilla Options",
+    "Price American-style vanilla options, review analytics, and explore validation and reporting workflows in one place.",
+    "Equity & Options",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
-</div>
+{{ product.description(
+    "Option contracts with early-exercise rights before maturity.",
+    "This workflow supports American-style call and put valuation using tree-based and simulation approaches. It is intended for reviewing early-exercise optionality, pricing sensitivity, scenario behavior, and model-performance diagnostics.",
+    ["American call", "American put", "Binomial tree", "Trinomial tree", "LSMC"],
+    "A full methodology link will be added here once the American option documentation is published in the repository."
+) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Option Pricing</h3>
-</div>
+{% call product.section("Pricing", "Enter contract terms, exercise assumptions, dividends, and selected model parameters.") %}
 
 <form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -261,13 +265,6 @@
     </div>
     {% endif %} -->
     <h4>Option Price: {{ option_price }}</h4>
-    
-    <!-- Report Links -->
-    <div style="margin: 16px 0; display: flex; gap: 10px;">
-        <a href="{{ url_for('vanilla_options.reporting') }}" class="btn btn-primary" target="_blank">View Report</a>
-        <a href="{{ url_for('vanilla_options.download_report') }}" class="btn btn-secondary" target="_blank">Download PDF</a>
-    </div>
-
     <!-- Gen AI Assessment Section -->
     <div class="ai-assessment-section">
         <h4>AI Assessment</h4>
@@ -298,8 +295,10 @@
     </div>
 </div>
 {% endif %}
+{% endcall %}
 
 <!-- Analysis Tabs -->
+{% call product.section("Analysis", "Run sensitivity, scenario, convergence, and risk-based P&L workflows for the latest pricing inputs.") %}
 <div id="analysis-section">
     <div class="section-title">
         <h3>Analysis</h3>
@@ -778,6 +777,14 @@
         </div>
     </div>
 </div>
+{% endcall %}
+
+{{ product.reporting(
+    "American option",
+    has_report=True,
+    view_url=url_for('vanilla_options.reporting'),
+    download_url=url_for('vanilla_options.download_report')
+) }}
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>

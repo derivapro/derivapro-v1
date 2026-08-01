@@ -1,22 +1,26 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>Autocallable Options</h1>
-    <p>Price structured autocallable products, review outputs, and explore analytics and validation workflows from one page.</p>
-</div>
+{{ product.header(
+    "Autocallable Structured Products",
+    "Price structured autocallable products, review outputs, and explore analytics and validation workflows from one page.",
+    "Structured Products",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
-</div>
+{{ product.description(
+    "Structured notes with conditional coupons, autocall events, and downside protection features.",
+    "This workflow supports real-world autocallable and Phoenix-style terms including single or basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional, maturity, volatility, and correlation assumptions.",
+    ["Single underlying", "Basket underlying", "Autocall observations", "Memory coupon", "Knock-in protection", "Monte Carlo"],
+    "A full methodology link will be added here once the autocallable documentation is published in the repository."
+) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Option Pricing</h3>
-</div>
+{% call product.section("Pricing", "Enter structured-note termsheet assumptions and run Monte Carlo pricing for the product payoff.") %}
 <h4>Structured Note / Phoenix Termsheet Pricing</h4>
 {% set sp_form = structured_form_data|default({}) %}
 <p>
@@ -251,8 +255,10 @@
     <h2>Autocallable Option Price: {{ option_price }}</h2>
 </div>
 {% endif %}
+{% endcall %}
 
 <!-- Analysis Tabs -->
+{% call product.section("Analysis", "Run sensitivity, scenario, convergence, and risk-based P&L analysis for autocallable assumptions.") %}
 <div id="analysis-section">
     <div class="section-title">
         <h3>Analysis</h3>
@@ -584,6 +590,9 @@
         </div>
     </div>
 </div>
+{% endcall %}
+
+{{ product.reporting("autocallable structured product") }}
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>

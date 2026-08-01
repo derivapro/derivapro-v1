@@ -1,22 +1,26 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>Barrier Options</h1>
-    <p>Price barrier options, review risk analytics, and access scenario, convergence, and validation workflows in one place.</p>
-</div>
+{{ product.header(
+    "Barrier Options",
+    "Price barrier options, review risk analytics, and access scenario, convergence, and validation workflows in one place.",
+    "Equity & Options",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
-</div>
+{{ product.description(
+    "Path-dependent options activated or extinguished by a barrier event.",
+    "This workflow supports barrier option valuation with configurable barrier level, option direction, and simulation discretization. It is useful for reviewing knock-out behavior, path dependency, and model sensitivity to volatility and barrier placement.",
+    ["Up-and-out", "Down-and-out", "Call / put payoff", "Monte Carlo", "Euler / Milstein"],
+    "A full methodology link will be added here once the barrier option documentation is published in the repository."
+) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Option Pricing</h3>
-</div>
+{% call product.section("Pricing", "Enter payoff terms, barrier terms, market assumptions, and simulation settings.") %}
 
 <form id="options-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -106,8 +110,10 @@
     <h2>Barrier Option Price: {{ option_price }}</h2>
 </div>
 {% endif %}
+{% endcall %}
 
 <!-- Analysis Tabs -->
+{% call product.section("Analysis", "Run sensitivity, scenario, convergence, and risk-based P&L analysis for barrier option assumptions.") %}
 <div id="analysis-section">
     <div class="section-title">
         <h3>Analysis</h3>
@@ -455,6 +461,9 @@
         {% endif %}
     </div>
 </div>
+{% endcall %}
+
+{{ product.reporting("barrier option") }}
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>

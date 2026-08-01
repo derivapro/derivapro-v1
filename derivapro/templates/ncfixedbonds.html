@@ -1,22 +1,26 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>Non-Callable Fixed Bonds</h1>
-    <p>Price fixed-rate non-callable bonds, review valuation metrics, and assess sensitivity to yield curve and shock assumptions.</p>
-</div>
+{{ product.header(
+    "Non-Callable Fixed Bonds",
+    "Price fixed-rate non-callable bonds, review valuation metrics, and assess sensitivity to yield curve and shock assumptions.",
+    "Fixed Income",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
-</div>
+{{ product.description(
+    "Fixed-rate bonds without issuer call optionality.",
+    "This workflow supports deterministic fixed-rate bond valuation using cash-flow schedules, discount curves, day-count conventions, compounding assumptions, calendars, and rate shocks. Outputs include price, NPV, yield, duration, dollar duration, convexity, and dollar convexity.",
+    ["Fixed coupon", "Non-callable", "Curve shocks", "Duration", "Convexity"],
+    "A full methodology link will be added here once the fixed-bond documentation is published in the repository."
+) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Bond Pricing</h3>
-</div>
+{% call product.section("Pricing", "Enter bond terms, curve assumptions, conventions, and shocks to calculate valuation metrics.") %}
 
 <form id="fixed-bond-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -192,6 +196,17 @@
     <div class="assessment-content" style="white-space: pre-wrap;">{{ gpt_assessment|safe }}</div>
 </div>
 {% endif %}
+{% endcall %}
+
+{% call product.section("Analysis", "Review curve-shock valuation metrics and generated assessment for the latest pricing run.") %}
+<p class="inline-muted-text">
+    The fixed-bond workflow currently presents shock-by-shock NPV, price, yield, duration, and convexity outputs
+    in the pricing results area. A fuller standalone analysis layout will be aligned with the option-analysis tabs
+    in a subsequent pass.
+</p>
+{% endcall %}
+
+{{ product.reporting("fixed-rate bond") }}
 
 <style>
 .assessment-btn {

@@ -1,7 +1,22 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>{{ title or "Interest Rate Swap (New)" }}</h2>
+{% import "components/product_sections.html" as product %}
 
+{% block content %}
+{{ product.header(
+    title or "Interest Rate Swap",
+    "Price vanilla interest rate swaps using discount and forward curve inputs.",
+    "Rates & Forwards",
+    "Pricing Workflow"
+) }}
+
+{{ product.description(
+    "Fixed-floating interest rate swaps exchanging fixed coupons for floating-rate cash flows.",
+    "This workflow supports vanilla swap pricing using notional, fixed rate, side, payment frequency, day-count conventions, discount curves, and forward curves. Outputs include par rate, NPV, annuity, and cash-flow leg details.",
+    ["Pay fixed", "Receive fixed", "Discount curve", "Forward curve", "Cash-flow legs"],
+    "A full methodology link will be added here once the swap documentation is published in the repository."
+) }}
+
+{% call product.section("Pricing", "Enter swap economics and curve inputs, then calculate par rate, NPV, annuity, and cash-flow legs.") %}
 <div class="form-wrap">
   <div class="form-card">
     <form id="swap-form" enctype="multipart/form-data" class="form-grid">
@@ -96,6 +111,16 @@
     </div>
   </div>
 </div>
+{% endcall %}
+
+{% call product.section("Analysis", "Review cash-flow legs and core swap valuation metrics for the latest pricing run.") %}
+<p class="inline-muted-text">
+  The swap workflow currently exposes detailed leg cash flows in the pricing result panel. Dedicated sensitivity
+  and scenario tabs will be added as the rates analytics module is expanded.
+</p>
+{% endcall %}
+
+{{ product.reporting("interest rate swap") }}
 
 <script>
 (function () {
