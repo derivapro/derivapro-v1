@@ -5,12 +5,14 @@ import math
 import logging
 from typing import Union
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-import numpy as np
-from ..models.market_data import StockData
+from ..utils.lazy_imports import LazyAttribute, LazyImport
 
 logger = logging.getLogger(__name__)
+
+StockData = LazyAttribute("derivapro.models.market_data", "StockData")
+np = LazyImport("numpy")
+plt = LazyImport("matplotlib.pyplot")
+sns = LazyImport("seaborn")
 
 
 class LatticeModel:

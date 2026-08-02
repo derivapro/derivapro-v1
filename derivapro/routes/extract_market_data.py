@@ -1,7 +1,6 @@
 import QuantLib as ql
 import uuid
 import os
-import matplotlib.pyplot as plt
 from flask import session, current_app
 from flask import (
     Blueprint,
@@ -13,14 +12,23 @@ from flask import (
     url_for,
 )
 import markdown
-import numpy as np
 import datetime
 from dotenv import load_dotenv
-from ..models.yieldterm_market_data import (
-    TreasuryRateProvider,
-    SOFRRateProvider,
-    FREDSwapRatesProvider,
-    SOFRCompoundedRateCalculator,
+from ..utils.lazy_imports import LazyAttribute, LazyImport
+
+np = LazyImport("numpy")
+plt = LazyImport("matplotlib.pyplot")
+TreasuryRateProvider = LazyAttribute(
+    "derivapro.models.yieldterm_market_data", "TreasuryRateProvider"
+)
+SOFRRateProvider = LazyAttribute(
+    "derivapro.models.yieldterm_market_data", "SOFRRateProvider"
+)
+FREDSwapRatesProvider = LazyAttribute(
+    "derivapro.models.yieldterm_market_data", "FREDSwapRatesProvider"
+)
+SOFRCompoundedRateCalculator = LazyAttribute(
+    "derivapro.models.yieldterm_market_data", "SOFRCompoundedRateCalculator"
 )
 
 

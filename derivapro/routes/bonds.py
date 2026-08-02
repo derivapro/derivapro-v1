@@ -6,9 +6,11 @@ import markdown
 from dotenv import load_dotenv
 import logging
 
-from ..llm import llm_client
+from ..utils.lazy_imports import LazyAttribute
 
 logger = logging.getLogger(__name__)
+
+llm_client = LazyAttribute("derivapro.llm", "llm_client")
 
 # Initialize Flask app
 nc_bonds_bp = Blueprint("nc_bonds", __name__)

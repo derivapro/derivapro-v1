@@ -8,24 +8,31 @@ from flask import (
     url_for,
 )
 from flask import send_file
-from fredapi import Fred
-from ..models.mdls_term_structure import YieldTermStructure
-from ..models.yieldterm_market_data import (
-    TreasuryRateProvider,
-    SOFRRateProvider,
-    FREDSwapRatesProvider,
-)
 import QuantLib as ql
 import uuid
 import os
-import matplotlib.pyplot as plt
 from flask import current_app
 import markdown
-import numpy as np
 import logging
 from dotenv import load_dotenv
+from ..utils.lazy_imports import LazyAttribute, LazyImport
 
 logger = logging.getLogger(__name__)
+
+YieldTermStructure = LazyAttribute(
+    "derivapro.models.mdls_term_structure", "YieldTermStructure"
+)
+TreasuryRateProvider = LazyAttribute(
+    "derivapro.models.yieldterm_market_data", "TreasuryRateProvider"
+)
+SOFRRateProvider = LazyAttribute(
+    "derivapro.models.yieldterm_market_data", "SOFRRateProvider"
+)
+FREDSwapRatesProvider = LazyAttribute(
+    "derivapro.models.yieldterm_market_data", "FREDSwapRatesProvider"
+)
+np = LazyImport("numpy")
+plt = LazyImport("matplotlib.pyplot")
 
 term_structure_bp = Blueprint("term_structure", __name__)
 

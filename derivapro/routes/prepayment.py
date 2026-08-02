@@ -1,8 +1,9 @@
-from ..models.mdls_prepayment_v2 import Prepayment
 from flask import Blueprint, render_template, request, session
 import os
 import markdown
-import matplotlib.pyplot as plt
+from ..utils.lazy_imports import LazyAttribute
+
+Prepayment = LazyAttribute("derivapro.models.mdls_prepayment_v2", "Prepayment")
 
 prepayment_bp = Blueprint("prepayment", __name__)
 

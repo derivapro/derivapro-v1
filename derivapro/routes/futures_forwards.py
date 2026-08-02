@@ -6,17 +6,24 @@ Created on Sun Jun  9 00:46:08 2024
 """
 
 from flask import Blueprint, render_template, request
-from ..models.mdls_futures_forwards import Forwards, Futures
-from ..models.mdls_futures_forwards import ForwardsAnalysis
-from ..models.mdls_futures_forwards import FuturesAnalysis
 import os
 import markdown
-import matplotlib.pyplot as plt
 from datetime import datetime
 import uuid
 import logging
+from ..utils.lazy_imports import LazyAttribute, LazyImport
 
 logger = logging.getLogger(__name__)
+
+Forwards = LazyAttribute("derivapro.models.mdls_futures_forwards", "Forwards")
+Futures = LazyAttribute("derivapro.models.mdls_futures_forwards", "Futures")
+ForwardsAnalysis = LazyAttribute(
+    "derivapro.models.mdls_futures_forwards", "ForwardsAnalysis"
+)
+FuturesAnalysis = LazyAttribute(
+    "derivapro.models.mdls_futures_forwards", "FuturesAnalysis"
+)
+plt = LazyImport("matplotlib.pyplot")
 
 futures_forwards_bp = Blueprint("futures_forwards", __name__)
 

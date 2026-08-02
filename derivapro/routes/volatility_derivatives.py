@@ -6,13 +6,17 @@ Created on Sun Jun  9 00:47:03 2024
 """
 
 from flask import Blueprint, render_template, request
-from ..models.mdls_variance_volatility_swaps import varianceSwaps
 import QuantLib as ql
 import os
 import markdown
 import logging
+from ..utils.lazy_imports import LazyAttribute
 
 logger = logging.getLogger(__name__)
+
+varianceSwaps = LazyAttribute(
+    "derivapro.models.mdls_variance_volatility_swaps", "varianceSwaps"
+)
 
 volatility_derivatives_bp = Blueprint("volatility_derivatives", __name__)
 

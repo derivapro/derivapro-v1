@@ -20,28 +20,39 @@ from flask import (
 from flask_login import current_user, login_required
 from flask import send_file
 
-from ..models.mdls_vanilla_options import BlackScholes, SmoothnessTest
-from ..models.market_data import StockData
-import matplotlib.pyplot as plt
 import os
 import markdown
+import math
 from random import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..extensions import db
 from ..models.db_models import AnalysisResult, Instrument, PricingResult, Report
-from ..models.mdls_binomial_tree import BinomialTreeEngineCRR
-from ..models import mdls_monte_carlo_v2 as monte_carlo_module
-from ..llm import llm_client
-from ..services.report_builder import ReportTemplate, render_report_pdf
+from ..utils.lazy_imports import LazyAttribute, LazyImport
 
 from dotenv import load_dotenv, find_dotenv
 import io
 import logging
-import numpy as np
 import uuid
 from dataclasses import asdict
 
 logger = logging.getLogger(__name__)
+
+BlackScholes = LazyAttribute("derivapro.models.mdls_vanilla_options", "BlackScholes")
+SmoothnessTest = LazyAttribute(
+    "derivapro.models.mdls_vanilla_options", "SmoothnessTest"
+)
+BinomialTreeEngineCRR = LazyAttribute(
+    "derivapro.models.mdls_binomial_tree", "BinomialTreeEngineCRR"
+)
+monte_carlo_module = LazyImport("derivapro.models.mdls_monte_carlo_v2")
+llm_client = LazyAttribute("derivapro.llm", "llm_client")
+ReportTemplate = LazyAttribute("derivapro.services.report_builder", "ReportTemplate")
+render_report_pdf = LazyAttribute(
+    "derivapro.services.report_builder", "render_report_pdf"
+)
+StockData = LazyAttribute("derivapro.models.market_data", "StockData")
+np = LazyImport("numpy")
+plt = LazyImport("matplotlib.pyplot")
 
 vanilla_options_bp = Blueprint("vanilla_options", __name__)
 
@@ -160,12 +171,242 @@ def _build_european_form_data_from_instrument(instrument):
         "end_date": instrument.end_date or "",
         "risk_free_rate": params.get("risk_free_rate"),
         "volatility": params.get("volatility"),
+        "spot_price": params.get("spot_price"),
+        "dividend_yield": params.get("dividend_yield", 0.0),
+        "notional": params.get("notional", 1),
+        "contract_multiplier": params.get("contract_multiplier", 100),
+        "day_count": params.get("day_count", "ACT/365"),
         "option_type": params.get("option_type", ""),
         "model_type": params.get(
             "model_type", instrument.model_name or "black_scholes"
         ),
         "num_paths": params.get("num_paths", 10000),
         "num_steps": params.get("num_steps", 252),
+    }
+
+
+def _default_european_form_data():
+    valuation_date = datetime.today().date()
+    maturity_date = valuation_date + timedelta(days=365)
+    return {
+        "ticker": "AAPL",
+        "strike_price": 200.0,
+        "start_date": valuation_date.isoformat(),
+        "end_date": maturity_date.isoformat(),
+        "risk_free_rate": 0.04,
+        "volatility": 0.25,
+        "spot_price": 190.0,
+        "dividend_yield": 0.005,
+        "notional": 1,
+        "contract_multiplier": 100.0,
+        "day_count": "ACT/365",
+        "option_type": "call",
+        "model_type": "black_scholes",
+        "num_paths": 10000,
+        "num_steps": 252,
+    }
+
+
+def _normal_cdf(value):
+    return 0.5 * (1.0 + math.erf(value / math.sqrt(2.0)))
+
+
+def _normal_pdf(value):
+    return math.exp(-0.5 * value * value) / math.sqrt(2.0 * math.pi)
+
+
+def _year_fraction(start_date, end_date, day_count):
+    days = (end_date - start_date).days
+    if days <= 0:
+        raise ValueError("End date must be after valuation date.")
+    if day_count == "ACT/360":
+        return days / 360.0
+    return days / 365.25
+
+
+def _price_european_black_scholes(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+):
+    if spot_price <= 0:
+        raise ValueError("Spot price must be positive.")
+    if strike_price <= 0:
+        raise ValueError("Strike price must be positive.")
+    if volatility <= 0:
+        raise ValueError("Volatility must be positive.")
+    if time_to_maturity <= 0:
+        raise ValueError("Time to maturity must be positive.")
+
+    sqrt_t = math.sqrt(time_to_maturity)
+    d1 = (
+        math.log(spot_price / strike_price)
+        + (risk_free_rate - dividend_yield + 0.5 * volatility * volatility)
+        * time_to_maturity
+    ) / (volatility * sqrt_t)
+    d2 = d1 - volatility * sqrt_t
+    discounted_spot = spot_price * math.exp(-dividend_yield * time_to_maturity)
+    discounted_strike = strike_price * math.exp(-risk_free_rate * time_to_maturity)
+
+    call_price = discounted_spot * _normal_cdf(d1) - discounted_strike * _normal_cdf(d2)
+    put_price = discounted_strike * _normal_cdf(-d2) - discounted_spot * _normal_cdf(-d1)
+    option_price = call_price if option_type == "call" else put_price
+
+    if option_type == "call":
+        delta = math.exp(-dividend_yield * time_to_maturity) * _normal_cdf(d1)
+        theta = (
+            -discounted_spot * _normal_pdf(d1) * volatility / (2 * sqrt_t)
+            - risk_free_rate * discounted_strike * _normal_cdf(d2)
+            + dividend_yield * discounted_spot * _normal_cdf(d1)
+        )
+        rho = time_to_maturity * discounted_strike * _normal_cdf(d2)
+    else:
+        delta = -math.exp(-dividend_yield * time_to_maturity) * _normal_cdf(-d1)
+        theta = (
+            -discounted_spot * _normal_pdf(d1) * volatility / (2 * sqrt_t)
+            + risk_free_rate * discounted_strike * _normal_cdf(-d2)
+            - dividend_yield * discounted_spot * _normal_cdf(-d1)
+        )
+        rho = -time_to_maturity * discounted_strike * _normal_cdf(-d2)
+
+    gamma = (
+        math.exp(-dividend_yield * time_to_maturity)
+        * _normal_pdf(d1)
+        / (spot_price * volatility * sqrt_t)
+    )
+    vega = discounted_spot * _normal_pdf(d1) * sqrt_t
+
+    return {
+        "price": option_price,
+        "call_price": call_price,
+        "put_price": put_price,
+        "delta": delta,
+        "gamma": gamma,
+        "vega": vega,
+        "theta": theta,
+        "rho": rho,
+        "d1": d1,
+        "d2": d2,
+        "discounted_spot": discounted_spot,
+        "discounted_strike": discounted_strike,
+    }
+
+
+def _classify_moneyness(spot_price, strike_price, option_type):
+    ratio = spot_price / strike_price
+    if abs(ratio - 1.0) <= 0.02:
+        return "At the money"
+    if option_type == "call":
+        return "In the money" if ratio > 1.0 else "Out of the money"
+    return "In the money" if ratio < 1.0 else "Out of the money"
+
+
+def _build_european_analytics(
+    form_data,
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    raw_option_price,
+    pricing_output,
+):
+    option_type = form_data["option_type"]
+    risk_free_rate = form_data["risk_free_rate"]
+    volatility = form_data["volatility"]
+    dividend_yield = form_data.get("dividend_yield", 0.0)
+    notional = form_data.get("notional", 1) or 1
+    contract_multiplier = form_data.get("contract_multiplier", 100) or 100
+
+    intrinsic_value = (
+        max(spot_price - strike_price, 0.0)
+        if option_type == "call"
+        else max(strike_price - spot_price, 0.0)
+    )
+    time_value = raw_option_price - intrinsic_value
+    position_value = raw_option_price * contract_multiplier * notional
+    breakeven = (
+        strike_price + raw_option_price
+        if option_type == "call"
+        else strike_price - raw_option_price
+    )
+    parity_gap = (
+        pricing_output["call_price"]
+        - pricing_output["put_price"]
+        - pricing_output["discounted_spot"]
+        + pricing_output["discounted_strike"]
+    )
+
+    def price_at(spot=None, vol=None, rate=None):
+        output = _price_european_black_scholes(
+            spot if spot is not None else spot_price,
+            strike_price,
+            time_to_maturity,
+            rate if rate is not None else risk_free_rate,
+            vol if vol is not None else volatility,
+            dividend_yield,
+            option_type,
+        )
+        return output["price"]
+
+    sensitivity_rows = [
+        {
+            "driver": "Spot price",
+            "down_label": "-10%",
+            "down": price_at(spot=spot_price * 0.9),
+            "base": raw_option_price,
+            "up_label": "+10%",
+            "up": price_at(spot=spot_price * 1.1),
+        },
+        {
+            "driver": "Volatility",
+            "down_label": "-5 vol pts",
+            "down": price_at(vol=max(0.0001, volatility - 0.05)),
+            "base": raw_option_price,
+            "up_label": "+5 vol pts",
+            "up": price_at(vol=volatility + 0.05),
+        },
+        {
+            "driver": "Risk-free rate",
+            "down_label": "-100 bps",
+            "down": price_at(rate=risk_free_rate - 0.01),
+            "base": raw_option_price,
+            "up_label": "+100 bps",
+            "up": price_at(rate=risk_free_rate + 0.01),
+        },
+    ]
+
+    payoff_points = []
+    for multiplier in [0.7, 0.85, 1.0, 1.15, 1.3]:
+        underlying = spot_price * multiplier
+        payoff = (
+            max(underlying - strike_price, 0.0)
+            if option_type == "call"
+            else max(strike_price - underlying, 0.0)
+        )
+        payoff_points.append({
+            "underlying": underlying,
+            "payoff": payoff,
+            "net_payoff": payoff - raw_option_price,
+        })
+
+    return {
+        "spot_price": spot_price,
+        "time_to_maturity": time_to_maturity,
+        "calendar_days": max(0, int(round(time_to_maturity * 365.25))),
+        "moneyness_ratio": spot_price / strike_price,
+        "moneyness_label": _classify_moneyness(spot_price, strike_price, option_type),
+        "intrinsic_value": intrinsic_value,
+        "time_value": time_value,
+        "position_value": position_value,
+        "breakeven": breakeven,
+        "parity_gap": parity_gap,
+        "d1": pricing_output.get("d1"),
+        "d2": pricing_output.get("d2"),
+        "sensitivity_rows": sensitivity_rows,
+        "payoff_points": payoff_points,
     }
 
 
@@ -221,7 +462,7 @@ def european_options():
         content = readme_file.read()
     md_content = markdown.markdown(content)
 
-    form_data = {}
+    form_data = _default_european_form_data()
 
     option_price = None
     delta = None
@@ -234,6 +475,7 @@ def european_options():
     gpt_assessment = None
     latest_analysis = None
     latest_pricing_result = None
+    run_summary = None
 
     if current_user.is_authenticated:
         latest_pricing_result = _get_latest_pricing_result_for_user("european_option")
@@ -246,9 +488,13 @@ def european_options():
             rho = "{:.4f}".format(float(latest_pricing_result.rho))
 
             if latest_pricing_result.instrument:
-                form_data = _build_european_form_data_from_instrument(
-                    latest_pricing_result.instrument
+                form_data.update(
+                    _build_european_form_data_from_instrument(
+                        latest_pricing_result.instrument
+                    )
                 )
+            if latest_pricing_result.result_json:
+                run_summary = latest_pricing_result.result_json.get("run_summary")
 
         latest_analysis = _get_latest_analysis_by_type_for_user(
             "european_option",
@@ -276,6 +522,15 @@ def european_options():
             "end_date": request.form.get("end_date", ""),
             "risk_free_rate": request.form.get("risk_free_rate", type=float),
             "volatility": request.form.get("volatility", type=float),
+            "spot_price": request.form.get("spot_price", type=float),
+            "dividend_yield": request.form.get(
+                "dividend_yield", type=float, default=0.0
+            ),
+            "notional": request.form.get("notional", type=int, default=1),
+            "contract_multiplier": request.form.get(
+                "contract_multiplier", type=float, default=100.0
+            ),
+            "day_count": request.form.get("day_count", "ACT/365"),
             "option_type": request.form.get("option_type", ""),
             "model_type": request.form.get("model_type", "black_scholes"),
             "num_paths": request.form.get("num_paths", type=int, default=10000),
@@ -289,6 +544,11 @@ def european_options():
             "end_date": form_data.get("end_date", ""),
             "risk_free_rate": form_data.get("risk_free_rate"),
             "volatility": form_data.get("volatility"),
+            "spot_price": form_data.get("spot_price"),
+            "dividend_yield": form_data.get("dividend_yield", 0.0),
+            "notional": form_data.get("notional", 1),
+            "contract_multiplier": form_data.get("contract_multiplier", 100.0),
+            "day_count": form_data.get("day_count", "ACT/365"),
             "option_type": form_data.get("option_type", "call"),
             "model_type": form_data.get("model_type", "black_scholes"),
             "num_paths": form_data.get("num_paths", 10000),
@@ -301,6 +561,9 @@ def european_options():
         end_date = form_data["end_date"]
         risk_free_rate = form_data["risk_free_rate"]
         volatility = form_data["volatility"]
+        dividend_yield = form_data.get("dividend_yield", 0.0)
+        spot_price = form_data.get("spot_price")
+        day_count = form_data.get("day_count", "ACT/365")
         option_type = form_data["option_type"]
 
         logger.debug(
@@ -312,6 +575,7 @@ def european_options():
         try:
             start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
             end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+            time_to_maturity = _year_fraction(start_date, end_date, day_count)
         except ValueError as e:
             logger.warning("European options date format error: %s", e)
             return render_template(
@@ -324,6 +588,7 @@ def european_options():
                 theta=theta,
                 rho=rho,
                 error=f"Date format error: {e}",
+                run_summary=run_summary,
             )
 
         if action == "sensitivity":
@@ -479,43 +744,45 @@ def european_options():
 
         else:
             model_type = form_data.get("model_type", "black_scholes")
+            num_steps = form_data.get("num_steps", 252)
+            if spot_price is None:
+                spot_price = float(
+                    StockData(ticker, start_date, end_date).get_closing_price()
+                )
+                form_data["spot_price"] = spot_price
 
             if model_type == "black_scholes":
-                option = BlackScholes(
-                    ticker,
+                pricing_output = _price_european_black_scholes(
+                    spot_price,
                     strike_price,
-                    start_date,
-                    end_date,
+                    time_to_maturity,
                     risk_free_rate,
                     volatility,
+                    dividend_yield,
                     option_type,
                 )
 
-                option_price = (
-                    option.call_price() if option_type == "call" else option.put_price()
-                )
-
-                delta = "{:.4f}".format(option.delta())
-                gamma = "{:.4f}".format(option.gamma())
-                vega = "{:.4f}".format(option.vega())
-                theta = "{:.4f}".format(option.theta())
-                rho = "{:.4f}".format(option.rho())
+                option_price = pricing_output["price"]
+                delta = "{:.4f}".format(pricing_output["delta"])
+                gamma = "{:.6f}".format(pricing_output["gamma"])
+                vega = "{:.4f}".format(pricing_output["vega"])
+                theta = "{:.4f}".format(pricing_output["theta"])
+                rho = "{:.4f}".format(pricing_output["rho"])
 
             elif model_type == "monte_carlo":
                 num_paths = form_data.get("num_paths", 10000)
                 num_steps = form_data.get("num_steps", 252)
 
                 mc_engine = monte_carlo_module.create_monte_carlo_engine(
-                    S0=float(
-                        StockData(ticker, start_date, end_date).get_closing_price()
-                    ),
+                    S0=float(spot_price),
                     r=risk_free_rate,
                     sigma=volatility,
-                    T=StockData(ticker, start_date, end_date).get_years_difference(),
+                    T=time_to_maturity,
                     num_paths=num_paths,
                     num_steps=num_steps,
                     random_type="sobol",
                 )
+                mc_engine.q = dividend_yield
 
                 option_price = (
                     mc_engine.price_european_option(strike_price, "call")
@@ -523,14 +790,20 @@ def european_options():
                     else mc_engine.price_european_option(strike_price, "put")
                 )
 
-                greeks = mc_engine.calculate_greeks_finite_difference(
-                    strike_price, option_type, "european"
+                pricing_output = _price_european_black_scholes(
+                    spot_price,
+                    strike_price,
+                    time_to_maturity,
+                    risk_free_rate,
+                    volatility,
+                    dividend_yield,
+                    option_type,
                 )
-                delta = "{:.4f}".format(greeks["Delta"])
-                gamma = "{:.4f}".format(greeks["Gamma"])
-                vega = "{:.4f}".format(greeks["Vega"])
-                theta = "{:.4f}".format(greeks["Theta"])
-                rho = "{:.4f}".format(greeks["Rho"])
+                delta = "{:.4f}".format(pricing_output["delta"])
+                gamma = "{:.6f}".format(pricing_output["gamma"])
+                vega = "{:.4f}".format(pricing_output["vega"])
+                theta = "{:.4f}".format(pricing_output["theta"])
+                rho = "{:.4f}".format(pricing_output["rho"])
 
             else:
                 option = LatticeModel(
@@ -571,6 +844,15 @@ def european_options():
                 vega = "{:.4f}".format(greeks["Vega"])
                 theta = "{:.4f}".format(greeks["Theta"])
                 rho = "{:.4f}".format(greeks["Rho"])
+                pricing_output = _price_european_black_scholes(
+                    spot_price,
+                    strike_price,
+                    time_to_maturity,
+                    risk_free_rate,
+                    volatility,
+                    dividend_yield,
+                    option_type,
+                )
 
             raw_option_price = float(option_price)
             raw_delta = float(delta)
@@ -578,10 +860,18 @@ def european_options():
             raw_vega = float(vega)
             raw_theta = float(theta)
             raw_rho = float(rho)
+            run_summary = _build_european_analytics(
+                form_data,
+                float(spot_price),
+                float(strike_price),
+                time_to_maturity,
+                raw_option_price,
+                pricing_output,
+            )
 
             option_price = "${:,.4f}".format(raw_option_price)
             delta = "{:.4f}".format(raw_delta)
-            gamma = "{:.4f}".format(raw_gamma)
+            gamma = "{:.6f}".format(raw_gamma)
             vega = "{:.4f}".format(raw_vega)
             theta = "{:.4f}".format(raw_theta)
             rho = "{:.4f}".format(raw_rho)
@@ -598,6 +888,11 @@ def european_options():
                         "strike_price": strike_price,
                         "risk_free_rate": risk_free_rate,
                         "volatility": volatility,
+                        "spot_price": spot_price,
+                        "dividend_yield": dividend_yield,
+                        "notional": form_data.get("notional"),
+                        "contract_multiplier": form_data.get("contract_multiplier"),
+                        "day_count": day_count,
                         "option_type": option_type,
                         "model_type": model_type,
                         "num_paths": form_data.get("num_paths"),
@@ -623,6 +918,7 @@ def european_options():
                         "vega": raw_vega,
                         "theta": raw_theta,
                         "rho": raw_rho,
+                        "run_summary": run_summary,
                     },
                 )
                 db.session.add(pricing_result)
@@ -640,6 +936,7 @@ def european_options():
             sensitivity_results=sensitivity_results,
             gpt_assessment=gpt_assessment,
             md_content=md_content,
+            run_summary=run_summary,
         )
 
     return render_template(
@@ -654,6 +951,7 @@ def european_options():
         sensitivity_results=sensitivity_results,
         gpt_assessment=gpt_assessment,
         md_content=md_content,
+        run_summary=run_summary,
     )
 
 

@@ -3,34 +3,44 @@
 from datetime import datetime
 from flask import Blueprint, render_template, request, session
 from flask_login import current_user
-from ..models import mdls_monte_carlo_v2 as monte_carlo_module
-from ..models.mdls_asian_options import (
-    AsianOption,
-    AsianOptionSmoothnessTest,
-    lattice_convergence_test,
-    plot_convergence as asian_plot_convergence,
-)
-from ..models.mdls_autocallables import (
-    AutoMonteCarlo,
-    AutocallableSmoothnessTest,
-    auto_convergence_test,
-)
-from ..models.mdls_structured_products import (
-    AutocallableNoteTerms,
-    price_autocallable_note,
-)
 
 import os
-import numpy as np
 import markdown
 from dotenv import load_dotenv
 from ..extensions import db
-from ..llm import llm_client
 from ..models.db_models import AnalysisResult, Instrument, Plot, PricingResult
-from ..models.market_data import StockData
+from ..utils.lazy_imports import LazyAttribute, LazyImport
 import logging
 
 logger = logging.getLogger(__name__)
+
+np = LazyImport("numpy")
+monte_carlo_module = LazyImport("derivapro.models.mdls_monte_carlo_v2")
+llm_client = LazyAttribute("derivapro.llm", "llm_client")
+StockData = LazyAttribute("derivapro.models.market_data", "StockData")
+AsianOption = LazyAttribute("derivapro.models.mdls_asian_options", "AsianOption")
+AsianOptionSmoothnessTest = LazyAttribute(
+    "derivapro.models.mdls_asian_options", "AsianOptionSmoothnessTest"
+)
+lattice_convergence_test = LazyAttribute(
+    "derivapro.models.mdls_asian_options", "lattice_convergence_test"
+)
+asian_plot_convergence = LazyAttribute(
+    "derivapro.models.mdls_asian_options", "plot_convergence"
+)
+AutoMonteCarlo = LazyAttribute("derivapro.models.mdls_autocallables", "AutoMonteCarlo")
+AutocallableSmoothnessTest = LazyAttribute(
+    "derivapro.models.mdls_autocallables", "AutocallableSmoothnessTest"
+)
+auto_convergence_test = LazyAttribute(
+    "derivapro.models.mdls_autocallables", "auto_convergence_test"
+)
+AutocallableNoteTerms = LazyAttribute(
+    "derivapro.models.mdls_structured_products", "AutocallableNoteTerms"
+)
+price_autocallable_note = LazyAttribute(
+    "derivapro.models.mdls_structured_products", "price_autocallable_note"
+)
 
 exotic_options_bp = Blueprint("exotic_options", __name__)
 

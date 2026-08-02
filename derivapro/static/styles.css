@@ -1329,6 +1329,14 @@ details summary {
     .form-grid {
         grid-template-columns: repeat(2, minmax(240px, 1fr));
     }
+
+    .compact-form-grid,
+    .mc-parameter-grid,
+    .result-kpi-grid,
+    .greek-metric-grid,
+    .payoff-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 /* ===== European Results + Action Section Polish ===== */
@@ -1410,6 +1418,236 @@ details summary {
 
 #reporting-section {
     margin-top: 18px;
+}
+
+/* ===== European Option Preview Workflow ===== */
+.european-pricing-form {
+    display: grid;
+    gap: 16px;
+}
+
+.pricing-form-block,
+.analysis-card,
+.empty-state-panel {
+    padding: 18px;
+    border: 1px solid var(--dp-border);
+    border-radius: 10px;
+    background: var(--dp-surface-soft);
+}
+
+.pricing-form-heading,
+.analysis-card-title {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.pricing-form-heading>span,
+.analysis-card-title>span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(178, 136, 55, 0.28);
+    border-radius: 8px;
+    background: rgba(178, 136, 55, 0.08);
+}
+
+.pricing-form-heading strong,
+.analysis-card-title h3 {
+    display: block;
+    margin: 0 0 3px;
+    color: var(--dp-heading);
+    font-size: 17px;
+}
+
+.pricing-form-heading p,
+.analysis-card-title p,
+.pricing-form-actions span,
+.field-hint,
+.empty-state-panel p {
+    margin: 0;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.compact-form-grid,
+.mc-parameter-grid {
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 14px;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.mc-parameter-grid {
+    display: grid;
+    grid-column: span 2;
+}
+
+.field-error {
+    margin-top: 5px;
+    color: #b42318;
+    font-size: 12px;
+}
+
+.pricing-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding-top: 4px;
+}
+
+.european-results-panel {
+    display: grid;
+    gap: 16px;
+    margin-top: 18px;
+}
+
+.result-kpi-grid,
+.analysis-grid,
+.run-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.result-kpi-grid .pricing-summary-card {
+    min-height: 118px;
+}
+
+.pricing-summary-card small {
+    display: block;
+    margin-top: 6px;
+    color: var(--dp-text-muted);
+    font-size: 12px;
+}
+
+.primary-kpi {
+    border-color: rgba(178, 136, 55, 0.42);
+    background: linear-gradient(135deg, #ffffff, rgba(178, 136, 55, 0.08));
+}
+
+.greek-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.greek-metric-grid div {
+    padding: 13px;
+    border: 1px solid var(--dp-border);
+    border-radius: 8px;
+    background: var(--dp-surface-soft);
+}
+
+.greek-metric-grid span,
+.run-summary-grid span {
+    display: block;
+    color: var(--dp-text-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.greek-metric-grid strong,
+.run-summary-grid strong {
+    display: block;
+    margin-top: 5px;
+    color: var(--dp-heading);
+    font-size: 17px;
+}
+
+.analysis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 14px;
+}
+
+.summary-definition-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+}
+
+.summary-definition-list div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--dp-border);
+}
+
+.summary-definition-list div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.summary-definition-list dt {
+    color: var(--dp-text-muted);
+    font-size: 13px;
+}
+
+.summary-definition-list dd {
+    margin: 0;
+    color: var(--dp-heading);
+    font-weight: 800;
+    text-align: right;
+}
+
+.compact-results-table {
+    margin: 0;
+}
+
+.payoff-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.payoff-strip div,
+.run-summary-grid div {
+    padding: 14px;
+    border: 1px solid var(--dp-border);
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.payoff-strip span,
+.payoff-strip small {
+    display: block;
+    color: var(--dp-text-muted);
+    font-size: 12px;
+}
+
+.payoff-strip strong {
+    display: block;
+    margin: 5px 0;
+    color: var(--dp-heading);
+    font-size: 18px;
+}
+
+.run-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.run-summary-grid p {
+    margin: 6px 0 0;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.error-box {
+    border-color: rgba(180, 35, 24, 0.36);
+    background: rgba(180, 35, 24, 0.06);
 }
 
 
@@ -1733,10 +1971,10 @@ details summary {
 .platform-hero {
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
-    gap: 22px;
+    gap: 20px;
     align-items: stretch;
-    padding: 34px;
-    margin-bottom: 24px;
+    padding: 32px;
+    margin-bottom: 18px;
     border: 1px solid var(--dp-border);
     border-radius: 12px;
     background:
@@ -1748,18 +1986,18 @@ details summary {
 
 .platform-hero-copy h1 {
     max-width: 880px;
-    margin: 0 0 14px;
+    margin: 0 0 12px;
     color: var(--dp-heading);
-    font-size: 44px;
-    line-height: 1.03;
+    font-size: 42px;
+    line-height: 1.04;
     letter-spacing: 0;
 }
 
 .hero-lede {
-    max-width: 760px;
+    max-width: 720px;
     color: var(--dp-text-muted);
-    font-size: 17px;
-    line-height: 1.68;
+    font-size: 16px;
+    line-height: 1.62;
 }
 
 .eyebrow,
@@ -1769,15 +2007,20 @@ details summary {
     color: var(--dp-accent-strong) !important;
     font-size: 12px !important;
     font-weight: 800;
-    letter-spacing: 0.11em;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
+}
+
+.eyebrow span,
+.section-kicker span {
+    margin-right: 6px;
 }
 
 .landing-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
-    margin-top: 22px;
+    margin-top: 20px;
 }
 
 .landing-button {
@@ -1805,8 +2048,8 @@ details summary {
 
 .platform-status-panel {
     display: grid;
-    gap: 16px;
-    padding: 20px;
+    gap: 14px;
+    padding: 18px;
     border: 1px solid rgba(178, 136, 55, 0.28);
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.74);
@@ -1814,7 +2057,7 @@ details summary {
 }
 
 .status-header {
-    padding-bottom: 14px;
+    padding-bottom: 12px;
     border-bottom: 1px solid var(--dp-border);
 }
 
@@ -1837,7 +2080,7 @@ details summary {
 .status-header strong {
     margin-top: 4px;
     color: var(--dp-heading);
-    font-size: 24px;
+    font-size: 22px;
 }
 
 .status-grid {
@@ -1846,7 +2089,7 @@ details summary {
 }
 
 .status-grid div {
-    padding: 13px 14px;
+    padding: 12px 14px;
     border: 1px solid rgba(190, 185, 176, 0.72);
     border-radius: 8px;
     background: var(--dp-surface-soft);
@@ -1873,11 +2116,11 @@ details summary {
 .platform-section,
 .platform-disclaimer {
     display: grid;
-    grid-template-columns: minmax(230px, 0.42fr) minmax(0, 0.58fr);
+    grid-template-columns: minmax(230px, 0.38fr) minmax(0, 0.62fr);
     gap: 24px;
     align-items: start;
-    padding: 24px 26px;
-    margin-bottom: 22px;
+    padding: 22px 24px;
+    margin-bottom: 18px;
 }
 
 .platform-section h2,
@@ -1885,7 +2128,7 @@ details summary {
 .platform-panel h2 {
     margin-bottom: 8px;
     color: var(--dp-heading);
-    font-size: 30px;
+    font-size: 26px;
     line-height: 1.12;
 }
 
@@ -1902,13 +2145,26 @@ details summary {
 .workflow-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-    margin-bottom: 22px;
+    gap: 14px;
+    margin-bottom: 18px;
 }
 
 .workflow-card {
-    min-height: 210px;
-    padding: 20px 22px;
+    min-height: 168px;
+    padding: 18px 18px 20px;
+}
+
+.workflow-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(178, 136, 55, 0.28);
+    border-radius: 8px;
+    background: rgba(178, 136, 55, 0.08);
+    font-size: 17px;
 }
 
 .workflow-card h3,
@@ -1917,6 +2173,43 @@ details summary {
     display: block;
     margin: 0 0 8px;
     color: var(--dp-heading);
+}
+
+.workflow-card p {
+    margin-bottom: 0;
+}
+
+.platform-operating-model {
+    align-items: center;
+}
+
+.operating-list {
+    display: grid;
+    gap: 10px;
+}
+
+.operating-list div {
+    padding: 13px 14px;
+    border: 1px solid rgba(190, 185, 176, 0.66);
+    border-radius: 8px;
+    background: var(--dp-surface-soft);
+}
+
+.operating-list strong,
+.operating-list span {
+    display: block;
+}
+
+.operating-list strong {
+    color: var(--dp-heading);
+    font-size: 14px;
+}
+
+.operating-list span {
+    margin-top: 3px;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
 }
 
 .platform-two-column {
@@ -2192,6 +2485,16 @@ details summary {
         grid-template-columns: 1fr;
     }
 
+    .compact-form-grid,
+    .mc-parameter-grid,
+    .result-kpi-grid,
+    .analysis-grid,
+    .greek-metric-grid,
+    .payoff-strip,
+    .run-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
     .product-page-header {
         display: block;
     }
@@ -2404,9 +2707,20 @@ html[data-theme="dark"] .home-content-card {
 }
 
 html[data-theme="dark"] .status-grid div,
+html[data-theme="dark"] .operating-list div,
+html[data-theme="dark"] .pricing-form-block,
+html[data-theme="dark"] .analysis-card,
+html[data-theme="dark"] .empty-state-panel,
+html[data-theme="dark"] .greek-metric-grid div,
 html[data-theme="dark"] .landing-button.secondary,
 html[data-theme="dark"] .preview-gate-card .landing-button.secondary {
     background: var(--dp-surface-muted);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .payoff-strip div,
+html[data-theme="dark"] .run-summary-grid div {
+    background: var(--dp-surface);
     border-color: var(--dp-border);
 }
 

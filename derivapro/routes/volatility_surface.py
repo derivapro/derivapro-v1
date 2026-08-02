@@ -1,15 +1,16 @@
 from flask import Blueprint, render_template, request, jsonify, Response
-import numpy as np
-import pandas as pd
 import logging
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import io
 import base64
-import yfinance as yf
 import csv
+from ..utils.lazy_imports import LazyImport
 
 logger = logging.getLogger(__name__)
+
+np = LazyImport("numpy")
+pd = LazyImport("pandas")
+plt = LazyImport("matplotlib.pyplot")
+yf = LazyImport("yfinance")
 
 # Blueprint for Volatility Surface
 volatility_surface_bp = Blueprint("volatility_surface", __name__)

@@ -1,162 +1,313 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
+{% block title %}DerivaPro | European Option Preview{% endblock %}
+
 {% block content %}
 {{ product.header(
     "European Vanilla Options",
-    "Price European-style vanilla options, review Greeks, and access validation and reporting workflows from one page.",
+    "A polished preview workflow for European call and put valuation, Greeks, assumption review, and first-pass risk diagnostics.",
     "Equity & Options",
-    "Pricing Workflow"
+    "Free Preview"
 ) }}
 
 {{ product.description(
     "European-style calls and puts exercisable only at maturity.",
-    "This workflow supports standard European vanilla option valuation using Black-Scholes or Monte Carlo pricing. It is intended for transparent payoff evaluation, Greek review, and comparison of model assumptions such as spot, strike, rate, volatility, and maturity.",
-    ["European call", "European put", "Black-Scholes", "Monte Carlo", "Greeks"],
-    "A full methodology link will be added here once the European option documentation is published in the repository."
+    "This workflow demonstrates the DerivaPro standard for transparent pricing: contract terms, market assumptions, model settings, valuation output, diagnostics, and a structured run summary on one page.",
+    ["European call", "European put", "Black-Scholes", "Greeks", "Sensitivity review", "Run summary"],
+    "Methodology documentation will be linked here once the European option model note is published in the repository."
 ) }}
+
+{% if error %}
+<div class="info-box error-box">
+    <p><strong>Pricing error:</strong> {{ error }}</p>
+</div>
+{% endif %}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-{% call product.section("Pricing", "Enter contract terms and model assumptions, then calculate option value and Greeks.") %}
-<form id="options-form" method="post" class="form-grid" onsubmit="return validateForm()">
+{% call product.section("Pricing", "Enter contract terms, market assumptions, and model settings. Sample values are preloaded so the free preview can run immediately.") %}
+<form id="options-form" method="post" class="european-pricing-form" onsubmit="return validateForm()">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-group">
-        <label for="ticker">Stock Ticker:</label>
-        <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
-    </div>
-    <div class="form-group">
-        <label for="strike_price">Strike Price ($):</label>
-        <input type="number" step="0.01" id="strike_price" name="strike_price" value="{{ form_data.strike_price }}"
-            min="0" required>
-        <div id="strike-price-error" style="color: red; font-size: 0.9em; display: none;">Strike price must be positive
-        </div>
-    </div>
-    <div class="form-group">
-        <label for="start_date">Start Date:</label>
-        <input type="date" id="start_date" name="start_date" value="{{ form_data.start_date }}" required>
-    </div>
-    <div class="form-group">
-        <label for="end_date">End Date:</label>
-        <input type="date" id="end_date" name="end_date" value="{{ form_data.end_date }}" required>
-    </div>
-    <div class="form-group">
-        <label for="risk_free_rate">Risk-Free Rate (abs):</label>
-        <input type="number" step="0.001" id="risk_free_rate" name="risk_free_rate"
-            value="{{ form_data.risk_free_rate }}" required>
-    </div>
-    <div class="form-group">
-        <label for="volatility">Annualized Volatility (abs):</label>
-        <input type="number" step="0.001" id="volatility" name="volatility" value="{{ form_data.volatility }}" min="0"
-            required>
-        <div id="volatility-error" style="color: red; font-size: 0.9em; display: none;">Volatility must be positive
-        </div>
-    </div>
-    <div class="form-group">
-        <label for="option_type">Option Type:</label>
-        <select id="option_type" name="option_type" required>
-            <option value="call" {% if form_data.option_type=='call' %}selected{% endif %}>Call</option>
-            <option value="put" {% if form_data.option_type=='put' %}selected{% endif %}>Put</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label for="model_type">Model Type:</label>
-        <select id="model_type" name="model_type" required onchange="toggleMonteCarloParams()">
-            <option value="black_scholes" {% if form_data.model_type=='black_scholes' %}selected{% endif %}>
-                Black-Scholes</option>
-            <option value="monte_carlo" {% if form_data.model_type=='monte_carlo' %}selected{% endif %}>Monte Carlo
-            </option>
-        </select>
-    </div>
 
-    <!-- Monte Carlo specific parameters -->
-    <div id="monte_carlo_params" style="display: none;">
-        <div class="form-group">
-            <label for="num_paths">Number of Paths:</label>
-            <input type="number" id="num_paths" name="num_paths" value="{{ form_data.num_paths|default(10000) }}"
-                min="1000" max="200000" step="1000">
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">📄</span>
+            <div>
+                <strong>Contract Terms</strong>
+                <p>Define the payoff and position scale.</p>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="num_steps">Number of Time Steps:</label>
-            <input type="number" id="num_steps" name="num_steps" value="{{ form_data.num_steps|default(252) }}" min="50"
-                max="1000" step="1">
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="ticker">Underlying Ticker</label>
+                <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
+            </div>
+            <div class="form-group">
+                <label for="option_type">Option Type</label>
+                <select id="option_type" name="option_type" required>
+                    <option value="call" {% if form_data.option_type=='call' %}selected{% endif %}>Call</option>
+                    <option value="put" {% if form_data.option_type=='put' %}selected{% endif %}>Put</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="strike_price">Strike Price</label>
+                <input type="number" step="0.01" id="strike_price" name="strike_price" value="{{ form_data.strike_price }}" min="0.0001" required>
+                <div id="strike-price-error" class="field-error" style="display: none;">Strike price must be positive.</div>
+            </div>
+            <div class="form-group">
+                <label for="notional">Number of Contracts</label>
+                <input type="number" step="1" id="notional" name="notional" value="{{ form_data.notional|default(1) }}" min="1" required>
+            </div>
+            <div class="form-group">
+                <label for="contract_multiplier">Contract Multiplier</label>
+                <input type="number" step="0.01" id="contract_multiplier" name="contract_multiplier" value="{{ form_data.contract_multiplier|default(100) }}" min="1" required>
+            </div>
         </div>
     </div>
 
-    <div class="form-group full-width">
-        <button type="submit">Calculate Option Price</button>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">🏦</span>
+            <div>
+                <strong>Market Assumptions</strong>
+                <p>Use explicit assumptions for a controlled preview run.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="start_date">Valuation Date</label>
+                <input type="date" id="start_date" name="start_date" value="{{ form_data.start_date }}" required>
+            </div>
+            <div class="form-group">
+                <label for="end_date">Maturity Date</label>
+                <input type="date" id="end_date" name="end_date" value="{{ form_data.end_date }}" required>
+            </div>
+            <div class="form-group">
+                <label for="spot_price">Spot Price</label>
+                <input type="number" step="0.01" id="spot_price" name="spot_price" value="{{ form_data.spot_price }}" min="0.0001" placeholder="Leave blank to fetch from ticker">
+                <div class="field-hint">For a reliable preview, use an explicit spot assumption.</div>
+            </div>
+            <div class="form-group">
+                <label for="risk_free_rate">Risk-Free Rate</label>
+                <input type="number" step="0.0001" id="risk_free_rate" name="risk_free_rate" value="{{ form_data.risk_free_rate }}" required>
+                <div class="field-hint">Absolute format, e.g. 0.04 for 4%.</div>
+            </div>
+            <div class="form-group">
+                <label for="volatility">Annualized Volatility</label>
+                <input type="number" step="0.0001" id="volatility" name="volatility" value="{{ form_data.volatility }}" min="0.0001" required>
+                <div id="volatility-error" class="field-error" style="display: none;">Volatility must be positive.</div>
+            </div>
+            <div class="form-group">
+                <label for="dividend_yield">Dividend Yield</label>
+                <input type="number" step="0.0001" id="dividend_yield" name="dividend_yield" value="{{ form_data.dividend_yield|default(0) }}">
+            </div>
+            <div class="form-group">
+                <label for="day_count">Day Count</label>
+                <select id="day_count" name="day_count">
+                    <option value="ACT/365" {% if form_data.day_count=='ACT/365' %}selected{% endif %}>ACT/365</option>
+                    <option value="ACT/360" {% if form_data.day_count=='ACT/360' %}selected{% endif %}>ACT/360</option>
+                </select>
+            </div>
+        </div>
     </div>
-</form>
 
-<!-- Display Option Price and Greeks -->
-<div id="results-section">
-    {% if option_price %}
-    <div class="result-card-panel">
-        {% if form_data.model_type == 'monte_carlo' %}
-        <div class="info-box">
-            <p><strong>Monte Carlo Simulation:</strong> This result is based on {{ form_data.num_paths|default(10000) }}
-                simulation paths with {{ form_data.num_steps|default(252) }} time steps. Results may vary slightly due
-                to the stochastic nature of the simulation.</p>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">🧮</span>
+            <div>
+                <strong>Model Settings</strong>
+                <p>The free preview uses the analytical European benchmark for fast, stable runs.</p>
+            </div>
         </div>
-        {% endif %}
-
-        <div class="pricing-summary-card">
-            <span class="metric-label">Option Price</span>
-            <strong class="metric-value">{{ option_price }}</strong>
-        </div>
-
-        <div class="greeks-card">
-            <h4>Greeks</h4>
-            <div class="horizontal-table">
-                <div class="table-row">
-                    <div class="table-cell">Delta</div>
-                    <div class="table-cell">Gamma</div>
-                    <div class="table-cell">Vega</div>
-                    <div class="table-cell">Theta</div>
-                    <div class="table-cell">Rho</div>
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="model_type">Model Type</label>
+                <select id="model_type" name="model_type" required onchange="toggleMonteCarloParams()">
+                    <option value="black_scholes" {% if form_data.model_type=='black_scholes' %}selected{% endif %}>Black-Scholes</option>
+                    <option value="monte_carlo" disabled>Monte Carlo comparison planned</option>
+                </select>
+                <div class="field-hint">Simulation comparison belongs in the registered workspace once optimized for preview-grade latency.</div>
+            </div>
+            <div id="monte_carlo_params" class="mc-parameter-grid">
+                <div class="form-group">
+                    <label for="num_paths">Number of Paths</label>
+                    <input type="number" id="num_paths" name="num_paths" value="{{ form_data.num_paths|default(10000) }}" min="1000" max="200000" step="1000">
                 </div>
-                <div class="table-row">
-                    <div class="table-cell">{{ delta }}</div>
-                    <div class="table-cell">{{ gamma }}</div>
-                    <div class="table-cell">{{ vega }}</div>
-                    <div class="table-cell">{{ theta }}</div>
-                    <div class="table-cell">{{ rho }}</div>
+                <div class="form-group">
+                    <label for="num_steps">Number of Time Steps</label>
+                    <input type="number" id="num_steps" name="num_steps" value="{{ form_data.num_steps|default(252) }}" min="50" max="1000" step="1">
                 </div>
             </div>
         </div>
     </div>
-    {% endif %}
-</div>
-{% endcall %}
 
-{% call product.section("Analysis", "Review model validation, performance, governance, and monitoring workflows associated with the pricing model.") %}
-<div class="action-section-card">
-    <div id="navigation-buttons">
-        <div class="section-title compact">
-            <h3>Model Validation</h3>
+    <div class="pricing-form-actions">
+        <button type="submit" class="btn-primary">Calculate Option Price</button>
+        <span>Preview runs are intended for research, evaluation, and workflow demonstration.</span>
+    </div>
+</form>
+
+{% if option_price %}
+<div id="results-section" class="european-results-panel">
+    {% if form_data.model_type == 'monte_carlo' %}
+    <div class="info-box">
+        <p><strong>Monte Carlo Simulation:</strong> The premium uses {{ form_data.num_paths|default(10000) }} paths and {{ form_data.num_steps|default(252) }} time steps. Greeks are shown from the analytical European benchmark to keep the preview responsive and stable.</p>
+    </div>
+    {% endif %}
+
+    <div class="result-kpi-grid">
+        <div class="pricing-summary-card primary-kpi">
+            <span class="metric-label">Option Premium</span>
+            <strong class="metric-value">{{ option_price }}</strong>
+            <small>Per option unit</small>
         </div>
-        <div class="nav-button-container">
-            <button onclick="location.href='{{ url_for('vanilla_options.conceptual_soundness') }}'"
-                class="btn-primary nav-btn">Conceptual<br>Soundness</button>
-            <button onclick="location.href='{{ url_for('vanilla_options.model_performance') }}'"
-                class="btn-primary nav-btn">Model<br>Performance</button>
-            <button onclick="location.href='{{ url_for('vanilla_options.model_governance') }}'"
-                class="btn-primary nav-btn">Model<br>Governance</button>
-            <button onclick="location.href='{{ url_for('vanilla_options.ongoing_monitoring') }}'"
-                class="btn-primary nav-btn">Ongoing<br>Monitoring</button>
+        {% if run_summary %}
+        <div class="pricing-summary-card">
+            <span class="metric-label">Position Value</span>
+            <strong class="metric-value">${{ "{:,.2f}".format(run_summary.position_value) }}</strong>
+            <small>{{ form_data.notional }} contract(s) x {{ form_data.contract_multiplier }} multiplier</small>
+        </div>
+        <div class="pricing-summary-card">
+            <span class="metric-label">Moneyness</span>
+            <strong class="metric-value">{{ "{:.2%}".format(run_summary.moneyness_ratio) }}</strong>
+            <small>{{ run_summary.moneyness_label }}</small>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="greeks-card">
+        <div class="section-title compact">
+            <h3>Greeks</h3>
+            <p>Displayed per option unit. Vega and rho are shown for a 1.00 absolute change in volatility or rate.</p>
+        </div>
+        <div class="greek-metric-grid">
+            <div><span>Delta</span><strong>{{ delta }}</strong></div>
+            <div><span>Gamma</span><strong>{{ gamma }}</strong></div>
+            <div><span>Vega</span><strong>{{ vega }}</strong></div>
+            <div><span>Theta</span><strong>{{ theta }}</strong></div>
+            <div><span>Rho</span><strong>{{ rho }}</strong></div>
         </div>
     </div>
 </div>
+{% endif %}
 {% endcall %}
 
-{{ product.reporting(
-    "European option",
-    has_report=True,
-    view_url=url_for('vanilla_options.reporting'),
-    download_url=url_for('vanilla_options.download_report')
-) }}
+{% call product.section("Analysis", "Review first-pass diagnostics that help users understand the premium and risk profile without leaving the preview workflow.") %}
+{% if run_summary %}
+<div class="analysis-grid">
+    <article class="analysis-card">
+        <div class="analysis-card-title">
+            <span aria-hidden="true">🎯</span>
+            <h3>Premium Decomposition</h3>
+        </div>
+        <dl class="summary-definition-list">
+            <div><dt>Intrinsic value</dt><dd>${{ "{:,.4f}".format(run_summary.intrinsic_value) }}</dd></div>
+            <div><dt>Time value</dt><dd>${{ "{:,.4f}".format(run_summary.time_value) }}</dd></div>
+            <div><dt>Breakeven at maturity</dt><dd>${{ "{:,.4f}".format(run_summary.breakeven) }}</dd></div>
+            <div><dt>Tenor</dt><dd>{{ run_summary.calendar_days }} days</dd></div>
+        </dl>
+    </article>
+
+    <article class="analysis-card">
+        <div class="analysis-card-title">
+            <span aria-hidden="true">⚖️</span>
+            <h3>Model Checks</h3>
+        </div>
+        <dl class="summary-definition-list">
+            <div><dt>Put-call parity gap</dt><dd>{{ "{:.6f}".format(run_summary.parity_gap) }}</dd></div>
+            <div><dt>d1</dt><dd>{{ "{:.4f}".format(run_summary.d1) }}</dd></div>
+            <div><dt>d2</dt><dd>{{ "{:.4f}".format(run_summary.d2) }}</dd></div>
+            <div><dt>Day count</dt><dd>{{ form_data.day_count }}</dd></div>
+        </dl>
+    </article>
+</div>
+
+<div class="analysis-card">
+    <div class="analysis-card-title">
+        <span aria-hidden="true">📉</span>
+        <h3>Driver Sensitivity</h3>
+    </div>
+    <div class="results-table-wrap">
+        <table class="results-table compact-results-table">
+            <thead>
+                <tr>
+                    <th>Driver</th>
+                    <th>Down Case</th>
+                    <th>Base Price</th>
+                    <th>Up Case</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in run_summary.sensitivity_rows %}
+                <tr>
+                    <td>{{ row.driver }}</td>
+                    <td>{{ row.down_label }}: ${{ "{:,.4f}".format(row.down) }}</td>
+                    <td>${{ "{:,.4f}".format(row.base) }}</td>
+                    <td>{{ row.up_label }}: ${{ "{:,.4f}".format(row.up) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="analysis-card">
+    <div class="analysis-card-title">
+        <span aria-hidden="true">📊</span>
+        <h3>Payoff at Maturity</h3>
+    </div>
+    <div class="payoff-strip">
+        {% for point in run_summary.payoff_points %}
+        <div>
+            <span>Underlying ${{ "{:,.2f}".format(point.underlying) }}</span>
+            <strong>${{ "{:,.2f}".format(point.payoff) }}</strong>
+            <small>Net ${{ "{:,.2f}".format(point.net_payoff) }}</small>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="empty-state-panel">
+    <strong>No pricing run yet.</strong>
+    <p>Calculate the option price to populate premium decomposition, model checks, sensitivity diagnostics, and payoff views.</p>
+</div>
+{% endif %}
+{% endcall %}
+
+{% call product.section("Run Summary", "A structured summary replaces customized reporting for the preview workflow. Full report export can be added later once user-specific templates are defined.") %}
+{% if run_summary %}
+<div class="run-summary-grid">
+    <div>
+        <span>Contract</span>
+        <strong>{{ form_data.ticker }} {{ form_data.option_type|title }} | K={{ form_data.strike_price }}</strong>
+        <p>{{ form_data.notional }} contract(s), {{ form_data.contract_multiplier }} multiplier, maturity {{ form_data.end_date }}</p>
+    </div>
+    <div>
+        <span>Market</span>
+        <strong>Spot ${{ "{:,.2f}".format(run_summary.spot_price) }} | Vol {{ "{:.2%}".format(form_data.volatility) }}</strong>
+        <p>Rate {{ "{:.2%}".format(form_data.risk_free_rate) }}, dividend yield {{ "{:.2%}".format(form_data.dividend_yield) }}</p>
+    </div>
+    <div>
+        <span>Output</span>
+        <strong>{{ option_price }} premium | {{ run_summary.moneyness_label }}</strong>
+        <p>Intrinsic ${{ "{:,.4f}".format(run_summary.intrinsic_value) }}, time value ${{ "{:,.4f}".format(run_summary.time_value) }}</p>
+    </div>
+    <div>
+        <span>Limitations</span>
+        <strong>Research and evaluation only</strong>
+        <p>Validate assumptions, data source, model choice, and template requirements before production use.</p>
+    </div>
+</div>
+{% else %}
+<div class="empty-state-panel">
+    <strong>Run summary pending.</strong>
+    <p>The summary will populate after a pricing run and can later serve as the basis for configurable reports.</p>
+</div>
+{% endif %}
+{% endcall %}
 
 <script>
     function toggleMonteCarloParams() {
@@ -164,19 +315,17 @@
         const mcParams = document.getElementById('monte_carlo_params');
 
         if (modelType === 'monte_carlo') {
-            mcParams.style.display = 'block';
+            mcParams.style.display = 'grid';
         } else {
             mcParams.style.display = 'none';
         }
     }
 
-    // Initialize on page load
     document.addEventListener('DOMContentLoaded', function () {
         toggleMonteCarloParams();
     });
 
     function validateForm() {
-        // Clear all previous error messages
         document.getElementById('strike-price-error').style.display = 'none';
         document.getElementById('volatility-error').style.display = 'none';
 
@@ -185,19 +334,16 @@
 
         let hasErrors = false;
 
-        // Validate strike price
         if (isNaN(strikePrice) || strikePrice <= 0) {
             document.getElementById('strike-price-error').style.display = 'block';
             hasErrors = true;
         }
 
-        // Validate volatility
         if (isNaN(volatility) || volatility <= 0) {
             document.getElementById('volatility-error').style.display = 'block';
             hasErrors = true;
         }
 
-        // If there are errors, prevent form submission
         if (hasErrors) {
             alert('Please fix all validation errors before submitting the form.');
             return false;
