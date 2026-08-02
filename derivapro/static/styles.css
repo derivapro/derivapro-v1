@@ -1334,7 +1334,8 @@ details summary {
     .mc-parameter-grid,
     .result-kpi-grid,
     .greek-metric-grid,
-    .payoff-strip {
+    .payoff-strip,
+    .available-analysis-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1569,6 +1570,63 @@ details summary {
 .analysis-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     margin-bottom: 14px;
+}
+
+.available-analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.analysis-availability-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px 12px;
+    align-items: flex-start;
+    padding: 15px;
+    border: 1px solid var(--dp-border);
+    border-radius: 10px;
+    background: var(--dp-surface-soft);
+}
+
+.analysis-availability-card>span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(178, 136, 55, 0.28);
+    border-radius: 8px;
+    background: rgba(178, 136, 55, 0.08);
+}
+
+.analysis-availability-card strong {
+    display: block;
+    color: var(--dp-heading);
+    font-size: 15px;
+}
+
+.analysis-availability-card p {
+    margin: 4px 0 0;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.analysis-availability-card em {
+    grid-column: 2;
+    display: inline-flex;
+    justify-self: flex-start;
+    padding: 4px 8px;
+    border: 1px solid rgba(178, 136, 55, 0.32);
+    border-radius: 999px;
+    background: rgba(178, 136, 55, 0.08);
+    color: var(--dp-accent-strong);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .summary-definition-list {
@@ -2491,6 +2549,7 @@ details summary {
     .analysis-grid,
     .greek-metric-grid,
     .payoff-strip,
+    .available-analysis-grid,
     .run-summary-grid {
         grid-template-columns: 1fr;
     }
@@ -2711,6 +2770,7 @@ html[data-theme="dark"] .operating-list div,
 html[data-theme="dark"] .pricing-form-block,
 html[data-theme="dark"] .analysis-card,
 html[data-theme="dark"] .empty-state-panel,
+html[data-theme="dark"] .analysis-availability-card,
 html[data-theme="dark"] .greek-metric-grid div,
 html[data-theme="dark"] .landing-button.secondary,
 html[data-theme="dark"] .preview-gate-card .landing-button.secondary {

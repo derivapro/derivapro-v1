@@ -23,6 +23,7 @@ from flask import send_file
 import os
 import markdown
 import math
+import random as random_module
 from random import random
 from datetime import datetime, timedelta
 from ..extensions import db
@@ -296,6 +297,68 @@ def _price_european_black_scholes(
     }
 
 
+def _price_european_monte_carlo(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    num_paths,
+):
+    """Fast terminal-distribution MC for plain European options.
+
+    The full platform Monte Carlo engine remains available for path-dependent
+    workflows. This preview uses the exact GBM terminal distribution so the
+    registered European workflow is responsive and still simulation-based.
+    """
+    paths = max(100, min(int(num_paths or 10000), 200000))
+    rng = random_module.Random(1729)
+    discount = math.exp(-risk_free_rate * time_to_maturity)
+    drift = (
+        math.log(spot_price)
+        + (risk_free_rate - dividend_yield - 0.5 * volatility * volatility)
+        * time_to_maturity
+    )
+    diffusion = volatility * math.sqrt(time_to_maturity)
+
+    count = 0
+    mean = 0.0
+    m2 = 0.0
+
+    def add_sample(value):
+        nonlocal count, mean, m2
+        count += 1
+        delta = value - mean
+        mean += delta / count
+        m2 += delta * (value - mean)
+
+    pairs = (paths + 1) // 2
+    for _ in range(pairs):
+        z = rng.gauss(0.0, 1.0)
+        for shock in (z, -z):
+            if count >= paths:
+                break
+            terminal = math.exp(drift + diffusion * shock)
+            payoff = (
+                max(terminal - strike_price, 0.0)
+                if option_type == "call"
+                else max(strike_price - terminal, 0.0)
+            )
+            add_sample(discount * payoff)
+
+    variance = m2 / (count - 1) if count > 1 else 0.0
+    standard_error = math.sqrt(variance / count) if count else 0.0
+    return {
+        "price": mean,
+        "num_paths": count,
+        "standard_error": standard_error,
+        "ci_low": mean - 1.96 * standard_error,
+        "ci_high": mean + 1.96 * standard_error,
+    }
+
+
 def _classify_moneyness(spot_price, strike_price, option_type):
     ratio = spot_price / strike_price
     if abs(ratio - 1.0) <= 0.02:
@@ -514,6 +577,9 @@ def european_options():
         logger.debug("POST request received for european options")
         action = request.form.get("analysis_type")
         logger.debug("European options action: %s", action)
+        requested_model_type = request.form.get("model_type", "black_scholes")
+        if requested_model_type == "monte_carlo" and not current_user.is_authenticated:
+            requested_model_type = "black_scholes"
 
         form_data = {
             "ticker": request.form.get("ticker", ""),
@@ -532,7 +598,7 @@ def european_options():
             ),
             "day_count": request.form.get("day_count", "ACT/365"),
             "option_type": request.form.get("option_type", ""),
-            "model_type": request.form.get("model_type", "black_scholes"),
+            "model_type": requested_model_type,
             "num_paths": request.form.get("num_paths", type=int, default=10000),
             "num_steps": request.form.get("num_steps", type=int, default=252),
         }
@@ -745,6 +811,7 @@ def european_options():
         else:
             model_type = form_data.get("model_type", "black_scholes")
             num_steps = form_data.get("num_steps", 252)
+            mc_stats = None
             if spot_price is None:
                 spot_price = float(
                     StockData(ticker, start_date, end_date).get_closing_price()
@@ -773,22 +840,17 @@ def european_options():
                 num_paths = form_data.get("num_paths", 10000)
                 num_steps = form_data.get("num_steps", 252)
 
-                mc_engine = monte_carlo_module.create_monte_carlo_engine(
-                    S0=float(spot_price),
-                    r=risk_free_rate,
-                    sigma=volatility,
-                    T=time_to_maturity,
-                    num_paths=num_paths,
-                    num_steps=num_steps,
-                    random_type="sobol",
+                mc_stats = _price_european_monte_carlo(
+                    spot_price,
+                    strike_price,
+                    time_to_maturity,
+                    risk_free_rate,
+                    volatility,
+                    dividend_yield,
+                    option_type,
+                    num_paths,
                 )
-                mc_engine.q = dividend_yield
-
-                option_price = (
-                    mc_engine.price_european_option(strike_price, "call")
-                    if option_type == "call"
-                    else mc_engine.price_european_option(strike_price, "put")
-                )
+                option_price = mc_stats["price"]
 
                 pricing_output = _price_european_black_scholes(
                     spot_price,
@@ -868,6 +930,8 @@ def european_options():
                 raw_option_price,
                 pricing_output,
             )
+            if mc_stats:
+                run_summary["mc_stats"] = mc_stats
 
             option_price = "${:,.4f}".format(raw_option_price)
             delta = "{:.4f}".format(raw_delta)

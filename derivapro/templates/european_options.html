@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
-{% block title %}DerivaPro | European Option Preview{% endblock %}
+{% block title %}DerivaPro | European Option {% if current_user.is_authenticated %}Workspace{% else %}Preview{% endif %}{% endblock %}
 
 {% block content %}
 {{ product.header(
     "European Vanilla Options",
-    "A polished preview workflow for European call and put valuation, Greeks, assumption review, and first-pass risk diagnostics.",
+    "A polished workflow for European call and put valuation, Greeks, assumption review, and first-pass risk diagnostics.",
     "Equity & Options",
-    "Free Preview"
+    "Registered Workspace" if current_user.is_authenticated else "Free Preview"
 ) }}
 
 {{ product.description(
     "European-style calls and puts exercisable only at maturity.",
     "This workflow demonstrates the DerivaPro standard for transparent pricing: contract terms, market assumptions, model settings, valuation output, diagnostics, and a structured run summary on one page.",
-    ["European call", "European put", "Black-Scholes", "Greeks", "Sensitivity review", "Run summary"],
+    ["European call", "European put", "Black-Scholes", "Monte Carlo for registered users", "Greeks", "Sensitivity review", "Run summary"],
     "Methodology documentation will be linked here once the European option model note is published in the repository."
 ) }}
 
@@ -54,7 +54,7 @@
             </div>
             <div class="form-group">
                 <label for="strike_price">Strike Price</label>
-                <input type="number" step="0.01" id="strike_price" name="strike_price" value="{{ form_data.strike_price }}" min="0.0001" required>
+                <input type="number" step="any" id="strike_price" name="strike_price" value="{{ form_data.strike_price }}" min="0" required>
                 <div id="strike-price-error" class="field-error" style="display: none;">Strike price must be positive.</div>
             </div>
             <div class="form-group">
@@ -63,7 +63,7 @@
             </div>
             <div class="form-group">
                 <label for="contract_multiplier">Contract Multiplier</label>
-                <input type="number" step="0.01" id="contract_multiplier" name="contract_multiplier" value="{{ form_data.contract_multiplier|default(100) }}" min="1" required>
+                <input type="number" step="any" id="contract_multiplier" name="contract_multiplier" value="{{ form_data.contract_multiplier|default(100) }}" min="1" required>
             </div>
         </div>
     </div>
@@ -87,22 +87,22 @@
             </div>
             <div class="form-group">
                 <label for="spot_price">Spot Price</label>
-                <input type="number" step="0.01" id="spot_price" name="spot_price" value="{{ form_data.spot_price }}" min="0.0001" placeholder="Leave blank to fetch from ticker">
+                <input type="number" step="any" id="spot_price" name="spot_price" value="{{ form_data.spot_price }}" min="0" placeholder="Leave blank to fetch from ticker">
                 <div class="field-hint">For a reliable preview, use an explicit spot assumption.</div>
             </div>
             <div class="form-group">
                 <label for="risk_free_rate">Risk-Free Rate</label>
-                <input type="number" step="0.0001" id="risk_free_rate" name="risk_free_rate" value="{{ form_data.risk_free_rate }}" required>
+                <input type="number" step="any" id="risk_free_rate" name="risk_free_rate" value="{{ form_data.risk_free_rate }}" required>
                 <div class="field-hint">Absolute format, e.g. 0.04 for 4%.</div>
             </div>
             <div class="form-group">
                 <label for="volatility">Annualized Volatility</label>
-                <input type="number" step="0.0001" id="volatility" name="volatility" value="{{ form_data.volatility }}" min="0.0001" required>
+                <input type="number" step="any" id="volatility" name="volatility" value="{{ form_data.volatility }}" min="0" required>
                 <div id="volatility-error" class="field-error" style="display: none;">Volatility must be positive.</div>
             </div>
             <div class="form-group">
                 <label for="dividend_yield">Dividend Yield</label>
-                <input type="number" step="0.0001" id="dividend_yield" name="dividend_yield" value="{{ form_data.dividend_yield|default(0) }}">
+                <input type="number" step="any" id="dividend_yield" name="dividend_yield" value="{{ form_data.dividend_yield|default(0) }}">
             </div>
             <div class="form-group">
                 <label for="day_count">Day Count</label>
@@ -119,7 +119,11 @@
             <span aria-hidden="true">🧮</span>
             <div>
                 <strong>Model Settings</strong>
+                {% if current_user.is_authenticated %}
+                <p>Registered users can compare the analytical benchmark with Monte Carlo simulation.</p>
+                {% else %}
                 <p>The free preview uses the analytical European benchmark for fast, stable runs.</p>
+                {% endif %}
             </div>
         </div>
         <div class="form-grid compact-form-grid">
@@ -127,9 +131,17 @@
                 <label for="model_type">Model Type</label>
                 <select id="model_type" name="model_type" required onchange="toggleMonteCarloParams()">
                     <option value="black_scholes" {% if form_data.model_type=='black_scholes' %}selected{% endif %}>Black-Scholes</option>
-                    <option value="monte_carlo" disabled>Monte Carlo comparison planned</option>
+                    {% if current_user.is_authenticated %}
+                    <option value="monte_carlo" {% if form_data.model_type=='monte_carlo' %}selected{% endif %}>Monte Carlo Simulation</option>
+                    {% else %}
+                    <option value="monte_carlo" disabled>Monte Carlo available after sign-in</option>
+                    {% endif %}
                 </select>
-                <div class="field-hint">Simulation comparison belongs in the registered workspace once optimized for preview-grade latency.</div>
+                {% if current_user.is_authenticated %}
+                <div class="field-hint">Monte Carlo premium may take longer on first run; Greeks use the analytical European benchmark.</div>
+                {% else %}
+                <div class="field-hint">Create a free account to unlock simulation comparison and saved analysis workflow.</div>
+                {% endif %}
             </div>
             <div id="monte_carlo_params" class="mc-parameter-grid">
                 <div class="form-group">
@@ -146,7 +158,7 @@
 
     <div class="pricing-form-actions">
         <button type="submit" class="btn-primary">Calculate Option Price</button>
-        <span>Preview runs are intended for research, evaluation, and workflow demonstration.</span>
+        <span>{% if current_user.is_authenticated %}Registered runs can be saved to your analysis history.{% else %}Preview runs are intended for research, evaluation, and workflow demonstration.{% endif %}</span>
     </div>
 </form>
 
@@ -154,7 +166,15 @@
 <div id="results-section" class="european-results-panel">
     {% if form_data.model_type == 'monte_carlo' %}
     <div class="info-box">
-        <p><strong>Monte Carlo Simulation:</strong> The premium uses {{ form_data.num_paths|default(10000) }} paths and {{ form_data.num_steps|default(252) }} time steps. Greeks are shown from the analytical European benchmark to keep the preview responsive and stable.</p>
+        <p>
+            <strong>Monte Carlo Simulation:</strong>
+            The premium uses {{ run_summary.mc_stats.num_paths if run_summary and run_summary.mc_stats else form_data.num_paths|default(10000) }} terminal GBM paths.
+            {% if run_summary and run_summary.mc_stats %}
+            Standard error is ${{ "{:,.4f}".format(run_summary.mc_stats.standard_error) }};
+            95% confidence interval is ${{ "{:,.4f}".format(run_summary.mc_stats.ci_low) }} to ${{ "{:,.4f}".format(run_summary.mc_stats.ci_high) }}.
+            {% endif %}
+            Greeks are shown from the analytical European benchmark to keep the workflow stable.
+        </p>
     </div>
     {% endif %}
 
@@ -223,6 +243,20 @@
             <div><dt>Day count</dt><dd>{{ form_data.day_count }}</dd></div>
         </dl>
     </article>
+    {% if run_summary.mc_stats %}
+    <article class="analysis-card">
+        <div class="analysis-card-title">
+            <span aria-hidden="true">🧮</span>
+            <h3>Simulation Diagnostics</h3>
+        </div>
+        <dl class="summary-definition-list">
+            <div><dt>Paths</dt><dd>{{ "{:,}".format(run_summary.mc_stats.num_paths) }}</dd></div>
+            <div><dt>Standard error</dt><dd>${{ "{:,.4f}".format(run_summary.mc_stats.standard_error) }}</dd></div>
+            <div><dt>95% CI low</dt><dd>${{ "{:,.4f}".format(run_summary.mc_stats.ci_low) }}</dd></div>
+            <div><dt>95% CI high</dt><dd>${{ "{:,.4f}".format(run_summary.mc_stats.ci_high) }}</dd></div>
+        </dl>
+    </article>
+    {% endif %}
 </div>
 
 <div class="analysis-card">
@@ -270,9 +304,57 @@
     </div>
 </div>
 {% else %}
-<div class="empty-state-panel">
-    <strong>No pricing run yet.</strong>
-    <p>Calculate the option price to populate premium decomposition, model checks, sensitivity diagnostics, and payoff views.</p>
+<div class="available-analysis-grid">
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🎯</span>
+        <div>
+            <strong>Premium Decomposition</strong>
+            <p>Intrinsic value, time value, breakeven, and tenor.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">⚖️</span>
+        <div>
+            <strong>Model Checks</strong>
+            <p>Put-call parity gap, d1/d2, and day-count context.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📉</span>
+        <div>
+            <strong>Driver Sensitivity</strong>
+            <p>Spot, volatility, and rate shock views around the base run.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📊</span>
+        <div>
+            <strong>Payoff at Maturity</strong>
+            <p>Gross and net payoff across representative underlying levels.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📁</span>
+        <div>
+            <strong>Run Summary</strong>
+            <p>Contract, market assumptions, output, and limitations in one review block.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    {% if current_user.is_authenticated %}
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🧮</span>
+        <div>
+            <strong>Model Comparison</strong>
+            <p>Black-Scholes benchmark and Monte Carlo premium comparison.</p>
+        </div>
+        <em>Registered</em>
+    </article>
+    {% endif %}
 </div>
 {% endif %}
 {% endcall %}
