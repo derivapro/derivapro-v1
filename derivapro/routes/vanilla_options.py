@@ -52,6 +52,10 @@ render_report_pdf = LazyAttribute(
     "derivapro.services.report_builder", "render_report_pdf"
 )
 StockData = LazyAttribute("derivapro.models.market_data", "StockData")
+build_equity_market_reference = LazyAttribute(
+    "derivapro.services.market_reference",
+    "build_equity_market_reference",
+)
 np = LazyImport("numpy")
 plt = LazyImport("matplotlib.pyplot")
 
@@ -526,6 +530,14 @@ def european_options():
     md_content = markdown.markdown(content)
 
     form_data = _default_european_form_data()
+    market_query = {
+        "symbol": form_data["ticker"],
+        "period": "6mo",
+        "option_type": form_data["option_type"],
+        "strike": form_data["strike_price"],
+        "maturity_date": form_data["end_date"],
+        "visual_mode": "none",
+    }
 
     option_price = None
     delta = None
@@ -539,6 +551,8 @@ def european_options():
     latest_analysis = None
     latest_pricing_result = None
     run_summary = None
+    market_reference = None
+    market_error = None
 
     if current_user.is_authenticated:
         latest_pricing_result = _get_latest_pricing_result_for_user("european_option")
@@ -555,6 +569,18 @@ def european_options():
                     _build_european_form_data_from_instrument(
                         latest_pricing_result.instrument
                     )
+                )
+                market_query.update(
+                    {
+                        "symbol": form_data.get("ticker", market_query["symbol"]),
+                        "option_type": form_data.get(
+                            "option_type", market_query["option_type"]
+                        ),
+                        "strike": form_data.get("strike_price", market_query["strike"]),
+                        "maturity_date": form_data.get(
+                            "end_date", market_query["maturity_date"]
+                        ),
+                    }
                 )
             if latest_pricing_result.result_json:
                 run_summary = latest_pricing_result.result_json.get("run_summary")
@@ -577,6 +603,62 @@ def european_options():
         logger.debug("POST request received for european options")
         action = request.form.get("analysis_type")
         logger.debug("European options action: %s", action)
+
+        if action == "market_reference":
+            session_form_data = session.get("european_form_data", {})
+            if session_form_data:
+                form_data.update(session_form_data)
+
+            market_query = {
+                "symbol": request.form.get(
+                    "market_symbol", form_data.get("ticker", "AAPL")
+                )
+                .upper()
+                .strip(),
+                "period": request.form.get("market_period", "6mo"),
+                "option_type": request.form.get("market_option_type", "call"),
+                "strike": request.form.get("market_strike", type=float),
+                "maturity_date": request.form.get("market_maturity_date", ""),
+                "visual_mode": request.form.get("visual_mode", "none"),
+            }
+            if market_query["symbol"]:
+                form_data["ticker"] = market_query["symbol"]
+
+            try:
+                market_reference = build_equity_market_reference(
+                    market_query["symbol"],
+                    market_query["period"],
+                    market_query["strike"],
+                    market_query["maturity_date"],
+                    market_query["option_type"],
+                    market_query["visual_mode"],
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Market reference fetch failed for %s: %s",
+                    market_query["symbol"],
+                    exc,
+                )
+                market_error = str(exc)
+
+            return render_template(
+                "european_options.html",
+                form_data=form_data,
+                option_price=option_price,
+                delta=delta,
+                gamma=gamma,
+                vega=vega,
+                theta=theta,
+                rho=rho,
+                sensitivity_results=sensitivity_results,
+                gpt_assessment=gpt_assessment,
+                md_content=md_content,
+                run_summary=run_summary,
+                market_query=market_query,
+                market_reference=market_reference,
+                market_error=market_error,
+            )
+
         requested_model_type = request.form.get("model_type", "black_scholes")
         if requested_model_type == "monte_carlo" and not current_user.is_authenticated:
             requested_model_type = "black_scholes"
@@ -602,6 +684,19 @@ def european_options():
             "num_paths": request.form.get("num_paths", type=int, default=10000),
             "num_steps": request.form.get("num_steps", type=int, default=252),
         }
+
+        market_query.update(
+            {
+                "symbol": form_data.get("ticker", market_query["symbol"]),
+                "option_type": form_data.get(
+                    "option_type", market_query["option_type"]
+                ),
+                "strike": form_data.get("strike_price", market_query["strike"]),
+                "maturity_date": form_data.get(
+                    "end_date", market_query["maturity_date"]
+                ),
+            }
+        )
 
         session["european_form_data"] = {
             "ticker": form_data.get("ticker", ""),
@@ -655,6 +750,9 @@ def european_options():
                 rho=rho,
                 error=f"Date format error: {e}",
                 run_summary=run_summary,
+                market_query=market_query,
+                market_reference=market_reference,
+                market_error=market_error,
             )
 
         if action == "sensitivity":
@@ -1001,6 +1099,9 @@ def european_options():
             gpt_assessment=gpt_assessment,
             md_content=md_content,
             run_summary=run_summary,
+            market_query=market_query,
+            market_reference=market_reference,
+            market_error=market_error,
         )
 
     return render_template(
@@ -1016,6 +1117,9 @@ def european_options():
         gpt_assessment=gpt_assessment,
         md_content=md_content,
         run_summary=run_summary,
+        market_query=market_query,
+        market_reference=market_reference,
+        market_error=market_error,
     )
 
 

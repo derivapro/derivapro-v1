@@ -11,7 +11,7 @@
 </div>
 {%- endmacro %}
 
-{% macro description(title, body, instruments=None, methodology_note=None) -%}
+{% macro description(title, body, instruments=None, methodology_note=None, methodology_url=None) -%}
 <section class="product-section-card product-description-section">
     <div class="product-section-header">
         <span>Product Description</span>
@@ -27,6 +27,9 @@
     {% endif %}
     <div class="methodology-note">
         {{ methodology_note or "Full methodology documentation will be linked here once the product documentation page is available in the repository." }}
+        {% if methodology_url %}
+        <a href="{{ methodology_url }}" target="_blank" rel="noopener">Open methodology</a>
+        {% endif %}
     </div>
 </section>
 {%- endmacro %}

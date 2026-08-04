@@ -15,7 +15,8 @@
     "European-style calls and puts exercisable only at maturity.",
     "This workflow demonstrates the DerivaPro standard for transparent pricing: contract terms, market assumptions, model settings, valuation output, diagnostics, and a structured run summary on one page.",
     ["European call", "European put", "Black-Scholes", "Monte Carlo for registered users", "Greeks", "Sensitivity review", "Run summary"],
-    "Methodology documentation will be linked here once the European option model note is published in the repository."
+    "Methodology documentation is available in the repository.",
+    "https://github.com/derivapro/derivapro-v1/blob/main/docs/methodology/european_option.md"
 ) }}
 
 {% if error %}
@@ -27,6 +28,260 @@
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
+
+{% call product.section("Market Reference", "Fetch a lightweight equity market snapshot before choosing pricing assumptions. Data is used only when you explicitly apply it to the pricing form.") %}
+<details class="market-reference-help">
+    <summary>
+        <span aria-hidden="true">ⓘ</span>
+        <strong>How market reference data is used</strong>
+    </summary>
+    <div>
+        <p>
+            Price history uses only the ticker and lookback period. DerivaPro computes the period return and realized volatility from daily closing-price returns.
+        </p>
+        <p>
+            Option type, target strike, and target maturity are used only for the listed-option implied-volatility reference. DerivaPro reads the provider option chain, selects the expiration nearest to the target maturity, then selects the listed strike nearest to the target strike.
+        </p>
+        <p>
+            This is a point implied-volatility lookup from listed option data, not a fitted volatility surface. The nearby-strike IV table gives a small smile/skew context around the selected strike.
+        </p>
+    </div>
+</details>
+
+<div class="market-provider-note">
+    <span>Provider</span>
+    <p>
+        Market reference data is fetched on demand from Yahoo Finance via the open-source yfinance package.
+        Values may be delayed, adjusted, incomplete, or unavailable for some symbols and should be independently validated before production or commercial use.
+    </p>
+</div>
+
+<form method="post" class="market-reference-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="analysis_type" value="market_reference">
+    <div class="market-reference-grid">
+        <div class="form-group market-symbol-field">
+            <label for="market_symbol">Ticker Symbol</label>
+            <input type="text" id="market_symbol" name="market_symbol" value="{{ market_query.symbol|default(form_data.ticker) }}" required>
+        </div>
+        <div class="form-group market-period-field">
+            <label for="market_period">Lookback Period</label>
+            <select id="market_period" name="market_period">
+                <option value="1mo" {% if market_query.period|default('6mo') == '1mo' %}selected{% endif %}>1 Month</option>
+                <option value="3mo" {% if market_query.period|default('6mo') == '3mo' %}selected{% endif %}>3 Months</option>
+                <option value="6mo" {% if market_query.period|default('6mo') == '6mo' %}selected{% endif %}>6 Months</option>
+                <option value="1y" {% if market_query.period|default('6mo') == '1y' %}selected{% endif %}>1 Year</option>
+                <option value="2y" {% if market_query.period|default('6mo') == '2y' %}selected{% endif %}>2 Years</option>
+            </select>
+        </div>
+        <div class="form-group market-option-type-field">
+            <label for="market_option_type">Listed Option Type</label>
+            <select id="market_option_type" name="market_option_type">
+                <option value="call" {% if market_query.option_type|default(form_data.option_type) == 'call' %}selected{% endif %}>Call</option>
+                <option value="put" {% if market_query.option_type|default(form_data.option_type) == 'put' %}selected{% endif %}>Put</option>
+            </select>
+            <div class="field-hint">Used only for listed-option IV.</div>
+        </div>
+        <div class="form-group market-strike-field">
+            <label for="market_strike">Target Strike</label>
+            <input type="number" step="any" id="market_strike" name="market_strike" value="{{ market_query.strike if market_query.strike is not none else form_data.strike_price }}">
+            <div class="field-hint">Nearest listed strike is selected.</div>
+        </div>
+        <div class="form-group market-maturity-field">
+            <label for="market_maturity_date">Target Maturity</label>
+            <input type="date" id="market_maturity_date" name="market_maturity_date" value="{{ market_query.maturity_date|default(form_data.end_date) }}">
+            <div class="field-hint">Nearest listed expiration is selected.</div>
+        </div>
+        <div class="market-reference-actions">
+            <button type="submit" class="btn-primary" name="visual_mode" value="none">Fetch Snapshot</button>
+            <button type="submit" class="btn-secondary" name="visual_mode" value="price_chart">Historical Price Chart</button>
+            <button type="submit" class="btn-secondary" name="visual_mode" value="iv_smile">IV Smile / Skew</button>
+            <button type="submit" class="btn-secondary" name="visual_mode" value="iv_surface_3d">3D IV Surface</button>
+        </div>
+    </div>
+</form>
+
+{% if market_error %}
+<div class="info-box error-box market-reference-message">
+    <p><strong>Market data unavailable:</strong> {{ market_error }}</p>
+</div>
+{% elif market_reference %}
+<div class="market-reference-panel">
+    <div class="market-reference-header">
+        <div>
+            <span>{{ market_reference.provider }}</span>
+            <h3>{{ market_reference.symbol }} Market Snapshot</h3>
+            <p>Latest close as of {{ market_reference.latest_date }} using {{ market_reference.observations }} daily observations over {{ market_reference.period_label }}.</p>
+        </div>
+        <small>Reference only</small>
+    </div>
+
+    <div class="market-metric-grid">
+        <div>
+            <span>Latest Close</span>
+            <strong>${{ "{:,.2f}".format(market_reference.latest_close) }}</strong>
+            <button type="button" onclick="applyPricingInput('spot_price', {{ market_reference.latest_close|tojson }}, 4)">Use latest close</button>
+        </div>
+        <div>
+            <span>Period Return</span>
+            <strong>{% if market_reference.period_return is not none %}{{ "{:.2%}".format(market_reference.period_return) }}{% else %}N/A{% endif %}</strong>
+            <small>{{ market_reference.period_label }}</small>
+        </div>
+        <div>
+            <span>Realized Volatility</span>
+            <strong>{% if market_reference.realized_volatility is not none %}{{ "{:.2%}".format(market_reference.realized_volatility) }}{% else %}N/A{% endif %}</strong>
+            {% if market_reference.realized_volatility is not none %}
+            <button type="button" onclick="applyPricingInput('volatility', {{ market_reference.realized_volatility|tojson }}, 6)">Use realized vol</button>
+            {% endif %}
+        </div>
+        <div>
+            <span>Range</span>
+            <strong>
+                {% if market_reference.low is not none and market_reference.high is not none %}
+                ${{ "{:,.2f}".format(market_reference.low) }} - ${{ "{:,.2f}".format(market_reference.high) }}
+                {% else %}
+                N/A
+                {% endif %}
+            </strong>
+            <small>Period low / high</small>
+        </div>
+        <div>
+            <span>Average Volume</span>
+            <strong>{% if market_reference.average_volume is not none %}{{ "{:,.0f}".format(market_reference.average_volume) }}{% else %}N/A{% endif %}</strong>
+            <small>Daily average</small>
+        </div>
+    </div>
+
+    {% set option_ref = market_reference.option_reference %}
+    {% if option_ref %}
+    <div class="option-reference-card">
+        <div>
+            <span>Nearest Listed Option IV</span>
+            <strong>{{ "{:.2%}".format(option_ref.implied_volatility) }}</strong>
+            <p>
+                {{ option_ref.option_type|title }} option, expiration {{ option_ref.expiration }},
+                nearest strike ${{ "{:,.2f}".format(option_ref.nearest_strike) }}.
+                {% if option_ref.bid is not none and option_ref.ask is not none %}
+                Bid / ask: ${{ "{:,.2f}".format(option_ref.bid) }} / ${{ "{:,.2f}".format(option_ref.ask) }}.
+                {% endif %}
+            </p>
+            <button type="button" onclick="applyPricingInput('volatility', {{ option_ref.implied_volatility|tojson }}, 6)">Use implied vol</button>
+        </div>
+        {% if option_ref.sample_smile %}
+        <div class="option-smile-table">
+            <span>Nearby Strike IVs</span>
+            <table class="results-table compact-results-table">
+                <thead>
+                    <tr>
+                        <th>Strike</th>
+                        <th>IV</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in option_ref.sample_smile %}
+                    <tr>
+                        <td>${{ "{:,.2f}".format(row.strike) }}</td>
+                        <td>{{ "{:.2%}".format(row.implied_volatility) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="empty-state-panel market-reference-message">
+        <strong>No listed-option IV returned.</strong>
+        <p>The price-history snapshot is available, but the provider did not return a usable option chain for the selected ticker and maturity.</p>
+    </div>
+    {% endif %}
+
+    {% if market_reference.visual_mode != 'none' %}
+    <div class="market-visual-grid">
+        {% if market_reference.price_chart %}
+        <article class="market-visual-card">
+            <div class="market-visual-title">
+                <span aria-hidden="true">📈</span>
+                <div>
+                    <strong>Historical Price Trend</strong>
+                    <p>{{ market_reference.price_chart.start_date }} to {{ market_reference.price_chart.end_date }}; {{ market_reference.price_chart.point_count }} sampled observations.</p>
+                </div>
+            </div>
+            <svg class="market-price-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Historical price line chart">
+                <polyline points="{{ market_reference.price_chart.points }}" />
+            </svg>
+            <div class="market-chart-axis">
+                <span>${{ "{:,.2f}".format(market_reference.price_chart.min_price) }}</span>
+                <span>${{ "{:,.2f}".format(market_reference.price_chart.max_price) }}</span>
+            </div>
+        </article>
+        {% endif %}
+
+        {% if market_reference.iv_surface and market_reference.visual_mode == 'iv_smile' %}
+        <article class="market-visual-card">
+            <div class="market-visual-title">
+                <span aria-hidden="true">📊</span>
+                <div>
+                    <strong>IV Smile / Skew Snapshot</strong>
+                    <p>{{ market_reference.iv_surface.option_type|title }} IVs near target strike ${{ "{:,.2f}".format(market_reference.iv_surface.target_strike) }} across listed expirations.</p>
+                </div>
+            </div>
+            <div class="iv-surface-grid">
+                {% for expiry_panel in market_reference.iv_surface.expirations %}
+                <div class="iv-expiry-panel">
+                    <strong>{{ expiry_panel.expiration }}</strong>
+                    {% for row in expiry_panel.rows %}
+                    <div class="iv-row">
+                        <span>K {{ "{:,.0f}".format(row.strike) }}</span>
+                        <div><i style="width: {{ row.width }}%;"></i></div>
+                        <em>{{ "{:.1%}".format(row.implied_volatility) }}</em>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </article>
+        {% endif %}
+
+        {% if market_reference.iv_surface_plot and market_reference.visual_mode == 'iv_surface_3d' %}
+        <article class="market-visual-card market-visual-card-wide">
+            <div class="market-visual-title">
+                <span aria-hidden="true">◩</span>
+                <div>
+                    <strong>3D IV Surface</strong>
+                    <p>Listed-option implied volatility by expiration and strike moneyness. This is a provider option-chain snapshot, not a calibrated production surface.</p>
+                </div>
+            </div>
+            <img class="market-surface-image" src="data:image/png;base64,{{ market_reference.iv_surface_plot }}" alt="3D implied volatility surface snapshot">
+        </article>
+        {% endif %}
+
+        {% if not market_reference.price_chart and not market_reference.iv_surface and not market_reference.iv_surface_plot %}
+        <div class="empty-state-panel market-reference-message">
+            <strong>Visuals unavailable.</strong>
+            <p>The provider returned enough data for the snapshot, but not enough valid observations for charts.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% elif market_reference %}
+    <div class="market-visual-prompt">
+        <span aria-hidden="true">📊</span>
+        <div>
+            <strong>Optional visuals available</strong>
+            <p>Generate a historical price chart, IV smile/skew snapshot, or 3D IV surface when needed.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <p class="market-reference-disclaimer">{{ market_reference.disclaimer }}</p>
+</div>
+{% else %}
+<div class="empty-state-panel market-reference-message">
+    <strong>Market reference pending.</strong>
+    <p>Select a ticker and lookback period, then fetch current or historical context before setting pricing assumptions.</p>
+</div>
+{% endif %}
+{% endcall %}
 
 {% call product.section("Pricing", "Enter contract terms, market assumptions, and model settings. Sample values are preloaded so the free preview can run immediately.") %}
 <form id="options-form" method="post" class="european-pricing-form" onsubmit="return validateForm()">
@@ -406,6 +661,16 @@
     document.addEventListener('DOMContentLoaded', function () {
         toggleMonteCarloParams();
     });
+
+    function applyPricingInput(fieldId, value, precision) {
+        const input = document.getElementById(fieldId);
+        if (!input || value === null || value === undefined || Number.isNaN(Number(value))) {
+            return;
+        }
+        input.value = Number(value).toFixed(precision);
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.focus();
+    }
 
     function validateForm() {
         document.getElementById('strike-price-error').style.display = 'none';

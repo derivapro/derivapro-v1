@@ -84,6 +84,18 @@ DerivaPro already includes active workflows across several major financial produ
 
 ---
 
+## 📚 Methodology Documentation
+
+DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/methodology/). The first product-level note is available for the European vanilla option workflow:
+
+| Product | Methodology Note |
+|---|---|
+| **European Vanilla Option** | [Pricing methodology, Greeks, diagnostics, market reference data, Monte Carlo comparison, and limitations](docs/methodology/european_option.md) |
+
+These notes are intended to support transparency, model review, implementation consistency, and future model governance workflows.
+
+---
+
 ## 🚦 Development Status
 
 | Area | Status | Notes |
@@ -191,6 +203,8 @@ DerivaPro uses a conventional Flask application structure with a clear separatio
 ```text
 derivapro-v1/
 |-- README.md
+|-- docs/
+|   `-- methodology/
 |-- requirements.txt
 |-- setup.py
 |-- run.py

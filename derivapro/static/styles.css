@@ -1332,6 +1332,10 @@ details summary {
 
     .compact-form-grid,
     .mc-parameter-grid,
+    .market-reference-grid,
+    .market-metric-grid,
+    .market-visual-grid,
+    .iv-surface-grid,
     .result-kpi-grid,
     .greek-metric-grid,
     .payoff-strip,
@@ -1485,6 +1489,456 @@ details summary {
     background: transparent;
     border-radius: 0;
     box-shadow: none;
+}
+
+.market-reference-form {
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 1px solid var(--dp-border);
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.market-reference-help {
+    margin-bottom: 16px;
+    border: 1px solid rgba(178, 136, 55, 0.28);
+    border-radius: 9px;
+    background: rgba(178, 136, 55, 0.06);
+}
+
+.market-reference-help summary {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 12px 14px;
+    color: var(--dp-heading);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 800;
+    list-style: none;
+}
+
+.market-reference-help summary::-webkit-details-marker {
+    display: none;
+}
+
+.market-reference-help summary span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid rgba(178, 136, 55, 0.34);
+    border-radius: 999px;
+    color: var(--dp-accent-strong);
+    font-size: 13px;
+}
+
+.market-reference-help summary::after {
+    margin-left: auto;
+    color: var(--dp-text-muted);
+    content: "+";
+    font-size: 18px;
+    line-height: 1;
+}
+
+.market-reference-help[open] summary::after {
+    content: "-";
+}
+
+.market-reference-help div {
+    display: grid;
+    gap: 8px;
+    padding: 0 14px 14px 47px;
+}
+
+.market-reference-help p {
+    margin: 0;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.market-provider-note {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding: 13px 15px;
+    border: 1px solid rgba(16, 24, 32, 0.12);
+    border-left: 4px solid var(--dp-accent-strong);
+    border-radius: 9px;
+    background: #fbfaf7;
+}
+
+.market-provider-note span {
+    color: var(--dp-accent-strong);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.market-provider-note p {
+    margin: 0;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.market-reference-grid {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 14px 16px;
+    align-items: start;
+}
+
+.market-reference-grid .form-group {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0;
+}
+
+.market-symbol-field,
+.market-period-field,
+.market-option-type-field,
+.market-strike-field,
+.market-maturity-field {
+    grid-column: span 2;
+}
+
+.market-reference-grid label {
+    min-height: 22px;
+    margin-bottom: 6px;
+    line-height: 1.15;
+}
+
+.market-reference-grid input,
+.market-reference-grid select {
+    box-sizing: border-box;
+    width: 100%;
+    height: 44px !important;
+    min-height: 44px !important;
+    padding: 0 13px !important;
+    line-height: 44px;
+}
+
+.market-reference-grid .field-hint {
+    min-height: 18px;
+    margin-top: 5px;
+}
+
+.market-reference-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 3px;
+    padding-top: 14px;
+    border-top: 1px solid var(--dp-border);
+}
+
+.market-reference-actions .btn-primary,
+.market-reference-actions .btn-secondary {
+    min-height: 42px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.market-reference-actions .btn-secondary {
+    border: 1px solid rgba(178, 136, 55, 0.36);
+    background: #ffffff;
+    color: var(--dp-heading);
+}
+
+.market-reference-actions .btn-secondary:hover {
+    background: rgba(178, 136, 55, 0.08);
+    color: var(--dp-heading);
+}
+
+.market-reference-panel {
+    display: grid;
+    gap: 16px;
+}
+
+.market-reference-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px 18px;
+    border: 1px solid rgba(178, 136, 55, 0.28);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #ffffff, rgba(178, 136, 55, 0.07));
+}
+
+.market-reference-header span,
+.market-metric-grid span,
+.option-reference-card span,
+.market-reference-header small {
+    display: block;
+    color: var(--dp-text-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.market-reference-header h3 {
+    margin: 4px 0 5px;
+    color: var(--dp-heading);
+    font-size: 20px;
+}
+
+.market-reference-header p,
+.option-reference-card p,
+.market-reference-disclaimer {
+    margin: 0;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.market-reference-header small {
+    align-self: flex-start;
+    padding: 5px 9px;
+    border: 1px solid rgba(178, 136, 55, 0.3);
+    border-radius: 999px;
+    color: var(--dp-accent-strong);
+    white-space: nowrap;
+}
+
+.market-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.market-metric-grid>div,
+.option-reference-card {
+    padding: 15px;
+    border: 1px solid var(--dp-border);
+    border-radius: 9px;
+    background: var(--dp-surface-soft);
+}
+
+.market-metric-grid strong,
+.option-reference-card strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--dp-heading);
+    font-size: 18px;
+}
+
+.market-metric-grid small {
+    display: block;
+    margin-top: 6px;
+    color: var(--dp-text-muted);
+    font-size: 12px;
+}
+
+.market-metric-grid button,
+.option-reference-card button {
+    margin-top: 10px;
+    padding: 7px 10px;
+    border: 1px solid rgba(178, 136, 55, 0.34);
+    border-radius: 7px;
+    background: #ffffff;
+    color: var(--dp-accent-strong);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.market-metric-grid button:hover,
+.option-reference-card button:hover {
+    background: rgba(178, 136, 55, 0.08);
+}
+
+.option-reference-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+    gap: 16px;
+}
+
+.option-reference-card p {
+    margin-top: 6px;
+}
+
+.option-smile-table {
+    min-width: 0;
+}
+
+.option-smile-table table {
+    margin-top: 8px;
+}
+
+.market-visual-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: 14px;
+}
+
+.market-visual-card,
+.market-visual-prompt {
+    padding: 16px;
+    border: 1px solid var(--dp-border);
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.market-visual-card-wide {
+    grid-column: 1 / -1;
+}
+
+.market-visual-title,
+.market-visual-prompt {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.market-visual-title {
+    margin-bottom: 14px;
+}
+
+.market-visual-title>span,
+.market-visual-prompt>span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(178, 136, 55, 0.28);
+    border-radius: 8px;
+    background: rgba(178, 136, 55, 0.08);
+}
+
+.market-visual-title strong,
+.market-visual-prompt strong {
+    display: block;
+    color: var(--dp-heading);
+    font-size: 15px;
+}
+
+.market-visual-title p,
+.market-visual-prompt p {
+    margin: 4px 0 0;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.market-price-chart {
+    width: 100%;
+    height: 180px;
+    padding: 10px;
+    border: 1px solid var(--dp-border);
+    border-radius: 9px;
+    background:
+        linear-gradient(to right, rgba(16, 24, 32, 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(16, 24, 32, 0.05) 1px, transparent 1px),
+        var(--dp-surface-soft);
+    background-size: 25% 100%, 100% 25%;
+}
+
+.market-surface-image {
+    display: block;
+    width: 100%;
+    max-height: 520px;
+    object-fit: contain;
+    border: 1px solid var(--dp-border);
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.market-price-chart polyline {
+    fill: none;
+    stroke: var(--dp-accent-strong);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.2;
+    vector-effect: non-scaling-stroke;
+}
+
+.market-chart-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    color: var(--dp-text-muted);
+    font-size: 12px;
+}
+
+.iv-surface-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.iv-expiry-panel {
+    padding: 12px;
+    border: 1px solid var(--dp-border);
+    border-radius: 9px;
+    background: var(--dp-surface-soft);
+}
+
+.iv-expiry-panel>strong {
+    display: block;
+    margin-bottom: 9px;
+    color: var(--dp-heading);
+    font-size: 13px;
+}
+
+.iv-row {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr) 48px;
+    gap: 8px;
+    align-items: center;
+    margin-top: 7px;
+}
+
+.iv-row span,
+.iv-row em {
+    color: var(--dp-text-muted);
+    font-size: 11px;
+    font-style: normal;
+    white-space: nowrap;
+}
+
+.iv-row em {
+    text-align: right;
+}
+
+.iv-row div {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(178, 136, 55, 0.12);
+}
+
+.iv-row i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(178, 136, 55, 0.45), var(--dp-accent-strong));
+}
+
+.market-visual-prompt {
+    grid-column: 1 / -1;
+}
+
+.market-reference-message {
+    margin-top: 14px;
+}
+
+.market-reference-disclaimer {
+    padding: 0 2px;
 }
 
 .mc-parameter-grid {
@@ -2433,6 +2887,18 @@ details summary {
     background: rgba(178, 136, 55, 0.08);
 }
 
+.methodology-note a {
+    display: inline-flex;
+    margin-left: 10px;
+    color: var(--dp-accent-strong);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.methodology-note a:hover {
+    text-decoration: underline;
+}
+
 .product-section-body>.section-title:first-child,
 .product-section-body>hr:first-child {
     display: none;
@@ -2545,6 +3011,11 @@ details summary {
 
     .compact-form-grid,
     .mc-parameter-grid,
+    .market-reference-grid,
+    .market-metric-grid,
+    .option-reference-card,
+    .market-visual-grid,
+    .iv-surface-grid,
     .result-kpi-grid,
     .analysis-grid,
     .greek-metric-grid,
@@ -2561,6 +3032,37 @@ details summary {
     .product-status-pill {
         display: inline-flex;
         margin-top: 12px;
+    }
+
+    .market-reference-header {
+        display: block;
+    }
+
+    .market-reference-header small {
+        display: inline-flex;
+        margin-top: 12px;
+    }
+
+    .market-symbol-field,
+    .market-period-field,
+    .market-option-type-field,
+    .market-strike-field,
+    .market-maturity-field {
+        grid-column: 1 / -1;
+    }
+
+    .market-provider-note {
+        grid-template-columns: 1fr;
+    }
+
+    .market-reference-actions {
+        justify-content: stretch;
+        padding-top: 0;
+    }
+
+    .market-reference-actions .btn-primary,
+    .market-reference-actions .btn-secondary {
+        flex: 1 1 100%;
     }
 }
 
@@ -2768,12 +3270,45 @@ html[data-theme="dark"] .home-content-card {
 html[data-theme="dark"] .status-grid div,
 html[data-theme="dark"] .operating-list div,
 html[data-theme="dark"] .pricing-form-block,
+html[data-theme="dark"] .market-reference-form,
+html[data-theme="dark"] .market-provider-note,
+html[data-theme="dark"] .market-metric-grid>div,
+html[data-theme="dark"] .option-reference-card,
+html[data-theme="dark"] .market-visual-card,
+html[data-theme="dark"] .market-visual-prompt,
+html[data-theme="dark"] .iv-expiry-panel,
 html[data-theme="dark"] .analysis-card,
 html[data-theme="dark"] .empty-state-panel,
 html[data-theme="dark"] .analysis-availability-card,
 html[data-theme="dark"] .greek-metric-grid div,
 html[data-theme="dark"] .landing-button.secondary,
 html[data-theme="dark"] .preview-gate-card .landing-button.secondary {
+    background: var(--dp-surface-muted);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .market-reference-header {
+    background: linear-gradient(135deg, var(--dp-surface-muted), rgba(178, 136, 55, 0.12));
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .market-metric-grid button,
+html[data-theme="dark"] .option-reference-card button,
+html[data-theme="dark"] .market-reference-actions .btn-secondary {
+    background: var(--dp-surface);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .market-price-chart {
+    background:
+        linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        var(--dp-surface-muted);
+    background-size: 25% 100%, 100% 25%;
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .market-surface-image {
     background: var(--dp-surface-muted);
     border-color: var(--dp-border);
 }
