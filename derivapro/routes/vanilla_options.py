@@ -489,6 +489,11 @@ def _build_american_form_data_from_instrument(instrument):
         "end_date": instrument.end_date or "",
         "r": params.get("risk_free_rate"),
         "sigma": params.get("volatility"),
+        "spot_price": params.get("spot_price"),
+        "dividend_yield": params.get("dividend_yield", 0.0),
+        "notional": params.get("notional", 1),
+        "contract_multiplier": params.get("contract_multiplier", 100),
+        "day_count": params.get("day_count", "ACT/365"),
         "option_type": params.get("option_type", ""),
         "num_steps": params.get("num_steps", 252),
         "pricing_model": params.get(
@@ -499,6 +504,383 @@ def _build_american_form_data_from_instrument(instrument):
         "num_paths": params.get("num_paths", 10000),
         "mc_steps": params.get("mc_steps", 252),
         "dividends": params.get("dividends"),
+    }
+
+
+def _default_american_form_data():
+    valuation_date = datetime.today().date()
+    maturity_date = valuation_date + timedelta(days=365)
+    return {
+        "ticker": "AAPL",
+        "strike_price": 200.0,
+        "start_date": valuation_date.isoformat(),
+        "end_date": maturity_date.isoformat(),
+        "r": 0.04,
+        "sigma": 0.25,
+        "spot_price": 190.0,
+        "dividend_yield": 0.005,
+        "notional": 1,
+        "contract_multiplier": 100.0,
+        "day_count": "ACT/365",
+        "option_type": "put",
+        "num_steps": 200,
+        "pricing_model": "Cox Ross Rubinstein Tree",
+        "model": "Cox Ross Rubinstein Tree",
+        "num_paths": 10000,
+        "mc_steps": 252,
+        "dividends": "",
+    }
+
+
+def _price_american_tree(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    num_steps,
+    pricing_model,
+):
+    if spot_price <= 0:
+        raise ValueError("Spot price must be positive.")
+    if strike_price <= 0:
+        raise ValueError("Strike price must be positive.")
+    if volatility <= 0:
+        raise ValueError("Volatility must be positive.")
+    if time_to_maturity <= 0:
+        raise ValueError("Time to maturity must be positive.")
+
+    steps = max(2, min(int(num_steps or 200), 2000))
+    dt = time_to_maturity / steps
+    discount = math.exp(-risk_free_rate * dt)
+    growth = math.exp((risk_free_rate - dividend_yield) * dt)
+
+    if pricing_model == "Jarrow Rudd Tree":
+        u = math.exp(
+            (risk_free_rate - dividend_yield - 0.5 * volatility * volatility) * dt
+            + volatility * math.sqrt(dt)
+        )
+        d = math.exp(
+            (risk_free_rate - dividend_yield - 0.5 * volatility * volatility) * dt
+            - volatility * math.sqrt(dt)
+        )
+        p = 0.5
+    else:
+        u = math.exp(volatility * math.sqrt(dt))
+        d = 1.0 / u
+        denominator = u - d
+        if abs(denominator) < 1e-12:
+            raise ValueError("Tree parameters are unstable for the selected inputs.")
+        p = (growth - d) / denominator
+
+    if p < 0 or p > 1:
+        raise ValueError(
+            "Tree risk-neutral probability is outside [0, 1]. Review rate, "
+            "dividend yield, volatility, maturity, or step count."
+        )
+
+    option_type = option_type.lower()
+    values = []
+    for j in range(steps + 1):
+        terminal_spot = spot_price * (u ** j) * (d ** (steps - j))
+        payoff = (
+            max(terminal_spot - strike_price, 0.0)
+            if option_type == "call"
+            else max(strike_price - terminal_spot, 0.0)
+        )
+        values.append(payoff)
+
+    exercise_count = 0
+    for i in range(steps - 1, -1, -1):
+        next_values = []
+        for j in range(i + 1):
+            node_spot = spot_price * (u ** j) * (d ** (i - j))
+            continuation = discount * (p * values[j + 1] + (1.0 - p) * values[j])
+            exercise = (
+                max(node_spot - strike_price, 0.0)
+                if option_type == "call"
+                else max(strike_price - node_spot, 0.0)
+            )
+            if exercise > continuation + 1e-10:
+                exercise_count += 1
+            next_values.append(max(continuation, exercise))
+        values = next_values
+
+    return {
+        "price": values[0],
+        "steps": steps,
+        "up_factor": u,
+        "down_factor": d,
+        "risk_neutral_probability": p,
+        "exercise_nodes": exercise_count,
+    }
+
+
+def _american_tree_price_only(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    num_steps,
+    pricing_model,
+):
+    return _price_american_tree(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        volatility,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )["price"]
+
+
+def _price_american_with_greeks(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    num_steps,
+    pricing_model,
+):
+    tree_output = _price_american_tree(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        volatility,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+    price = tree_output["price"]
+    spot_bump = max(spot_price * 0.01, 0.01)
+    vol_bump = 0.01
+    rate_bump = 0.0001
+    time_bump = min(1.0 / 365.25, max(time_to_maturity / 2.0, 1e-6))
+
+    price_spot_up = _american_tree_price_only(
+        spot_price + spot_bump,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        volatility,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+    price_spot_down = _american_tree_price_only(
+        max(spot_price - spot_bump, 0.0001),
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        volatility,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+    price_vol_up = _american_tree_price_only(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        volatility + vol_bump,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+    price_vol_down = _american_tree_price_only(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        max(volatility - vol_bump, 0.0001),
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+    price_rate_up = _american_tree_price_only(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate + rate_bump,
+        volatility,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+    price_rate_down = _american_tree_price_only(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate - rate_bump,
+        volatility,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+    shorter_price = _american_tree_price_only(
+        spot_price,
+        strike_price,
+        max(time_to_maturity - time_bump, 1e-6),
+        risk_free_rate,
+        volatility,
+        dividend_yield,
+        option_type,
+        num_steps,
+        pricing_model,
+    )
+
+    tree_output.update({
+        "delta": (price_spot_up - price_spot_down) / (2.0 * spot_bump),
+        "gamma": (price_spot_up - 2.0 * price + price_spot_down)
+        / (spot_bump * spot_bump),
+        "vega": (price_vol_up - price_vol_down) / (2.0 * vol_bump),
+        "theta": (shorter_price - price) / time_bump,
+        "rho": (price_rate_up - price_rate_down) / (2.0 * rate_bump),
+    })
+    return tree_output
+
+
+def _build_american_analytics(
+    form_data,
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    raw_option_price,
+    tree_output,
+):
+    option_type = form_data["option_type"]
+    risk_free_rate = form_data["r"]
+    volatility = form_data["sigma"]
+    dividend_yield = form_data.get("dividend_yield", 0.0)
+    notional = form_data.get("notional", 1) or 1
+    contract_multiplier = form_data.get("contract_multiplier", 100) or 100
+    european_output = _price_european_black_scholes(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        risk_free_rate,
+        volatility,
+        dividend_yield,
+        option_type,
+    )
+    european_price = european_output["price"]
+    intrinsic_value = (
+        max(spot_price - strike_price, 0.0)
+        if option_type == "call"
+        else max(strike_price - spot_price, 0.0)
+    )
+    early_exercise_premium = raw_option_price - european_price
+    time_value = raw_option_price - intrinsic_value
+    position_value = raw_option_price * contract_multiplier * notional
+    breakeven = (
+        strike_price + raw_option_price
+        if option_type == "call"
+        else strike_price - raw_option_price
+    )
+
+    def american_price_at(spot=None, vol=None, rate=None):
+        return _american_tree_price_only(
+            spot if spot is not None else spot_price,
+            strike_price,
+            time_to_maturity,
+            rate if rate is not None else risk_free_rate,
+            vol if vol is not None else volatility,
+            dividend_yield,
+            option_type,
+            form_data.get("num_steps", 200),
+            form_data.get("pricing_model", "Cox Ross Rubinstein Tree"),
+        )
+
+    sensitivity_rows = [
+        {
+            "driver": "Spot price",
+            "down_label": "-10%",
+            "down": american_price_at(spot=spot_price * 0.9),
+            "base": raw_option_price,
+            "up_label": "+10%",
+            "up": american_price_at(spot=spot_price * 1.1),
+        },
+        {
+            "driver": "Volatility",
+            "down_label": "-5 vol pts",
+            "down": american_price_at(vol=max(0.0001, volatility - 0.05)),
+            "base": raw_option_price,
+            "up_label": "+5 vol pts",
+            "up": american_price_at(vol=volatility + 0.05),
+        },
+        {
+            "driver": "Risk-free rate",
+            "down_label": "-100 bps",
+            "down": american_price_at(rate=risk_free_rate - 0.01),
+            "base": raw_option_price,
+            "up_label": "+100 bps",
+            "up": american_price_at(rate=risk_free_rate + 0.01),
+        },
+    ]
+
+    payoff_points = []
+    for multiplier in [0.7, 0.85, 1.0, 1.15, 1.3]:
+        underlying = spot_price * multiplier
+        payoff = (
+            max(underlying - strike_price, 0.0)
+            if option_type == "call"
+            else max(strike_price - underlying, 0.0)
+        )
+        payoff_points.append({
+            "underlying": underlying,
+            "payoff": payoff,
+            "net_payoff": payoff - raw_option_price,
+        })
+
+    if option_type == "call":
+        exercise_context = (
+            "For a dividend-paying call, early exercise may become relevant near "
+            "ex-dividend dates when dividend value outweighs remaining time value."
+        )
+    else:
+        exercise_context = (
+            "American puts can have meaningful early-exercise value when deep "
+            "in the money or when rates make strike receipt valuable."
+        )
+
+    return {
+        "spot_price": spot_price,
+        "time_to_maturity": time_to_maturity,
+        "calendar_days": max(0, int(round(time_to_maturity * 365.25))),
+        "moneyness_ratio": spot_price / strike_price,
+        "moneyness_label": _classify_moneyness(spot_price, strike_price, option_type),
+        "intrinsic_value": intrinsic_value,
+        "time_value": time_value,
+        "position_value": position_value,
+        "breakeven": breakeven,
+        "european_price": european_price,
+        "early_exercise_premium": early_exercise_premium,
+        "exercise_nodes": tree_output.get("exercise_nodes", 0),
+        "risk_neutral_probability": tree_output.get("risk_neutral_probability"),
+        "up_factor": tree_output.get("up_factor"),
+        "down_factor": tree_output.get("down_factor"),
+        "exercise_context": exercise_context,
+        "sensitivity_rows": sensitivity_rows,
+        "payoff_points": payoff_points,
     }
 
 
@@ -2029,8 +2411,19 @@ def american_options():
     gpt_rpbl_assessment = None
     sensitivity_error = None
     latest_analysis = None
+    run_summary = None
+    market_reference = None
+    market_error = None
 
-    form_data = {}
+    form_data = _default_american_form_data()
+    market_query = {
+        "symbol": form_data["ticker"],
+        "period": "6mo",
+        "option_type": form_data["option_type"],
+        "strike": form_data["strike_price"],
+        "maturity_date": form_data["end_date"],
+        "visual_mode": "none",
+    }
 
     if current_user.is_authenticated:
 
@@ -2044,9 +2437,25 @@ def american_options():
             rho = "{:.4f}".format(float(latest_pricing_result.rho))
 
             if latest_pricing_result.instrument:
-                form_data = _build_american_form_data_from_instrument(
-                    latest_pricing_result.instrument
+                form_data.update(
+                    _build_american_form_data_from_instrument(
+                        latest_pricing_result.instrument
+                    )
                 )
+                market_query.update(
+                    {
+                        "symbol": form_data.get("ticker", market_query["symbol"]),
+                        "option_type": form_data.get(
+                            "option_type", market_query["option_type"]
+                        ),
+                        "strike": form_data.get("strike_price", market_query["strike"]),
+                        "maturity_date": form_data.get(
+                            "end_date", market_query["maturity_date"]
+                        ),
+                    }
+                )
+            if latest_pricing_result.result_json:
+                run_summary = latest_pricing_result.result_json.get("run_summary")
 
         latest_sensitivity_analysis = _get_latest_analysis_by_type_for_user(
             "american_option",
@@ -2109,6 +2518,69 @@ def american_options():
     if request.method == "POST":
         action = request.form.get("analysis_type")
 
+        if action == "market_reference":
+            session_form_data = session.get("american_form_data", {})
+            if session_form_data:
+                form_data.update(session_form_data)
+
+            market_query = {
+                "symbol": request.form.get(
+                    "market_symbol", form_data.get("ticker", "AAPL")
+                )
+                .upper()
+                .strip(),
+                "period": request.form.get("market_period", "6mo"),
+                "option_type": request.form.get("market_option_type", "put"),
+                "strike": request.form.get("market_strike", type=float),
+                "maturity_date": request.form.get("market_maturity_date", ""),
+                "visual_mode": request.form.get("visual_mode", "none"),
+            }
+            if market_query["symbol"]:
+                form_data["ticker"] = market_query["symbol"]
+
+            try:
+                market_reference = build_equity_market_reference(
+                    market_query["symbol"],
+                    market_query["period"],
+                    market_query["strike"],
+                    market_query["maturity_date"],
+                    market_query["option_type"],
+                    market_query["visual_mode"],
+                )
+            except Exception as exc:
+                logger.warning(
+                    "American market reference fetch failed for %s: %s",
+                    market_query["symbol"],
+                    exc,
+                )
+                market_error = str(exc)
+
+            return render_template(
+                "american_options.html",
+                option_price=option_price,
+                form_data=form_data,
+                delta=delta,
+                gamma=gamma,
+                vega=vega,
+                theta=theta,
+                rho=rho,
+                sensitivity_results=sensitivity_results,
+                sensitivity_error=sensitivity_error,
+                risk_pl_results=risk_pl_results,
+                convergence_results=convergence_results,
+                scenario_results=scenario_results,
+                md_content=md_content,
+                gpt_rpbl_assessment=gpt_rpbl_assessment,
+                gpt_sensitivity_assessment=gpt_sensitivity_assessment,
+                gpt_convergence_assessment=gpt_convergence_assessment,
+                gpt_scenario_assessment=gpt_scenario_assessment,
+                action=action,
+                run_summary=run_summary,
+                market_query=market_query,
+                market_reference=market_reference,
+                market_error=market_error,
+            )
+
         def safe_int(val, default):
             try:
                 val = str(val)
@@ -2132,6 +2604,15 @@ def american_options():
             "end_date": str(request.form["end_date"]),
             "r": float(request.form["r"]),
             "sigma": float(request.form["sigma"]),
+            "spot_price": request.form.get("spot_price", type=float),
+            "dividend_yield": request.form.get(
+                "dividend_yield", type=float, default=0.0
+            ),
+            "notional": request.form.get("notional", type=int, default=1),
+            "contract_multiplier": request.form.get(
+                "contract_multiplier", type=float, default=100.0
+            ),
+            "day_count": request.form.get("day_count", "ACT/365"),
             "option_type": request.form["option_type"],
             "num_steps": safe_int(
                 request.form.get("num_steps", request.form.get("mc_steps", 252)), 252
@@ -2140,6 +2621,7 @@ def american_options():
             "model": selected_model,
             "num_paths": safe_int(request.form.get("num_paths"), 10000),
             "mc_steps": safe_int(request.form.get("mc_steps"), 252),
+            "dividends": request.form.get("dividends", ""),
         }
 
 
@@ -2149,115 +2631,70 @@ def american_options():
         end_date = form_data["end_date"]
         risk_free_rate = form_data["r"]
         volatility = form_data["sigma"]
+        if form_data["spot_price"] is None:
+            form_data["spot_price"] = float(
+                StockData(ticker, start_date, end_date).get_closing_price()
+            )
+        spot_price = form_data["spot_price"]
+        dividend_yield = form_data.get("dividend_yield", 0.0)
+        day_count = form_data.get("day_count", "ACT/365")
         option_type = form_data["option_type"]
         num_steps = form_data["num_steps"]
         model_name = form_data["model"]
         pricing_model = form_data["pricing_model"]
+        session["american_form_data"] = form_data.copy()
+        market_query.update(
+            {
+                "symbol": form_data.get("ticker", market_query["symbol"]),
+                "option_type": form_data.get(
+                    "option_type", market_query["option_type"]
+                ),
+                "strike": form_data.get("strike_price", market_query["strike"]),
+                "maturity_date": form_data.get(
+                    "end_date", market_query["maturity_date"]
+                ),
+            }
+        )
 
-        if pricing_model == "Monte Carlo":
-            num_paths = form_data.get("num_paths", 10000)
-            mc_steps = form_data.get("mc_steps", 252)
-
-            mc_engine = monte_carlo_module.create_monte_carlo_engine(
-                S0=float(StockData(ticker, start_date, end_date).get_closing_price()),
-                r=risk_free_rate,
-                sigma=volatility,
-                T=StockData(ticker, start_date, end_date).get_years_difference(),
-                num_paths=num_paths,
-                num_steps=mc_steps,
-                random_type="sobol",
-            )
-
-            payoff_func = (
-                (lambda S: np.maximum(S - strike_price, 0))
-                if option_type == "call"
-                else (lambda S: np.maximum(strike_price - S, 0))
-            )
-            lsmc_engine = monte_carlo_module.LSMCEngine(mc_engine)
-            option_price = lsmc_engine.price_option(payoff_func, option_type)
-
-            greeks = mc_engine.calculate_greeks_finite_difference(
-                strike_price, option_type, "american"
-            )
-            delta = "{:.4f}".format(greeks["Delta"])
-            gamma = "{:.4f}".format(greeks["Gamma"])
-            vega = "{:.4f}".format(greeks["Vega"])
-            theta = "{:.4f}".format(greeks["Theta"])
-            rho = "{:.4f}".format(greeks["Rho"])
-
-        elif pricing_model == "Binomial Tree":
-            raw_dividends = request.form.get("dividends", "").strip()
-            parsed_dividends = []
-            if raw_dividends:
-                for entry in raw_dividends.split(","):
-                    parts = entry.strip().split(":")
-                    if len(parts) == 2:
-                        parsed_dividends.append((parts[0], float(parts[1])))
-                    elif len(parts) == 3:
-                        parsed_dividends.append((
-                            parts[0],
-                            float(parts[1]),
-                            float(parts[2]),
-                        ))
-
-            engine = BinomialTreeEngineCRR(
-                ticker=ticker,
-                strike_price=strike_price,
-                start_date=start_date,
-                end_date=end_date,
-                risk_free_rate=risk_free_rate,
-                volatility=volatility,
-                num_steps=num_steps,
-                option_type=option_type,
-                dividends=parsed_dividends,
-            )
-            option_price = engine.price_american_option()
-            greeks = engine.get_greeks()
-
-            delta = "{:.4f}".format(greeks["delta"])
-            gamma = "{:.4f}".format(greeks["gamma"])
-            vega = "{:.4f}".format(greeks["vega"])
-            theta = "{:.4f}".format(greeks["theta"])
-            rho = "{:.4f}".format(greeks["rho"])
-
-            form_data["dividends"] = raw_dividends
-
-        else:
-            option = LatticeModel(
-                ticker, strike_price, start_date, end_date, risk_free_rate, volatility
-            )
-
-            if pricing_model == "Cox Ross Rubinstein Tree":
-                option_price = option.Cox_Ross_Rubinstein_Tree(option_type, num_steps)
-            elif pricing_model == "Jarrow Rudd Tree":
-                option_price = option.Jarrow_Rudd_Tree(option_type, num_steps)
-            elif pricing_model == "Trinomial Asset Pricing":
-                option_price = option.Trinomial_Asset_Pricing(option_type, num_steps)
-            else:
-                option_price = option.Cox_Ross_Rubinstein_Tree(option_type, num_steps)
-
-            if pricing_model == "Cox Ross Rubinstein Tree":
-                greeks = option.CRRGreeks(option_type, num_steps)
-            elif pricing_model == "Jarrow Rudd Tree":
-                greeks = option.JRTGreeks(option_type, num_steps)
-            elif pricing_model == "Trinomial Asset Pricing":
-                greeks = option.TAPGreeks(option_type, num_steps)
-            else:
-                greeks = option.CRRGreeks(option_type, num_steps)
-
-            delta = "{:.4f}".format(greeks["Delta"])
-            gamma = "{:.4f}".format(greeks["Gamma"])
-            vega = "{:.4f}".format(greeks["Vega"])
-            theta = "{:.4f}".format(greeks["Theta"])
-            rho = "{:.4f}".format(greeks["Rho"])
-
-        option_price = "${:,.4f}".format(option_price)
-        raw_option_price = float(option_price.replace("$", "").replace(",", ""))
-        raw_delta = float(delta)
-        raw_gamma = float(gamma)
-        raw_vega = float(vega)
-        raw_theta = float(theta)
-        raw_rho = float(rho)
+        start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+        time_to_maturity = _year_fraction(start_date_obj, end_date_obj, day_count)
+        tree_model = (
+            pricing_model
+            if pricing_model in {"Cox Ross Rubinstein Tree", "Jarrow Rudd Tree"}
+            else "Cox Ross Rubinstein Tree"
+        )
+        tree_output = _price_american_with_greeks(
+            spot_price,
+            strike_price,
+            time_to_maturity,
+            risk_free_rate,
+            volatility,
+            dividend_yield,
+            option_type,
+            num_steps,
+            tree_model,
+        )
+        raw_option_price = float(tree_output["price"])
+        raw_delta = float(tree_output["delta"])
+        raw_gamma = float(tree_output["gamma"])
+        raw_vega = float(tree_output["vega"])
+        raw_theta = float(tree_output["theta"])
+        raw_rho = float(tree_output["rho"])
+        run_summary = _build_american_analytics(
+            form_data,
+            spot_price,
+            strike_price,
+            time_to_maturity,
+            raw_option_price,
+            tree_output,
+        )
+        option_price = "${:,.4f}".format(raw_option_price)
+        delta = "{:.4f}".format(raw_delta)
+        gamma = "{:.6f}".format(raw_gamma)
+        vega = "{:.4f}".format(raw_vega)
+        theta = "{:.4f}".format(raw_theta)
+        rho = "{:.4f}".format(raw_rho)
 
         if current_user.is_authenticated:
             instrument = Instrument(
@@ -2271,6 +2708,11 @@ def american_options():
                     "strike_price": strike_price,
                     "risk_free_rate": risk_free_rate,
                     "volatility": volatility,
+                    "spot_price": spot_price,
+                    "dividend_yield": dividend_yield,
+                    "notional": form_data.get("notional"),
+                    "contract_multiplier": form_data.get("contract_multiplier"),
+                    "day_count": day_count,
                     "option_type": option_type,
                     "pricing_model": pricing_model,
                     "num_steps": form_data.get("num_steps"),
@@ -2298,6 +2740,7 @@ def american_options():
                     "vega": raw_vega,
                     "theta": raw_theta,
                     "rho": raw_rho,
+                    "run_summary": run_summary,
                 },
             )
             db.session.add(pricing_result)
@@ -3494,6 +3937,15 @@ def american_options():
         gpt_convergence_assessment=gpt_convergence_assessment,
         gpt_scenario_assessment=gpt_scenario_assessment,
         action=action,
+        delta=delta,
+        gamma=gamma,
+        vega=vega,
+        theta=theta,
+        rho=rho,
+        run_summary=run_summary,
+        market_query=market_query,
+        market_reference=market_reference,
+        market_error=market_error,
     )
 
 

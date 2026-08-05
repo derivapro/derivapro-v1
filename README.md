@@ -91,6 +91,7 @@ DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/meth
 | Product | Methodology Note |
 |---|---|
 | **European Vanilla Option** | [Pricing methodology, Greeks, diagnostics, market reference data, Monte Carlo comparison, and limitations](docs/methodology/european_option.md) |
+| **American Vanilla Option** | [Early-exercise methodology, tree valuation, Greeks, European benchmark comparison, market reference data, and limitations](docs/methodology/american_option.md) |
 
 These notes are intended to support transparency, model review, implementation consistency, and future model governance workflows.
 

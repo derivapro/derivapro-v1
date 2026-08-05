@@ -1,28 +1,26 @@
 **Description:**
-An American call (put) option grants the holder the right, but not the obligation, 
-to buy (sell) the underlying asset at a specified price (strike price) at any time up until and including the expiration date of the contract. 
+An American call or put option gives the holder the right, but not the obligation,
+to buy or sell the underlying asset at a specified strike price at any time up
+to and including the maturity date.
 
-For cash-settled options, if an American call (put) option is exercised before expiration $t$:
+If exercised at time `t`, the payoff is:
 
-* for an Amercican call: $\max(S_t - K, 0)$,
-* for an American put: $\max(K - S_t, 0)$
+* American call: `max(S_t - K, 0)`
+* American put: `max(K - S_t, 0)`
 
-where $S_t$ is the value of the underlying asset at exercise $t$ and $K$ is the strike price. 
+where `S_t` is the underlying price at exercise and `K` is the strike price.
 
-For cash-settled options, if an American call (put) option is exercised at expiration $T$:
+DerivaPro values the product-standard American option workflow with recombining
+tree models and backward induction. At each node, the continuation value is
+compared with immediate exercise value, which captures the core early-exercise
+feature of American options.
 
-* for an Amercican call: $\max(S_T - K, 0)$,
-* for an American put: $\max(K - S_T, 0)$
-
-where $S_T$ is the value of the underlying asset at exercise $T$ and $K$ is the strike price. 
-
-These options provide flexibility and can be used for hedging against price movements in 
-underlying assets or speculating on future market direction throughout their life up until expiration. 
-Due to their potential for early exercise, pricing American options involves complex valuation techniques 
-that may include numerical methods, such as Cox Ross Rubinstein Tree, Jarrow Rudd Tree, or Trinomial Asset Pricing.
-
-For the full model documentation on Vanilla American Options, please refer to the [documentation](/vanilla-options) here.
+**Methodology:**
+The full methodology note is available in the repository:
+`docs/methodology/american_option.md`.
 
 **Instructions:**
-The QDPTB (DerivaPro) enables users to price a vanilla option using real-time market data and customized user inputs. 
-For any derivative and pricing method selected, the platform provides the Net Present Value (NPV), relevant Greeks, and supporting analyses.
+Enter contract terms, market assumptions, and model settings. Market reference
+data can be fetched separately and applied to the pricing assumptions only when
+the user explicitly chooses to do so. Outputs are intended for research,
+evaluation, and model-review support, not as investment advice.
