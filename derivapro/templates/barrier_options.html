@@ -1,548 +1,664 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
+{% block title %}DerivaPro | Barrier Option Workspace{% endblock %}
+
 {% block content %}
 {{ product.header(
     "Barrier Options",
-    "Price barrier options, review risk analytics, and access scenario, convergence, and validation workflows in one place.",
-    "Equity & Options",
-    "Pricing Workflow"
+    "A professional workflow for path-dependent knock-in and knock-out option valuation, market reference, Greeks, and barrier diagnostics.",
+    "Equity & Exotic Options",
+    "Registered Workspace" if current_user.is_authenticated else "Preview"
 ) }}
 
 {{ product.description(
-    "Path-dependent options activated or extinguished by a barrier event.",
-    "This workflow supports barrier option valuation with configurable barrier level, option direction, and simulation discretization. It is useful for reviewing knock-out behavior, path dependency, and model sensitivity to volatility and barrier placement.",
-    ["Up-and-out", "Down-and-out", "Call / put payoff", "Monte Carlo", "Euler / Milstein"],
-    "A full methodology link will be added here once the barrier option documentation is published in the repository."
+    "Single-underlying options activated or extinguished by a monitored barrier event.",
+    "This workflow supports up-and-out, down-and-out, up-and-in, and down-and-in barrier calls and puts. The product-standard page uses explicit market assumptions, Monte Carlo path simulation, finite-difference Greeks, vanilla benchmark comparison, breach-probability diagnostics, first-pass driver sensitivity, and a structured run summary.",
+    ["Up-and-out", "Down-and-out", "Up-and-in", "Down-and-in", "Call / put payoff", "Monte Carlo", "Barrier breach diagnostics"],
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name="barrier_option")
 ) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-{% call product.section("Pricing", "Enter payoff terms, barrier terms, market assumptions, and simulation settings.") %}
+{% call product.section("Market Reference", "Fetch equity market context before choosing pricing assumptions. Data is used only when explicitly applied to the pricing form.") %}
+<details class="market-reference-help">
+    <summary>
+        <span aria-hidden="true">ⓘ</span>
+        <strong>How market reference data is used</strong>
+    </summary>
+    <div>
+        <p>Price history uses only the ticker and lookback period. DerivaPro computes period return and realized volatility from daily closing-price returns.</p>
+        <p>Option type, target strike, and target maturity are used only for listed-option implied-volatility reference data. The provider expiration and strike nearest to the targets are selected.</p>
+        <p>The IV visuals are provider option-chain snapshots, not calibrated production volatility surfaces. Barrier pricing continues to use the explicit assumptions in the pricing form.</p>
+    </div>
+</details>
 
-<form id="options-form" method="post" class="form-grid">
+<div class="market-provider-note">
+    <span>Provider</span>
+    <p>
+        Market reference data is fetched on demand from Yahoo Finance via the open-source yfinance package.
+        Values may be delayed, adjusted, incomplete, or unavailable for some symbols and should be independently validated before production or commercial use.
+    </p>
+</div>
+
+<form method="post" class="market-reference-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-group">
-        <label for="ticker">Stock Ticker:</label>
-        <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="K">Strike Price (K):</label>
-        <input type="number" step="0.01" id="K" name="K" value="{{ form_data.K }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="r">Risk-Free Rate (r):</label>
-        <input type="number" step="0.001" id="r" name="r" value="{{ form_data.r }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="sigma">Volatility (sigma):</label>
-        <input type="number" step="0.001" id="sigma" name="sigma" value="{{ form_data.sigma }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="start_date">Start Date (YYYY-MM-DD):</label>
-        <input type="date" id="start_date" name="start_date" value="{{ form_data.start_date }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="end_date">End Date (YYYY-MM-DD):</label>
-        <input type="date" id="end_date" name="end_date" value="{{ form_data.end_date }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="q">Dividend Yield (q):</label>
-        <input type="number" step="0.001" id="q" name="q" value="{{ form_data.q }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="N">Number of Time Steps (N):</label>
-        <input type="number" id="N" name="N" value="{{ form_data.N }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="M">Number of Simulations (M):</label>
-        <input type="number" id="M" name="M" value="{{ form_data.M }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="barrier">Barrier Level:</label>
-        <input type="number" step="0.01" id="barrier" name="barrier" value="{{ form_data.barrier }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="option_type">Option Type:</label>
-        <select id="option_type" name="option_type" required>
-            <option value="call" {% if form_data.option_type=='call' %}selected{% endif %}>Call</option>
-            <option value="put" {% if form_data.option_type=='put' %}selected{% endif %}>Put</option>
-        </select>
-    </div>
-
-    <div class="form-group">
-        <label for="barrier_type">Barrier Type:</label>
-        <select id="barrier_type" name="barrier_type" required>
-            <option value="up_and_out" {% if form_data.barrier_type=='up_and_out' %}selected{% endif %}>Up-and-Out
-            </option>
-            <option value="down_and_out" {% if form_data.barrier_type=='down_and_out' %}selected{% endif %}>Down-and-Out
-            </option>
-        </select>
-    </div>
-
-    <div class="form-group">
-        <label for="discretization">Discretization Method:</label>
-        <select id="discretization" name="discretization" required>
-            <option value="euler" {% if form_data.discretization=='euler' %}selected{% endif %}>Euler</option>
-            <option value="milstein" {% if form_data.discretization=='milstein' %}selected{% endif %}>Milstein</option>
-        </select>
-    </div>
-
-    <div class="form-group full-width">
-        <button type="submit">Calculate Barrier Option Price</button>
+    <input type="hidden" name="analysis_type" value="market_reference">
+    <div class="market-reference-grid">
+        <div class="form-group market-symbol-field">
+            <label for="market_symbol">Ticker Symbol</label>
+            <input type="text" id="market_symbol" name="market_symbol" value="{{ market_query.symbol|default(form_data.ticker) }}" required>
+        </div>
+        <div class="form-group market-period-field">
+            <label for="market_period">Lookback Period</label>
+            <select id="market_period" name="market_period">
+                <option value="1mo" {% if market_query.period|default('6mo') == '1mo' %}selected{% endif %}>1 Month</option>
+                <option value="3mo" {% if market_query.period|default('6mo') == '3mo' %}selected{% endif %}>3 Months</option>
+                <option value="6mo" {% if market_query.period|default('6mo') == '6mo' %}selected{% endif %}>6 Months</option>
+                <option value="1y" {% if market_query.period|default('6mo') == '1y' %}selected{% endif %}>1 Year</option>
+                <option value="2y" {% if market_query.period|default('6mo') == '2y' %}selected{% endif %}>2 Years</option>
+            </select>
+        </div>
+        <div class="form-group market-option-type-field">
+            <label for="market_option_type">Listed Option Type</label>
+            <select id="market_option_type" name="market_option_type">
+                <option value="call" {% if market_query.option_type|default(form_data.option_type) == 'call' %}selected{% endif %}>Call</option>
+                <option value="put" {% if market_query.option_type|default(form_data.option_type) == 'put' %}selected{% endif %}>Put</option>
+            </select>
+            <div class="field-hint">Used only for listed-option IV.</div>
+        </div>
+        <div class="form-group market-strike-field">
+            <label for="market_strike">Target Strike</label>
+            <input type="number" step="any" id="market_strike" name="market_strike" value="{{ market_query.strike if market_query.strike is not none else form_data.strike_price }}">
+            <div class="field-hint">Nearest listed strike is selected.</div>
+        </div>
+        <div class="form-group market-maturity-field">
+            <label for="market_maturity_date">Target Maturity</label>
+            <input type="date" id="market_maturity_date" name="market_maturity_date" value="{{ market_query.maturity_date|default(form_data.end_date) }}">
+            <div class="field-hint">Nearest listed expiration is selected.</div>
+        </div>
+        <div class="market-reference-actions">
+            <button type="submit" class="btn-primary" name="visual_mode" value="none">Fetch Snapshot</button>
+            <button type="submit" class="btn-secondary" name="visual_mode" value="price_chart">Historical Price Chart</button>
+            <button type="submit" class="btn-secondary" name="visual_mode" value="iv_smile">IV Smile / Skew</button>
+            <button type="submit" class="btn-secondary" name="visual_mode" value="iv_surface_3d">3D IV Surface</button>
+        </div>
     </div>
 </form>
 
-{% if option_price is not none %}
-<div class="result">
-    <h2>Barrier Option Price: {{ option_price }}</h2>
+{% if market_error %}
+<div class="info-box error-box market-reference-message">
+    <p><strong>Market data unavailable:</strong> {{ market_error }}</p>
+</div>
+{% elif market_reference %}
+<div class="market-reference-panel">
+    <div class="market-reference-header">
+        <div>
+            <span>{{ market_reference.provider }}</span>
+            <h3>{{ market_reference.symbol }} Market Snapshot</h3>
+            <p>Latest close as of {{ market_reference.latest_date }} using {{ market_reference.observations }} daily observations over {{ market_reference.period_label }}.</p>
+        </div>
+        <small>Reference only</small>
+    </div>
+
+    <div class="market-metric-grid">
+        <div>
+            <span>Latest Close</span>
+            <strong>${{ "{:,.2f}".format(market_reference.latest_close) }}</strong>
+            <button type="button" onclick="applyPricingInput('spot_price', {{ market_reference.latest_close|tojson }}, 4)">Use latest close</button>
+        </div>
+        <div>
+            <span>Period Return</span>
+            <strong>{% if market_reference.period_return is not none %}{{ "{:.2%}".format(market_reference.period_return) }}{% else %}N/A{% endif %}</strong>
+            <small>{{ market_reference.period_label }}</small>
+        </div>
+        <div>
+            <span>Realized Volatility</span>
+            <strong>{% if market_reference.realized_volatility is not none %}{{ "{:.2%}".format(market_reference.realized_volatility) }}{% else %}N/A{% endif %}</strong>
+            {% if market_reference.realized_volatility is not none %}
+            <button type="button" onclick="applyPricingInput('sigma', {{ market_reference.realized_volatility|tojson }}, 6)">Use realized vol</button>
+            {% endif %}
+        </div>
+        <div>
+            <span>Range</span>
+            <strong>
+                {% if market_reference.low is not none and market_reference.high is not none %}
+                ${{ "{:,.2f}".format(market_reference.low) }} - ${{ "{:,.2f}".format(market_reference.high) }}
+                {% else %}
+                N/A
+                {% endif %}
+            </strong>
+            <small>Period low / high</small>
+        </div>
+        <div>
+            <span>Average Volume</span>
+            <strong>{% if market_reference.average_volume is not none %}{{ "{:,.0f}".format(market_reference.average_volume) }}{% else %}N/A{% endif %}</strong>
+            <small>Daily average</small>
+        </div>
+    </div>
+
+    {% set option_ref = market_reference.option_reference %}
+    {% if option_ref %}
+    <div class="option-reference-card">
+        <div>
+            <span>Nearest Listed Option IV</span>
+            <strong>{{ "{:.2%}".format(option_ref.implied_volatility) }}</strong>
+            <p>
+                {{ option_ref.option_type|title }} option, expiration {{ option_ref.expiration }},
+                nearest strike ${{ "{:,.2f}".format(option_ref.nearest_strike) }}.
+                {% if option_ref.bid is not none and option_ref.ask is not none %}
+                Bid / ask: ${{ "{:,.2f}".format(option_ref.bid) }} / ${{ "{:,.2f}".format(option_ref.ask) }}.
+                {% endif %}
+            </p>
+            <button type="button" onclick="applyPricingInput('sigma', {{ option_ref.implied_volatility|tojson }}, 6)">Use implied vol</button>
+        </div>
+        {% if option_ref.sample_smile %}
+        <div class="option-smile-table">
+            <span>Nearby Strike IVs</span>
+            <table class="results-table compact-results-table">
+                <thead>
+                    <tr>
+                        <th>Strike</th>
+                        <th>IV</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in option_ref.sample_smile %}
+                    <tr>
+                        <td>${{ "{:,.2f}".format(row.strike) }}</td>
+                        <td>{{ "{:.2%}".format(row.implied_volatility) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if market_reference.visual_mode != 'none' %}
+    <div class="market-visual-grid">
+        {% if market_reference.price_chart %}
+        <article class="market-visual-card market-visual-card-wide">
+            <div class="market-visual-title">
+                <span aria-hidden="true">📈</span>
+                <div>
+                    <strong>Historical Price Trend</strong>
+                    <p>{{ market_reference.price_chart.start_date }} to {{ market_reference.price_chart.end_date }}; {{ market_reference.price_chart.point_count }} sampled observations.</p>
+                </div>
+            </div>
+            <svg class="market-price-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Historical price line chart">
+                <polyline points="{{ market_reference.price_chart.points }}" />
+            </svg>
+            <div class="market-chart-axis">
+                <span>${{ "{:,.2f}".format(market_reference.price_chart.min_price) }}</span>
+                <span>${{ "{:,.2f}".format(market_reference.price_chart.max_price) }}</span>
+            </div>
+        </article>
+        {% endif %}
+
+        {% if market_reference.iv_surface and market_reference.visual_mode == 'iv_smile' %}
+        <article class="market-visual-card market-visual-card-wide">
+            <div class="market-visual-title">
+                <span aria-hidden="true">📊</span>
+                <div>
+                    <strong>IV Smile / Skew Snapshot</strong>
+                    <p>{{ market_reference.iv_surface.option_type|title }} IVs near target strike ${{ "{:,.2f}".format(market_reference.iv_surface.target_strike) }} across listed expirations.</p>
+                </div>
+            </div>
+            <div class="iv-surface-grid">
+                {% for expiry_panel in market_reference.iv_surface.expirations %}
+                <div class="iv-expiry-panel">
+                    <strong>{{ expiry_panel.expiration }}</strong>
+                    {% for row in expiry_panel.rows %}
+                    <div class="iv-row">
+                        <span>K {{ "{:,.0f}".format(row.strike) }}</span>
+                        <div><i style="width: {{ row.width }}%;"></i></div>
+                        <em>{{ "{:.1%}".format(row.implied_volatility) }}</em>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </article>
+        {% endif %}
+
+        {% if market_reference.iv_surface_plot and market_reference.visual_mode == 'iv_surface_3d' %}
+        <article class="market-visual-card market-visual-card-wide">
+            <div class="market-visual-title">
+                <span aria-hidden="true">◩</span>
+                <div>
+                    <strong>3D IV Surface</strong>
+                    <p>Listed-option implied volatility by expiration and strike moneyness. This is a provider option-chain snapshot, not a calibrated production surface.</p>
+                </div>
+            </div>
+            <img class="market-surface-image" src="data:image/png;base64,{{ market_reference.iv_surface_plot }}" alt="3D implied volatility surface snapshot">
+        </article>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="market-visual-prompt">
+        <span aria-hidden="true">📊</span>
+        <div>
+            <strong>Optional visuals available</strong>
+            <p>Generate a historical price chart, IV smile/skew snapshot, or 3D IV surface when needed.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <p class="market-reference-disclaimer">{{ market_reference.disclaimer }}</p>
+</div>
+{% else %}
+<div class="empty-state-panel market-reference-message">
+    <strong>Market reference pending.</strong>
+    <p>Select a ticker and lookback period, then fetch market context before setting pricing assumptions.</p>
 </div>
 {% endif %}
 {% endcall %}
 
-<!-- Analysis Tabs -->
-{% call product.section("Analysis", "Run sensitivity, scenario, convergence, and risk-based P&L analysis for barrier option assumptions.") %}
-<div id="analysis-section">
-    <div class="section-title">
-        <h3>Analysis</h3>
-    </div>
-    <div class="tabs">
-        <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
-        <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
-        <button class="tab-button" onclick="openTab(event, 'convergence-analysis')">Convergence Analysis</button>
-        <button class="tab-button" onclick="openTab(event, 'rbpl-analysis')">RBPL Analysis</button>
-    </div>
+{% call product.section("Pricing", "Enter contract terms, barrier terms, market assumptions, and simulation settings. Sample values are preloaded so the workflow can run immediately.") %}
+{% if pricing_error %}
+<div class="info-box error-box">
+    <p><strong>Pricing failed:</strong> {{ pricing_error }}</p>
+</div>
+{% endif %}
 
-    <div id="sensitivity-analysis" class="tab-content">
-        <h4>Sensitivity Analysis</h4>
-        <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="sensitivity">
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
-            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
-            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier" value="{{ form_data.barrier }}">
-            <input type="hidden" name="barrier_type" value="{{ form_data.barrier_type }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-            <div class="form-group">
-                <label for="num_sensitivity_steps">Number of Steps:</label>
-                <input type="number" id="num_sensitivity_steps" name="num_sensitivity_steps"
-                    value="{{ form_data.num_steps }}" required>
-            </div>
-            <div class="form-group">
-                <label for="step_range">Step Range:</label>
-                <input type="number" step="0.01" id="step_range" name="step_range" value="{{ form_data.step_range }}"
-                    required>
-            </div>
-            <div class="form-group">
-                <label for="variable">Input Variable:</label>
-                <select id="variable" name="variable" required>
-                    <option value="strike_price" {% if form_data.variable=='strike_price' %}selected{% endif %}>Strike
-                        Price</option>
-                    <option value="risk_free_rate" {% if form_data.variable=='risk_free_rate' %}selected{% endif %}>Risk
-                        Free Rate</option>
-                    <option value="volatility" {% if form_data.variable=='volatility' %}selected{% endif %}>Volatility
-                    </option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="target_variable">Target Variable:</label>
-                <select id="target_variable" name="target_variable" required>
-                    <option value="option_price" {% if form_data.target_variable=='option_price' %}selected{% endif %}>
-                        Option Price</option>
-                    <option value="delta" {% if form_data.target_variable=='delta' %}selected{% endif %}>Delta</option>
-                    <option value="gamma" {% if form_data.target_variable=='gamma' %}selected{% endif %}>Gamma</option>
-                    <option value="vega" {% if form_data.target_variable=='vega' %}selected{% endif %}>Vega</option>
-                    <option value="theta" {% if form_data.target_variable=='theta' %}selected{% endif %}>Theta</option>
-                    <option value="rho" {% if form_data.target_variable=='rho' %}selected{% endif %}>Rho</option>
-                </select>
-            </div>
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('sensitivity-form', '/exotic-options/barrier', 'sensitivity-results');">Run
-                    Sensitivity Analysis</button>
-            </div>
-        </form>
-    </div>
+<form id="options-form" method="post" class="european-pricing-form" onsubmit="return validateForm()">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    <div id="sensitivity-results" class="sens-results">
-        {% if sensitivity_results %}
-        {% if sensitivity_results and sensitivity_results.get('plot_filename') %}
-        <img src="{{ url_for('static', filename=sensitivity_results.get('plot_filename')) }}"
-            alt="Sensitivity Analysis Plot">
-        {% endif %}
-
-        <form id="ai-assessment-form" method="post">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
-    
-            <input type="hidden" name="sensitivity_results" value="{{ sensitivity_results }}">
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('ai-assessment-form', '/exotic-options/barrier', 'gpt-assessment-section');">AI
-                    Assessment</button>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">📄</span>
+            <div>
+                <strong>Contract Terms</strong>
+                <p>Define the payoff, direction, and position scale.</p>
             </div>
-        </form>
-        {% endif %}
-    </div>
-
-    <div id="scenario-analysis" class="tab-content">
-        <h4>Scenario Analysis</h4>
-        <form id="scenario-form" onsubmit="return false;" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="scenario">
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
-            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
-            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="model" value="{{ form_data.model }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier" value="{{ form_data.barrier }}">
-            <input type="hidden" name="barrier_type" value="{{ form_data.barrier_type }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-            <div class="form-group">
-                <label for="spot_scenario">Spot Price Scenario (% change):</label>
-                <select id="spot_scenario" name="spot_scenario" required>
-                    <option value="-0.25">-25%</option>
-                    <option value="-0.10">-10%</option>
-                    <option value="-0.05">-5%</option>
-                    <option value="0">0%</option>
-                    <option value="0.05">5%</option>
-                    <option value="0.10">10%</option>
-                    <option value="0.25">25%</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="vol_scenario">Volatility Scenario (abs change):</label>
-                <select id="vol_scenario" name="vol_scenario" required>
-                    <option value="-0.30">-30%</option>
-                    <option value="-0.10">-10%</option>
-                    <option value="-0.05">-5%</option>
-                    <option value="0">0%</option>
-                    <option value="0.05">5%</option>
-                    <option value="0.10">10%</option>
-                    <option value="0.30">30%</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="rate_scenario">Interest Rate Scenario (abs change):</label>
-                <select id="rate_scenario" name="rate_scenario" required>
-                    <option value="-0.05">-5%</option>
-                    <option value="-0.02">-2%</option>
-                    <option value="-0.01">-1%</option>
-                    <option value="0">0%</option>
-                    <option value="0.01">1%</option>
-                    <option value="0.02">2%</option>
-                    <option value="0.05">5%</option>
-                </select>
-            </div>
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('scenario-form', '/exotic-options/barrier', 'scenario-results');">Run Scenario
-                    Analysis</button>
-            </div>
-        </form>
-        <!-- Scenario Analysis Results -->
-        <div id="scenario-results" class="sens-results">
-            {% if scenario_results %}
-            <h4>Scenario Analysis Results</h4>
-            <table class="results-table">
-                <thead>
-                    <tr>
-                        <th>Scenarios</th>
-                        <th>Option Price</th>
-                        <th>Delta</th>
-                        <th>Gamma</th>
-                        <th>Vega</th>
-                        <th>Theta</th>
-                        <th>Rho</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Baseline</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_price'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_delta'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_gamma'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_vega'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_theta'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_rho'] }}</td>
-                    </tr>
-                    <tr>
-                        <td>Stressed</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_price'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_delta'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_gamma'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_vega'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_theta'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_rho'] }}</td>
-                    </tr>
-                </tbody>
-            </table>
-            <form id="ai-scenario-assessment-form" method="post">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
-                <div class="form-group full-width">
-                    <button type="button"
-                        onclick="submitForm('ai-scenario-assessment-form', '/vanilla-options/model-performance', 'gpt-scenario-assessment-section');">AI
-                        Assessment</button>
-                </div>
-            </form>
-            {% endif %}
         </div>
-        <div id="gpt-scenario-assessment-section" class="gpt-results">
-            {% if gpt_scenario_assessment %}
-            <h4>MRM Assessment:</h4>
-            <textarea id="gpt-scenario-assessment" class="assessment-textarea"
-                readonly>{{ gpt_scenario_assessment }}</textarea>
-            <button type="button" id="edit-scenario-assessment-btn"
-                onclick="editAssessment('gpt-scenario-assessment');">Edit</button>
-            <button type="button" id="save-scenario-assessment-btn"
-                onclick="saveAssessment('gpt-scenario-assessment', '/vanilla-options/save-scenario-assessment');"
-                style="display: inline;">Save</button>
-            {% endif %}
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="ticker">Underlying Ticker</label>
+                <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
+            </div>
+            <div class="form-group">
+                <label for="option_type">Option Type</label>
+                <select id="option_type" name="option_type" required>
+                    <option value="call" {% if form_data.option_type=='call' %}selected{% endif %}>Call</option>
+                    <option value="put" {% if form_data.option_type=='put' %}selected{% endif %}>Put</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="strike_price">Strike Price</label>
+                <input type="number" step="any" id="strike_price" name="strike_price" value="{{ form_data.strike_price }}" min="0" required>
+                <div id="strike-price-error" class="field-error" style="display: none;">Strike price must be positive.</div>
+            </div>
+            <div class="form-group">
+                <label for="notional">Number of Contracts</label>
+                <input type="number" step="1" id="notional" name="notional" value="{{ form_data.notional|default(1) }}" min="1" required>
+            </div>
+            <div class="form-group">
+                <label for="contract_multiplier">Contract Multiplier</label>
+                <input type="number" step="any" id="contract_multiplier" name="contract_multiplier" value="{{ form_data.contract_multiplier|default(100) }}" min="1" required>
+            </div>
         </div>
     </div>
 
-    <div id="convergence-analysis" class="tab-content">
-        <h4>Convergence Analysis</h4>
-
-        <form id="convergence-form" method="post" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="convergence">
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
-            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier" value="{{ form_data.barrier }}">
-            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
-            <input type="hidden" name="barrier_type" value="{{ form_data.barrier_type }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">🚧</span>
+            <div>
+                <strong>Barrier Terms</strong>
+                <p>Define the path trigger and whether breach activates or extinguishes the option.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
             <div class="form-group">
-                <label for="mode">Mode:</label>
-                <select id="mode" name="mode" required>
-                    <option value="steps" {% if form_data.mode=='steps' %}selected{% endif %}>Steps</option>
-                    <option value="simulations" {% if form_data.mode=='simulations' %}selected{% endif %}>Simulations
-                    </option>
+                <label for="barrier_type">Barrier Type</label>
+                <select id="barrier_type" name="barrier_type" required>
+                    <option value="up_and_out" {% if form_data.barrier_type=='up_and_out' %}selected{% endif %}>Up-and-Out</option>
+                    <option value="down_and_out" {% if form_data.barrier_type=='down_and_out' %}selected{% endif %}>Down-and-Out</option>
+                    <option value="up_and_in" {% if form_data.barrier_type=='up_and_in' %}selected{% endif %}>Up-and-In</option>
+                    <option value="down_and_in" {% if form_data.barrier_type=='down_and_in' %}selected{% endif %}>Down-and-In</option>
                 </select>
             </div>
-
             <div class="form-group">
-                <label for="max_steps"># of Time Steps (Maximum if Mode=Steps):</label>
-                <input type="number" id="max_steps" name="max_steps" value="{{ form_data.max_steps }}" required>
+                <label for="barrier">Barrier Level</label>
+                <input type="number" step="any" id="barrier" name="barrier" value="{{ form_data.barrier }}" min="0" required>
+                <div id="barrier-error" class="field-error" style="display: none;">Barrier level must be positive.</div>
             </div>
-
             <div class="form-group">
-                <label for="max_sims"># of Simulations (Maximum if Mode=Simulations):</label>
-                <input type="number" id="max_sims" name="max_sims" value="{{ form_data.max_sims }}" required>
+                <label>Monitoring Convention</label>
+                <input type="text" value="Discrete path monitoring by simulation step" disabled>
+                <div class="field-hint">Continuous barrier adjustment is not yet included.</div>
             </div>
-
-            <div class="form-group">
-                <label for="obs">Observations:</label>
-                <input type="number" id="obs" name="obs" value="{{ form_data.obs }}" required>
-            </div>
-
-            <div class="form-group full-width">
-                <button type="submit" name="run_convergence_analysis"
-                    onclick="this.form.dataset.action='run_convergence_analysis';">Run Convergence Analysis</button>
-            </div>
-
-        </form>
-
-        <div id="convergence-results" class="sens-results">
-            {% if convergence_results and convergence_results.get('plot_filename') %}
-            <img src="{{ url_for('static', filename=convergence_results.get('plot_filename')) }}"
-                alt="Convergence Analysis Plot">
-            {% endif %}
         </div>
-
     </div>
 
-    <div id="rbpl-analysis" class="tab-content">
-        <h4>RBPL Analysis</h4>
-        <form id="rbpl-form" method="post" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="risk_pl">
-
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="option_type" value="{{ form_data.option_type }}">
-            <input type="hidden" name="start_date" value="{{ form_data.start_date }}">
-            <input type="hidden" name="end_date" value="{{ form_data.end_date }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="model" value="{{ form_data.model }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier" value="{{ form_data.barrier }}">
-            <input type="hidden" name="barrier_type" value="{{ form_data.barrier_type }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">🏦</span>
+            <div>
+                <strong>Market Assumptions</strong>
+                <p>Use explicit assumptions for controlled barrier option pricing.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
             <div class="form-group">
-                <label for="price_change">Bump in Spot Price:</label>
-                <input type="number" step="0.01" id="price_change" name="price_change"
-                    value="{{ form_data.price_change }}" required>
+                <label for="start_date">Valuation Date</label>
+                <input type="date" id="start_date" name="start_date" value="{{ form_data.start_date }}" required>
             </div>
             <div class="form-group">
-                <label for="vol_change">Bump in Volatility:</label>
-                <input type="number" step="0.01" id="vol_change" name="vol_change" value="{{ form_data.vol_change }}"
-                    required>
+                <label for="end_date">Maturity Date</label>
+                <input type="date" id="end_date" name="end_date" value="{{ form_data.end_date }}" required>
             </div>
-            <div class="form-group full-width">
-                <button type="submit" name="run_risk_pl_analysis"
-                    onclick="this.form.dataset.action='run_risk_pl_analysis';">Run RBPL Analysis</button>
+            <div class="form-group">
+                <label for="spot_price">Spot Price</label>
+                <input type="number" step="any" id="spot_price" name="spot_price" value="{{ form_data.spot_price }}" min="0" required>
+                <div id="spot-price-error" class="field-error" style="display: none;">Spot price must be positive.</div>
             </div>
-        </form>
-        {% if risk_pl_results %}
-        <div id="rbpl-results">
-            <div class="result">
-                <h4>Results:</h4>
-                <div class="horizontal-table">
-                    <div class="table-row">
-                        <div class="table-cell">Actual P&L</div>
-                        <div class="table-cell">Greek P&L Sum</div>
-                        <div class="table-cell">Difference</div>
-                    </div>
-                    <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Actual P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Greek P&L Sum'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Difference'] }}</div>
-                    </div>
-                    <br>
-                    <h4>Intermediate Calcuations:</h4>
-                    <div class="table-row">
-                        <div class="table-cell">Initial Price</div>
-                        <div class="table-cell">Bumped Price</div>
-                        <div class="table-cell">Delta P&L</div>
-                        <div class="table-cell">Gamma P&L</div>
-                        <div class="table-cell">Vega P&L</div>
-                    </div>
-                    <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Initial Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Bumped Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Delta P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Gamma P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Vega P&L'] }}</div>
-                    </div>
-                </div>
+            <div class="form-group">
+                <label for="r">Risk-Free Rate</label>
+                <input type="number" step="any" id="r" name="r" value="{{ form_data.r }}" required>
+                <div class="field-hint">Absolute format, e.g. 0.04 for 4%.</div>
             </div>
+            <div class="form-group">
+                <label for="sigma">Annualized Volatility</label>
+                <input type="number" step="any" id="sigma" name="sigma" value="{{ form_data.sigma }}" min="0" required>
+                <div id="volatility-error" class="field-error" style="display: none;">Volatility must be positive.</div>
+            </div>
+            <div class="form-group">
+                <label for="dividend_yield">Dividend Yield</label>
+                <input type="number" step="any" id="dividend_yield" name="dividend_yield" value="{{ form_data.dividend_yield|default(0) }}">
+                <div class="field-hint">Continuous yield used in risk-neutral drift.</div>
+            </div>
+            <div class="form-group">
+                <label for="day_count">Day Count</label>
+                <select id="day_count" name="day_count">
+                    <option value="ACT/365" {% if form_data.day_count=='ACT/365' %}selected{% endif %}>ACT/365</option>
+                    <option value="ACT/360" {% if form_data.day_count=='ACT/360' %}selected{% endif %}>ACT/360</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">🎲</span>
+            <div>
+                <strong>Simulation Settings</strong>
+                <p>Barrier valuation is path-dependent and uses Monte Carlo simulation.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="num_steps">Time Steps</label>
+                <input type="number" step="1" id="num_steps" name="num_steps" value="{{ form_data.num_steps|default(252) }}" min="2" max="2000" required>
+            </div>
+            <div class="form-group">
+                <label for="num_paths">Simulation Paths</label>
+                <input type="number" step="1" id="num_paths" name="num_paths" value="{{ form_data.num_paths|default(10000) }}" min="100" max="250000" required>
+            </div>
+            <div class="form-group">
+                <label for="random_type">Random Sequence</label>
+                <select id="random_type" name="random_type">
+                    <option value="sobol" {% if form_data.random_type=='sobol' %}selected{% endif %}>Sobol</option>
+                    <option value="pseudo" {% if form_data.random_type=='pseudo' %}selected{% endif %}>Pseudo-random</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="discretization">Discretization</label>
+                <select id="discretization" name="discretization">
+                    <option value="euler" {% if form_data.discretization=='euler' %}selected{% endif %}>Euler</option>
+                    <option value="milstein" {% if form_data.discretization=='milstein' %}selected{% endif %}>Milstein</option>
+                </select>
+                <div class="field-hint">Engine currently applies safe Euler paths; retained for model governance.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pricing-form-actions">
+        <button type="submit" class="btn-primary">Calculate Barrier Option Price</button>
+        <span>Outputs are intended for model review, research, and evaluation. Validate assumptions before production use.</span>
+    </div>
+</form>
+
+{% if option_price %}
+<div id="results-section" class="european-results-panel">
+    <div class="result-kpi-grid">
+        <div class="pricing-summary-card primary-kpi">
+            <span class="metric-label">Barrier Premium</span>
+            <strong class="metric-value">{{ option_price }}</strong>
+            <small>Per option unit</small>
+        </div>
+        {% if run_summary %}
+        <div class="pricing-summary-card">
+            <span class="metric-label">Breach Probability</span>
+            <strong class="metric-value">{{ "{:.2%}".format(run_summary.breach_probability) }}</strong>
+            <small>Estimated under risk-neutral GBM paths</small>
+        </div>
+        <div class="pricing-summary-card">
+            <span class="metric-label">Position Value</span>
+            <strong class="metric-value">${{ "{:,.2f}".format(run_summary.position_value) }}</strong>
+            <small>{{ form_data.notional }} contract(s) x {{ form_data.contract_multiplier }} multiplier</small>
         </div>
         {% endif %}
+    </div>
+
+    <div class="greeks-card">
+        <div class="section-title compact">
+            <h3>Greeks</h3>
+            <p>Displayed per option unit from capped finite-difference Monte Carlo reruns around the selected barrier setup.</p>
+        </div>
+        <div class="greek-metric-grid">
+            <div><span>Delta</span><strong>{{ delta }}</strong></div>
+            <div><span>Gamma</span><strong>{{ gamma }}</strong></div>
+            <div><span>Vega</span><strong>{{ vega }}</strong></div>
+            <div><span>Theta</span><strong>{{ theta }}</strong></div>
+            <div><span>Rho</span><strong>{{ rho }}</strong></div>
+        </div>
     </div>
 </div>
+{% endif %}
 {% endcall %}
 
-{{ product.reporting("barrier option") }}
+{% call product.section("Analysis", "Review diagnostics that focus on barrier optionality, vanilla benchmark comparison, simulation behavior, and primary risk drivers.") %}
+{% if run_summary %}
+<div class="analysis-grid">
+    <article class="analysis-card">
+        <div class="analysis-card-title">
+            <span aria-hidden="true">🎯</span>
+            <h3>Premium Decomposition</h3>
+        </div>
+        <dl class="summary-definition-list">
+            <div><dt>Intrinsic value</dt><dd>${{ "{:,.4f}".format(run_summary.intrinsic_value) }}</dd></div>
+            <div><dt>Premium minus intrinsic</dt><dd>${{ "{:,.4f}".format(run_summary.time_value_proxy) }}</dd></div>
+            <div><dt>European benchmark</dt><dd>${{ "{:,.4f}".format(run_summary.vanilla_price) }}</dd></div>
+            <div><dt>Vanilla minus barrier</dt><dd>${{ "{:,.4f}".format(run_summary.premium_gap) }}</dd></div>
+        </dl>
+    </article>
+    <article class="analysis-card">
+        <div class="analysis-card-title">
+            <span aria-hidden="true">🚧</span>
+            <h3>Barrier Diagnostics</h3>
+        </div>
+        <dl class="summary-definition-list">
+            <div><dt>Activation style</dt><dd>{{ run_summary.activation_style|title }}</dd></div>
+            <div><dt>Barrier direction</dt><dd>{{ run_summary.barrier_direction|title }}</dd></div>
+            <div><dt>Barrier distance</dt><dd>{{ "{:.2%}".format(run_summary.barrier_distance_pct) }}</dd></div>
+            <div><dt>Survival probability</dt><dd>{{ "{:.2%}".format(run_summary.survival_probability) }}</dd></div>
+        </dl>
+    </article>
+</div>
 
-<!-- JavaScript for Form Submission and Loading Spinner -->
+<div class="analysis-card">
+    <div class="analysis-card-title">
+        <span aria-hidden="true">⚖️</span>
+        <h3>Model Interpretation</h3>
+    </div>
+    <p class="analysis-note">{{ run_summary.barrier_status }}</p>
+    <p class="analysis-note">{{ run_summary.premium_interpretation }}</p>
+</div>
+
+<div class="analysis-card">
+    <div class="analysis-card-title">
+        <span aria-hidden="true">📉</span>
+        <h3>Driver Sensitivity</h3>
+    </div>
+    <div class="results-table-wrap">
+        <table class="results-table compact-results-table">
+            <thead>
+                <tr>
+                    <th>Driver</th>
+                    <th>Down Case</th>
+                    <th>Base Price</th>
+                    <th>Up Case</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in run_summary.sensitivity_rows %}
+                <tr>
+                    <td>{{ row.driver }}</td>
+                    <td>{{ row.down_label }}: ${{ "{:,.4f}".format(row.down) }}</td>
+                    <td>${{ "{:,.4f}".format(row.base) }}</td>
+                    <td>{{ row.up_label }}: ${{ "{:,.4f}".format(row.up) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="analysis-note">Sensitivity rows use local Greek-based approximations around the base run. Full scenario repricing can be added as a separate workflow.</p>
+</div>
+
+<div class="analysis-card">
+    <div class="analysis-card-title">
+        <span aria-hidden="true">📊</span>
+        <h3>Illustrative Payoff Strip</h3>
+    </div>
+    <div class="payoff-strip">
+        {% for point in run_summary.payoff_points %}
+        <div>
+            <span>Underlying ${{ "{:,.2f}".format(point.underlying) }}</span>
+            <strong>${{ "{:,.2f}".format(point.payoff) }}</strong>
+            <small>Net ${{ "{:,.2f}".format(point.net_payoff) }}</small>
+        </div>
+        {% endfor %}
+    </div>
+    <p class="analysis-note">This strip is illustrative. Actual barrier payoff depends on the full price path, not only terminal spot.</p>
+</div>
+{% else %}
+<div class="available-analysis-grid">
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🎯</span>
+        <div>
+            <strong>Premium Decomposition</strong>
+            <p>Intrinsic value, premium gap to vanilla, and scaled position value.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🚧</span>
+        <div>
+            <strong>Barrier Diagnostics</strong>
+            <p>Barrier distance, activation style, breach probability, and survival probability.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📉</span>
+        <div>
+            <strong>Driver Sensitivity</strong>
+            <p>Spot, volatility, and rate views around the base Monte Carlo run.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📊</span>
+        <div>
+            <strong>Payoff Strip</strong>
+            <p>Representative terminal underlying levels with path-dependency caveat.</p>
+        </div>
+        <em>Ready after pricing</em>
+    </article>
+</div>
+{% endif %}
+{% endcall %}
+
+{% call product.section("Run Summary", "A structured summary replaces customized reporting for this product-standard page. Full report templates can build on this output later.") %}
+{% if run_summary %}
+<div class="run-summary-grid">
+    <div>
+        <span>Contract</span>
+        <strong>{{ form_data.ticker }} {{ form_data.option_type|title }} | K={{ form_data.strike_price }}</strong>
+        <p>{{ form_data.notional }} contract(s), {{ form_data.contract_multiplier }} multiplier, maturity {{ form_data.end_date }}</p>
+    </div>
+    <div>
+        <span>Barrier</span>
+        <strong>{{ form_data.barrier_type.replace('_', '-')|title }} | Level ${{ "{:,.2f}".format(form_data.barrier) }}</strong>
+        <p>{{ run_summary.barrier_status }}</p>
+    </div>
+    <div>
+        <span>Market</span>
+        <strong>Spot ${{ "{:,.2f}".format(run_summary.spot_price) }} | Vol {{ "{:.2%}".format(form_data.sigma) }}</strong>
+        <p>Rate {{ "{:.2%}".format(form_data.r) }}, dividend yield {{ "{:.2%}".format(form_data.dividend_yield) }}</p>
+    </div>
+    <div>
+        <span>Model</span>
+        <strong>Monte Carlo v2 | {{ form_data.num_paths }} paths x {{ form_data.num_steps }} steps</strong>
+        <p>{{ form_data.random_type|title }} sequence, {{ form_data.discretization|title }} setting, {{ run_summary.calendar_days }} calendar days.</p>
+    </div>
+    <div>
+        <span>Output</span>
+        <strong>{{ option_price }} premium | {{ run_summary.moneyness_label }}</strong>
+        <p>Breach probability {{ "{:.2%}".format(run_summary.breach_probability) }}</p>
+    </div>
+</div>
+{% else %}
+<div class="empty-state-panel">
+    <strong>Run summary pending.</strong>
+    <p>The summary will populate after a pricing run and can later serve as the basis for configurable reports.</p>
+</div>
+{% endif %}
+{% endcall %}
+
 <script>
-    document.querySelectorAll('.form-grid, #options-form').forEach(form => {
-        form.addEventListener('submit', function (event) {
-            var loadingSpinner = document.getElementById('loadingSpinner');
-            loadingSpinner.style.display = 'block';  // Show spinner on form submit
+    function applyPricingInput(fieldId, value, precision) {
+        const input = document.getElementById(fieldId);
+        if (!input || value === null || value === undefined || Number.isNaN(Number(value))) {
+            return;
+        }
+        input.value = Number(value).toFixed(precision);
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.focus();
+    }
 
-            // Hide spinner when form submission is complete
-            this.addEventListener('load', function () {
-                loadingSpinner.style.display = 'none';
-            });
-        });
-    });
+    function validateForm() {
+        const validations = [
+            ['spot_price', 'spot-price-error'],
+            ['strike_price', 'strike-price-error'],
+            ['sigma', 'volatility-error'],
+            ['barrier', 'barrier-error']
+        ];
+        let hasErrors = false;
 
-    // JavaScript for AJAX Form Submission
-    function submitForm(formId, url, updateId) {
-        var form = document.getElementById(formId);
-        var formData = new FormData(form);
-        var xhr = new XMLHttpRequest();
-
-        xhr.open("POST", url, true);
-
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                console.log("Form submitted successfully");
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(xhr.responseText, 'text/html');
-
-                // Update the relevant section
-                var updateSection = doc.getElementById(updateId);
-                if (updateSection) {
-                    document.getElementById(updateId).innerHTML = updateSection.innerHTML;
-                    // Show the results section after successfully updating it
-                    document.getElementById(updateId).style.display = 'block';
-                } else {
-                    console.log("Update section not found");
-                }
-            } else if (xhr.readyState === 4) {
-                console.log("Error in form submission: " + xhr.status);
+        validations.forEach(([inputId, errorId]) => {
+            const error = document.getElementById(errorId);
+            const value = parseFloat(document.getElementById(inputId).value);
+            error.style.display = 'none';
+            if (isNaN(value) || value <= 0) {
+                error.style.display = 'block';
+                hasErrors = true;
             }
-        };
+        });
 
-        xhr.onerror = function () {
-            console.log("Request failed");
-        };
-
-        xhr.send(formData);
-    }
-
-    // JavaScript for Tabs
-    function openTab(evt, tabName) {
-        var i, tabcontent, tablinks;
-
-        // Hide all tab contents
-        tabcontent = document.getElementsByClassName("tab-content");
-        for (i = 0; i < tabcontent.length; i++) {
-            tabcontent[i].style.display = "none";
+        if (hasErrors) {
+            alert('Please fix all validation errors before submitting the form.');
+            return false;
         }
 
-        // Hide the sensitivity results
-        const resultsSection = document.getElementById('sensitivity-results');
-        resultsSection.style.display = "none";
-
-        // Remove the active class from all tab buttons
-        tablinks = document.getElementsByClassName("tab-button");
-        for (i = 0; i < tablinks.length; i++) {
-            tablinks[i].className = tablinks[i].className.replace(" active", "");
-        }
-
-        // Show the current tab content and add an active class to the button that opened the tab
-        document.getElementById(tabName).style.display = "block";
-        evt.currentTarget.className += " active";
+        return true;
     }
-
-    // By default, open the first tab
-    document.addEventListener("DOMContentLoaded", function () {
-        document.querySelector(".tab-button").click();
-    });
 </script>
 
 {% endblock %}

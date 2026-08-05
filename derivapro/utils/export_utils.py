@@ -1,10 +1,11 @@
 from io import BytesIO, StringIO
 import csv
 from typing import List, Dict
-from openpyxl import Workbook
 
 
 def dicts_to_xlsx_bytes(rows: List[Dict], sheet_name: str = "Sheet1") -> BytesIO:
+    from openpyxl import Workbook
+
     wb = Workbook()
     ws = wb.active
     ws.title = sheet_name

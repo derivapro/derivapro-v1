@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}DerivaPro | {{ title }} Methodology{% endblock %}
+
+{% block content %}
+<section class="product-page-header methodology-page-header">
+    <div>
+        <p class="section-kicker">Methodology Documentation</p>
+        <h1>{{ title }}</h1>
+        <p>Product-level methodology note rendered from <code>docs/methodology/{{ source_filename }}</code>.</p>
+    </div>
+</section>
+
+<section class="product-section-card methodology-doc-card">
+    <div class="methodology-doc-content">
+        {{ html_content|safe }}
+    </div>
+</section>
+{% endblock %}

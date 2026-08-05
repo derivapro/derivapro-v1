@@ -1,11 +1,13 @@
 # Note: last updated on Aug 06
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, session
 from flask_login import current_user
 
 import os
 import markdown
+import math
+import random as random_module
 from dotenv import load_dotenv
 from ..extensions import db
 from ..models.db_models import AnalysisResult, Instrument, Plot, PricingResult
@@ -18,6 +20,10 @@ np = LazyImport("numpy")
 monte_carlo_module = LazyImport("derivapro.models.mdls_monte_carlo_v2")
 llm_client = LazyAttribute("derivapro.llm", "llm_client")
 StockData = LazyAttribute("derivapro.models.market_data", "StockData")
+build_equity_market_reference = LazyAttribute(
+    "derivapro.services.market_reference",
+    "build_equity_market_reference",
+)
 AsianOption = LazyAttribute("derivapro.models.mdls_asian_options", "AsianOption")
 AsianOptionSmoothnessTest = LazyAttribute(
     "derivapro.models.mdls_asian_options", "AsianOptionSmoothnessTest"
@@ -90,6 +96,765 @@ def _get_latest_result_ids(user_id):
         latest_pricing.id if latest_pricing else None,
         latest_analysis.id if latest_analysis else None,
     )
+
+
+def _get_latest_pricing_result_for_user(product_type):
+    if not current_user.is_authenticated:
+        return None
+
+    return (
+        PricingResult.query
+        .join(Instrument, PricingResult.instrument_id == Instrument.id)
+        .filter(
+            PricingResult.user_id == current_user.id,
+            Instrument.user_id == current_user.id,
+            Instrument.product_type == product_type,
+        )
+        .order_by(PricingResult.created_at.desc())
+        .first()
+    )
+
+
+def _year_fraction(start_date, end_date, day_count):
+    days = (end_date - start_date).days
+    if days <= 0:
+        raise ValueError("Maturity date must be after valuation date.")
+    if day_count == "ACT/360":
+        return days / 360.0
+    return days / 365.25
+
+
+def _normal_cdf(value):
+    return 0.5 * (1.0 + math.erf(value / math.sqrt(2.0)))
+
+
+def _price_european_black_scholes(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+):
+    if spot_price <= 0:
+        raise ValueError("Spot price must be positive.")
+    if strike_price <= 0:
+        raise ValueError("Strike price must be positive.")
+    if volatility <= 0:
+        raise ValueError("Volatility must be positive.")
+    if time_to_maturity <= 0:
+        raise ValueError("Time to maturity must be positive.")
+
+    sqrt_t = math.sqrt(time_to_maturity)
+    d1 = (
+        math.log(spot_price / strike_price)
+        + (risk_free_rate - dividend_yield + 0.5 * volatility * volatility)
+        * time_to_maturity
+    ) / (volatility * sqrt_t)
+    d2 = d1 - volatility * sqrt_t
+    discounted_spot = spot_price * math.exp(-dividend_yield * time_to_maturity)
+    discounted_strike = strike_price * math.exp(-risk_free_rate * time_to_maturity)
+
+    call_price = discounted_spot * _normal_cdf(d1) - discounted_strike * _normal_cdf(d2)
+    put_price = discounted_strike * _normal_cdf(-d2) - discounted_spot * _normal_cdf(-d1)
+    return call_price if option_type == "call" else put_price
+
+
+def _classify_moneyness(spot_price, strike_price, option_type):
+    ratio = spot_price / strike_price
+    if 0.97 <= ratio <= 1.03:
+        return "At the money"
+    if option_type == "call":
+        return "In the money" if ratio > 1.03 else "Out of the money"
+    return "In the money" if ratio < 0.97 else "Out of the money"
+
+
+def _default_barrier_form_data():
+    valuation_date = datetime.today().date()
+    maturity_date = valuation_date + timedelta(days=365)
+    return {
+        "ticker": "AAPL",
+        "strike_price": 200.0,
+        "start_date": valuation_date.isoformat(),
+        "end_date": maturity_date.isoformat(),
+        "r": 0.04,
+        "sigma": 0.25,
+        "spot_price": 190.0,
+        "dividend_yield": 0.005,
+        "notional": 1,
+        "contract_multiplier": 100.0,
+        "day_count": "ACT/365",
+        "option_type": "call",
+        "barrier_type": "up_and_out",
+        "barrier": 230.0,
+        "num_steps": 252,
+        "num_paths": 10000,
+        "random_type": "sobol",
+        "discretization": "euler",
+    }
+
+
+def _build_barrier_form_data_from_instrument(instrument):
+    if not instrument:
+        return {}
+
+    params = instrument.params_json or {}
+    return {
+        "ticker": instrument.ticker or "AAPL",
+        "strike_price": params.get("strike_price", params.get("K")),
+        "start_date": instrument.start_date or "",
+        "end_date": instrument.end_date or "",
+        "r": params.get("risk_free_rate", params.get("r")),
+        "sigma": params.get("volatility", params.get("sigma")),
+        "spot_price": params.get("spot_price"),
+        "dividend_yield": params.get("dividend_yield", params.get("q", 0.0)),
+        "notional": params.get("notional", 1),
+        "contract_multiplier": params.get("contract_multiplier", 100.0),
+        "day_count": params.get("day_count", "ACT/365"),
+        "option_type": params.get("option_type", "call"),
+        "barrier_type": params.get("barrier_type", "up_and_out"),
+        "barrier": params.get("barrier_level", params.get("barrier")),
+        "num_steps": params.get("num_steps", params.get("N", 252)),
+        "num_paths": params.get("num_paths", params.get("M", 10000)),
+        "random_type": params.get("random_type", "sobol"),
+        "discretization": params.get("discretization", "euler"),
+    }
+
+
+def _barrier_direction(barrier_type):
+    return "up" if barrier_type.startswith("up") else "down"
+
+
+def _barrier_activation_style(barrier_type):
+    return "knock-in" if barrier_type.endswith("_in") else "knock-out"
+
+
+def _price_barrier_mc(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    barrier_type,
+    barrier_level,
+    num_paths,
+    num_steps,
+    random_type,
+):
+    engine = monte_carlo_module.create_monte_carlo_engine(
+        S0=spot_price,
+        r=risk_free_rate,
+        sigma=volatility,
+        T=time_to_maturity,
+        num_paths=max(100, int(num_paths)),
+        num_steps=max(2, int(num_steps)),
+        random_type=random_type,
+    )
+    return float(
+        engine.price_barrier_option(
+            strike_price=strike_price,
+            barrier_level=barrier_level,
+            option_type=option_type,
+            barrier_type=barrier_type,
+            dividend_yield=dividend_yield,
+        )
+    )
+
+
+def _barrier_greeks_finite_difference(
+    form_data,
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    base_price,
+):
+    num_paths = min(max(int(form_data.get("num_paths", 10000) * 0.25), 1000), 5000)
+    num_steps = min(max(int(form_data.get("num_steps", 252)), 25), 252)
+    risk_free_rate = form_data["r"]
+    volatility = form_data["sigma"]
+    dividend_yield = form_data.get("dividend_yield", 0.0)
+    option_type = form_data["option_type"]
+    barrier_type = form_data["barrier_type"]
+    barrier_level = form_data["barrier"]
+    random_type = form_data.get("random_type", "sobol")
+
+    def price_at(spot=None, vol=None, rate=None, time=None):
+        return _price_barrier_mc(
+            spot if spot is not None else spot_price,
+            strike_price,
+            time if time is not None else time_to_maturity,
+            rate if rate is not None else risk_free_rate,
+            vol if vol is not None else volatility,
+            dividend_yield,
+            option_type,
+            barrier_type,
+            barrier_level,
+            num_paths,
+            num_steps,
+            random_type,
+        )
+
+    spot_bump = max(spot_price * 0.01, 0.01)
+    vol_bump = 0.01
+    rate_bump = 0.0001
+    time_bump = min(1.0 / 365.25, max(time_to_maturity / 2.0, 1e-6))
+
+    price_spot_up = price_at(spot=spot_price + spot_bump)
+    price_spot_down = price_at(spot=max(spot_price - spot_bump, 0.0001))
+    price_vol_up = price_at(vol=volatility + vol_bump)
+    price_vol_down = price_at(vol=max(volatility - vol_bump, 0.0001))
+    price_rate_up = price_at(rate=risk_free_rate + rate_bump)
+    price_rate_down = price_at(rate=risk_free_rate - rate_bump)
+    shorter_price = price_at(time=max(time_to_maturity - time_bump, 1e-6))
+
+    return {
+        "delta": (price_spot_up - price_spot_down) / (2.0 * spot_bump),
+        "gamma": (price_spot_up - 2.0 * base_price + price_spot_down)
+        / (spot_bump * spot_bump),
+        "vega": (price_vol_up - price_vol_down) / (2.0 * vol_bump),
+        "theta": (shorter_price - base_price) / time_bump,
+        "rho": (price_rate_up - price_rate_down) / (2.0 * rate_bump),
+    }
+
+
+def _estimate_barrier_breach_probability(
+    spot_price,
+    barrier_level,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    barrier_type,
+    num_steps,
+    num_paths,
+):
+    path_count = min(max(int(num_paths * 0.2), 1000), 5000)
+    steps = min(max(int(num_steps), 25), 252)
+    dt = time_to_maturity / steps
+    drift = (risk_free_rate - dividend_yield - 0.5 * volatility * volatility) * dt
+    diffusion = volatility * math.sqrt(dt)
+    rng = random_module.Random(1729)
+    direction = _barrier_direction(barrier_type)
+    breached = 0
+
+    for _ in range(path_count):
+        price = spot_price
+        path_breached = False
+        for _step in range(steps):
+            price *= math.exp(drift + diffusion * rng.gauss(0.0, 1.0))
+            if direction == "up" and price >= barrier_level:
+                path_breached = True
+                break
+            if direction == "down" and price <= barrier_level:
+                path_breached = True
+                break
+        if path_breached:
+            breached += 1
+
+    return breached / path_count
+
+
+def _build_barrier_analytics(
+    form_data,
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    raw_option_price,
+    greeks,
+):
+    option_type = form_data["option_type"]
+    barrier_type = form_data["barrier_type"]
+    barrier_level = form_data["barrier"]
+    notional = form_data.get("notional", 1) or 1
+    contract_multiplier = form_data.get("contract_multiplier", 100.0) or 100.0
+    activation_style = _barrier_activation_style(barrier_type)
+    direction = _barrier_direction(barrier_type)
+
+    vanilla_price = _price_european_black_scholes(
+        spot_price,
+        strike_price,
+        time_to_maturity,
+        form_data["r"],
+        form_data["sigma"],
+        form_data.get("dividend_yield", 0.0),
+        option_type,
+    )
+    intrinsic_value = (
+        max(spot_price - strike_price, 0.0)
+        if option_type == "call"
+        else max(strike_price - spot_price, 0.0)
+    )
+    breach_probability = _estimate_barrier_breach_probability(
+        spot_price,
+        barrier_level,
+        time_to_maturity,
+        form_data["r"],
+        form_data["sigma"],
+        form_data.get("dividend_yield", 0.0),
+        barrier_type,
+        form_data.get("num_steps", 252),
+        form_data.get("num_paths", 10000),
+    )
+    barrier_distance_pct = (barrier_level / spot_price) - 1.0
+    premium_gap = vanilla_price - raw_option_price
+    if activation_style == "knock-in":
+        premium_interpretation = (
+            "Knock-in value is expected to be lower than the matching vanilla "
+            "option unless the activation event is already likely."
+        )
+    else:
+        premium_interpretation = (
+            "Knock-out value is expected to be lower than the matching vanilla "
+            "option because a barrier breach extinguishes the payoff."
+        )
+
+    if direction == "up" and barrier_level <= spot_price:
+        barrier_status = "Barrier is already at or below spot; review this up-barrier setup."
+    elif direction == "down" and barrier_level >= spot_price:
+        barrier_status = "Barrier is already at or above spot; review this down-barrier setup."
+    else:
+        barrier_status = (
+            f"Barrier is {abs(barrier_distance_pct):.2%} "
+            f"{'above' if barrier_distance_pct > 0 else 'below'} spot."
+        )
+
+    def local_sensitivity(driver, down_label, down_move, up_label, up_move):
+        down = max(raw_option_price + down_move, 0.0)
+        up = max(raw_option_price + up_move, 0.0)
+        return {
+            "driver": driver,
+            "down_label": down_label,
+            "down": down,
+            "base": raw_option_price,
+            "up_label": up_label,
+            "up": up,
+        }
+
+    spot_move = spot_price * 0.10
+    sensitivity_rows = [
+        local_sensitivity(
+            "Spot price",
+            "-10%",
+            greeks["delta"] * -spot_move + 0.5 * greeks["gamma"] * spot_move * spot_move,
+            "+10%",
+            greeks["delta"] * spot_move + 0.5 * greeks["gamma"] * spot_move * spot_move,
+        ),
+        local_sensitivity(
+            "Volatility",
+            "-5 vol pts",
+            greeks["vega"] * -0.05,
+            "+5 vol pts",
+            greeks["vega"] * 0.05,
+        ),
+        local_sensitivity(
+            "Risk-free rate",
+            "-100 bps",
+            greeks["rho"] * -0.01,
+            "+100 bps",
+            greeks["rho"] * 0.01,
+        ),
+    ]
+
+    payoff_points = []
+    for multiplier in [0.7, 0.85, 1.0, 1.15, 1.3]:
+        underlying = spot_price * multiplier
+        vanilla_payoff = (
+            max(underlying - strike_price, 0.0)
+            if option_type == "call"
+            else max(strike_price - underlying, 0.0)
+        )
+        if activation_style == "knock-out":
+            if direction == "up" and underlying >= barrier_level:
+                payoff = 0.0
+            elif direction == "down" and underlying <= barrier_level:
+                payoff = 0.0
+            else:
+                payoff = vanilla_payoff
+        else:
+            if direction == "up" and underlying >= barrier_level:
+                payoff = vanilla_payoff
+            elif direction == "down" and underlying <= barrier_level:
+                payoff = vanilla_payoff
+            else:
+                payoff = 0.0
+        payoff_points.append({
+            "underlying": underlying,
+            "payoff": payoff,
+            "net_payoff": payoff - raw_option_price,
+        })
+
+    return {
+        "spot_price": spot_price,
+        "time_to_maturity": time_to_maturity,
+        "calendar_days": max(0, int(round(time_to_maturity * 365.25))),
+        "moneyness_ratio": spot_price / strike_price,
+        "moneyness_label": _classify_moneyness(spot_price, strike_price, option_type),
+        "intrinsic_value": intrinsic_value,
+        "time_value_proxy": raw_option_price - intrinsic_value,
+        "position_value": raw_option_price * contract_multiplier * notional,
+        "vanilla_price": vanilla_price,
+        "premium_gap": premium_gap,
+        "activation_style": activation_style,
+        "barrier_direction": direction,
+        "barrier_distance_pct": barrier_distance_pct,
+        "barrier_status": barrier_status,
+        "breach_probability": breach_probability,
+        "survival_probability": 1.0 - breach_probability,
+        "premium_interpretation": premium_interpretation,
+        "sensitivity_rows": sensitivity_rows,
+        "payoff_points": payoff_points,
+    }
+
+
+def _default_asian_form_data():
+    valuation_date = datetime.today().date()
+    maturity_date = valuation_date + timedelta(days=365)
+    averaging_start = valuation_date + timedelta(days=30)
+    return {
+        "ticker": "AAPL",
+        "strike_price": 200.0,
+        "start_date": valuation_date.isoformat(),
+        "end_date": maturity_date.isoformat(),
+        "averaging_start_date": averaging_start.isoformat(),
+        "averaging_end_date": maturity_date.isoformat(),
+        "averaging_frequency": "monthly",
+        "custom_averaging_dates": "",
+        "r": 0.04,
+        "sigma": 0.25,
+        "spot_price": 190.0,
+        "dividend_yield": 0.005,
+        "notional": 1,
+        "contract_multiplier": 100.0,
+        "day_count": "ACT/365",
+        "option_type": "call",
+        "payoff_variant": "average_price",
+        "average_type": "arithmetic",
+        "num_paths": 10000,
+        "seed": 42,
+    }
+
+
+def _build_asian_form_data_from_instrument(instrument):
+    if not instrument:
+        return {}
+
+    params = instrument.params_json or {}
+    return {
+        "ticker": instrument.ticker or "AAPL",
+        "strike_price": params.get("strike_price"),
+        "start_date": instrument.start_date or "",
+        "end_date": instrument.end_date or "",
+        "averaging_start_date": params.get("averaging_start_date"),
+        "averaging_end_date": params.get("averaging_end_date"),
+        "averaging_frequency": params.get("averaging_frequency", "monthly"),
+        "custom_averaging_dates": params.get("custom_averaging_dates", ""),
+        "r": params.get("risk_free_rate"),
+        "sigma": params.get("volatility"),
+        "spot_price": params.get("spot_price"),
+        "dividend_yield": params.get("dividend_yield", 0.0),
+        "notional": params.get("notional", 1),
+        "contract_multiplier": params.get("contract_multiplier", 100.0),
+        "day_count": params.get("day_count", "ACT/365"),
+        "option_type": params.get("option_type", "call"),
+        "payoff_variant": params.get("payoff_variant", "average_price"),
+        "average_type": params.get("average_type", "arithmetic"),
+        "num_paths": params.get("num_paths", 10000),
+        "seed": params.get("seed", 42),
+    }
+
+
+def _parse_date_value(value, field_name):
+    if not value:
+        raise ValueError(f"{field_name} is required.")
+    return datetime.strptime(str(value), "%Y-%m-%d").date()
+
+
+def _build_asian_averaging_dates(form_data):
+    frequency = form_data.get("averaging_frequency", "monthly")
+    if frequency == "custom":
+        raw_dates = form_data.get("custom_averaging_dates", "")
+        dates = [
+            _parse_date_value(item.strip(), "Custom averaging date")
+            for item in raw_dates.split(",")
+            if item.strip()
+        ]
+        if not dates:
+            raise ValueError("At least one custom averaging date is required.")
+        return sorted(set(dates))
+
+    start_date = _parse_date_value(
+        form_data.get("averaging_start_date"),
+        "Averaging start date",
+    )
+    end_date = _parse_date_value(
+        form_data.get("averaging_end_date"),
+        "Averaging end date",
+    )
+    if end_date < start_date:
+        raise ValueError("Averaging end date must be on or after averaging start date.")
+
+    step_days = {
+        "daily": 1,
+        "weekly": 7,
+        "monthly": 30,
+        "quarterly": 91,
+    }.get(frequency, 30)
+    dates = []
+    current = start_date
+    while current <= end_date:
+        dates.append(current)
+        current += timedelta(days=step_days)
+    if dates[-1] != end_date:
+        dates.append(end_date)
+    return sorted(set(dates))
+
+
+def _asian_price_mc(
+    spot_price,
+    strike_price,
+    valuation_date,
+    maturity_date,
+    averaging_dates,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    payoff_variant,
+    average_type,
+    num_paths,
+    seed,
+    day_count,
+):
+    if spot_price <= 0:
+        raise ValueError("Spot price must be positive.")
+    if strike_price <= 0:
+        raise ValueError("Strike price must be positive.")
+    if volatility <= 0:
+        raise ValueError("Volatility must be positive.")
+    if not averaging_dates:
+        raise ValueError("At least one averaging date is required.")
+
+    maturity_t = _year_fraction(valuation_date, maturity_date, day_count)
+    observation_dates = sorted(set(averaging_dates + [maturity_date]))
+    times = []
+    for observation_date in observation_dates:
+        if observation_date < valuation_date:
+            raise ValueError("Averaging dates cannot be before valuation date.")
+        if observation_date > maturity_date:
+            raise ValueError("Averaging dates cannot be after maturity date.")
+        times.append(0.0 if observation_date == valuation_date else _year_fraction(valuation_date, observation_date, day_count))
+
+    path_count = min(max(int(num_paths), 100), 250000)
+    rng = np.random.default_rng(int(seed))
+    paths = np.empty((path_count, len(times)))
+    previous_time = 0.0
+    previous_spot = np.full(path_count, float(spot_price))
+    for index, time_point in enumerate(times):
+        dt = time_point - previous_time
+        if dt > 0:
+            shocks = rng.standard_normal(path_count)
+            previous_spot = previous_spot * np.exp(
+                (risk_free_rate - dividend_yield - 0.5 * volatility * volatility) * dt
+                + volatility * math.sqrt(dt) * shocks
+            )
+        paths[:, index] = previous_spot
+        previous_time = time_point
+
+    averaging_indices = [observation_dates.index(date) for date in averaging_dates]
+    averaging_paths = paths[:, averaging_indices]
+    if average_type == "geometric":
+        average_prices = np.exp(np.mean(np.log(np.maximum(averaging_paths, 1e-12)), axis=1))
+    else:
+        average_prices = np.mean(averaging_paths, axis=1)
+    terminal_prices = paths[:, observation_dates.index(maturity_date)]
+
+    if payoff_variant == "average_strike":
+        if option_type == "call":
+            payoffs = np.maximum(terminal_prices - average_prices, 0.0)
+        else:
+            payoffs = np.maximum(average_prices - terminal_prices, 0.0)
+    else:
+        if option_type == "call":
+            payoffs = np.maximum(average_prices - strike_price, 0.0)
+        else:
+            payoffs = np.maximum(strike_price - average_prices, 0.0)
+
+    discount = math.exp(-risk_free_rate * maturity_t)
+    discounted_payoffs = discount * payoffs
+    return {
+        "price": float(np.mean(discounted_payoffs)),
+        "standard_error": float(np.std(discounted_payoffs, ddof=1) / math.sqrt(path_count)),
+        "average_underlying": float(np.mean(average_prices)),
+        "terminal_underlying": float(np.mean(terminal_prices)),
+        "payoff_mean": float(np.mean(payoffs)),
+        "path_count": path_count,
+        "maturity_t": maturity_t,
+    }
+
+
+def _asian_greeks_finite_difference(
+    form_data,
+    valuation_date,
+    maturity_date,
+    averaging_dates,
+    base_price,
+):
+    spot_price = form_data["spot_price"]
+    strike_price = form_data["strike_price"]
+    volatility = form_data["sigma"]
+    risk_free_rate = form_data["r"]
+    dividend_yield = form_data.get("dividend_yield", 0.0)
+    num_paths = min(max(int(form_data.get("num_paths", 10000) * 0.35), 1000), 7500)
+    seed = int(form_data.get("seed", 42))
+
+    def price_at(spot=None, vol=None, rate=None):
+        return _asian_price_mc(
+            spot if spot is not None else spot_price,
+            strike_price,
+            valuation_date,
+            maturity_date,
+            averaging_dates,
+            rate if rate is not None else risk_free_rate,
+            vol if vol is not None else volatility,
+            dividend_yield,
+            form_data["option_type"],
+            form_data["payoff_variant"],
+            form_data["average_type"],
+            num_paths,
+            seed,
+            form_data.get("day_count", "ACT/365"),
+        )["price"]
+
+    spot_bump = max(spot_price * 0.01, 0.01)
+    vol_bump = 0.01
+    rate_bump = 0.0001
+    price_spot_up = price_at(spot=spot_price + spot_bump)
+    price_spot_down = price_at(spot=max(spot_price - spot_bump, 0.0001))
+    price_vol_up = price_at(vol=volatility + vol_bump)
+    price_vol_down = price_at(vol=max(volatility - vol_bump, 0.0001))
+    price_rate_up = price_at(rate=risk_free_rate + rate_bump)
+    price_rate_down = price_at(rate=risk_free_rate - rate_bump)
+
+    return {
+        "delta": (price_spot_up - price_spot_down) / (2.0 * spot_bump),
+        "gamma": (price_spot_up - 2.0 * base_price + price_spot_down)
+        / (spot_bump * spot_bump),
+        "vega": (price_vol_up - price_vol_down) / (2.0 * vol_bump),
+        "theta": None,
+        "rho": (price_rate_up - price_rate_down) / (2.0 * rate_bump),
+    }
+
+
+def _build_asian_analytics(
+    form_data,
+    valuation_date,
+    maturity_date,
+    averaging_dates,
+    pricing_output,
+    greeks,
+):
+    raw_option_price = pricing_output["price"]
+    notional = form_data.get("notional", 1) or 1
+    contract_multiplier = form_data.get("contract_multiplier", 100.0) or 100.0
+    strike_price = form_data["strike_price"]
+    spot_price = form_data["spot_price"]
+    option_type = form_data["option_type"]
+    payoff_variant = form_data["payoff_variant"]
+
+    vanilla_price = None
+    averaging_discount = None
+    if payoff_variant == "average_price":
+        vanilla_price = _price_european_black_scholes(
+            spot_price,
+            strike_price,
+            pricing_output["maturity_t"],
+            form_data["r"],
+            form_data["sigma"],
+            form_data.get("dividend_yield", 0.0),
+            option_type,
+        )
+        averaging_discount = vanilla_price - raw_option_price
+
+    window_days = (max(averaging_dates) - min(averaging_dates)).days if averaging_dates else 0
+    sensitivity_rows = []
+    spot_move = spot_price * 0.10
+    sensitivity_rows.append({
+        "driver": "Spot price",
+        "down_label": "-10%",
+        "down": max(raw_option_price + greeks["delta"] * -spot_move + 0.5 * greeks["gamma"] * spot_move * spot_move, 0.0),
+        "base": raw_option_price,
+        "up_label": "+10%",
+        "up": max(raw_option_price + greeks["delta"] * spot_move + 0.5 * greeks["gamma"] * spot_move * spot_move, 0.0),
+    })
+    sensitivity_rows.append({
+        "driver": "Volatility",
+        "down_label": "-5 vol pts",
+        "down": max(raw_option_price + greeks["vega"] * -0.05, 0.0),
+        "base": raw_option_price,
+        "up_label": "+5 vol pts",
+        "up": max(raw_option_price + greeks["vega"] * 0.05, 0.0),
+    })
+    sensitivity_rows.append({
+        "driver": "Risk-free rate",
+        "down_label": "-100 bps",
+        "down": max(raw_option_price + greeks["rho"] * -0.01, 0.0),
+        "base": raw_option_price,
+        "up_label": "+100 bps",
+        "up": max(raw_option_price + greeks["rho"] * 0.01, 0.0),
+    })
+
+    payoff_points = []
+    for multiplier in [0.8, 0.9, 1.0, 1.1, 1.2]:
+        average_level = pricing_output["average_underlying"] * multiplier
+        terminal_level = pricing_output["terminal_underlying"] * multiplier
+        if payoff_variant == "average_strike":
+            payoff = (
+                max(terminal_level - average_level, 0.0)
+                if option_type == "call"
+                else max(average_level - terminal_level, 0.0)
+            )
+            label = f"Terminal ${terminal_level:,.2f} / Avg ${average_level:,.2f}"
+        else:
+            payoff = (
+                max(average_level - strike_price, 0.0)
+                if option_type == "call"
+                else max(strike_price - average_level, 0.0)
+            )
+            label = f"Average ${average_level:,.2f}"
+        payoff_points.append({
+            "label": label,
+            "payoff": payoff,
+            "net_payoff": payoff - raw_option_price,
+        })
+
+    variant_label = (
+        "Average Strike (floating strike)"
+        if payoff_variant == "average_strike"
+        else "Average Price (fixed strike)"
+    )
+    return {
+        "spot_price": spot_price,
+        "calendar_days": (maturity_date - valuation_date).days,
+        "averaging_count": len(averaging_dates),
+        "averaging_window_days": window_days,
+        "first_averaging_date": min(averaging_dates).isoformat(),
+        "last_averaging_date": max(averaging_dates).isoformat(),
+        "variant_label": variant_label,
+        "average_type_label": form_data["average_type"].title(),
+        "average_underlying": pricing_output["average_underlying"],
+        "terminal_underlying": pricing_output["terminal_underlying"],
+        "payoff_mean": pricing_output["payoff_mean"],
+        "standard_error": pricing_output["standard_error"],
+        "position_value": raw_option_price * contract_multiplier * notional,
+        "vanilla_price": vanilla_price,
+        "averaging_discount": averaging_discount,
+        "moneyness_label": _classify_moneyness(spot_price, strike_price, option_type),
+        "sensitivity_rows": sensitivity_rows,
+        "payoff_points": payoff_points,
+    }
 
 
 @exotic_options_bp.route("/", methods=["GET", "POST"])
@@ -813,6 +1578,212 @@ def asian_options():
         content = readme_file.read()
     md_content = markdown.markdown(content)
 
+    form_data = _default_asian_form_data()
+    option_price = None
+    delta = None
+    gamma = None
+    vega = None
+    theta = None
+    rho = None
+    run_summary = None
+    pricing_error = None
+
+    if current_user.is_authenticated:
+        latest_pricing_result = _get_latest_pricing_result_for_user("asian_option")
+        if latest_pricing_result:
+            option_price = _format_currency(latest_pricing_result.price)
+            delta = "{:.4f}".format(float(latest_pricing_result.delta))
+            gamma = "{:.6f}".format(float(latest_pricing_result.gamma))
+            vega = "{:.4f}".format(float(latest_pricing_result.vega))
+            theta = (
+                "{:.4f}".format(float(latest_pricing_result.theta))
+                if latest_pricing_result.theta is not None
+                else "N/A"
+            )
+            rho = "{:.4f}".format(float(latest_pricing_result.rho))
+            if latest_pricing_result.instrument:
+                form_data.update(
+                    _build_asian_form_data_from_instrument(
+                        latest_pricing_result.instrument
+                    )
+                )
+            if latest_pricing_result.result_json:
+                run_summary = latest_pricing_result.result_json.get("run_summary")
+
+    if request.method == "POST":
+        try:
+            form_data = {
+                "ticker": request.form.get("ticker", "AAPL").upper().strip(),
+                "strike_price": request.form.get("strike_price", type=float),
+                "start_date": request.form.get("start_date"),
+                "end_date": request.form.get("end_date"),
+                "averaging_start_date": request.form.get("averaging_start_date"),
+                "averaging_end_date": request.form.get("averaging_end_date"),
+                "averaging_frequency": request.form.get("averaging_frequency", "monthly"),
+                "custom_averaging_dates": request.form.get("custom_averaging_dates", ""),
+                "r": request.form.get("r", type=float),
+                "sigma": request.form.get("sigma", type=float),
+                "spot_price": request.form.get("spot_price", type=float),
+                "dividend_yield": request.form.get(
+                    "dividend_yield", type=float, default=0.0
+                ),
+                "notional": request.form.get("notional", type=int, default=1),
+                "contract_multiplier": request.form.get(
+                    "contract_multiplier", type=float, default=100.0
+                ),
+                "day_count": request.form.get("day_count", "ACT/365"),
+                "option_type": request.form.get("option_type", "call"),
+                "payoff_variant": request.form.get("payoff_variant", "average_price"),
+                "average_type": request.form.get("average_type", "arithmetic"),
+                "num_paths": request.form.get("num_paths", type=int, default=10000),
+                "seed": request.form.get("seed", type=int, default=42),
+            }
+
+            for field_name, label in [
+                ("spot_price", "Spot price"),
+                ("strike_price", "Strike price"),
+                ("sigma", "Volatility"),
+            ]:
+                if form_data[field_name] is None or form_data[field_name] <= 0:
+                    raise ValueError(f"{label} must be positive.")
+
+            if form_data["option_type"] not in {"call", "put"}:
+                raise ValueError("Option type must be call or put.")
+            if form_data["payoff_variant"] not in {"average_price", "average_strike"}:
+                raise ValueError("Unsupported Asian payoff variant.")
+            if form_data["average_type"] not in {"arithmetic", "geometric"}:
+                raise ValueError("Unsupported averaging type.")
+
+            valuation_date = _parse_date_value(form_data["start_date"], "Valuation date")
+            maturity_date = _parse_date_value(form_data["end_date"], "Maturity date")
+            if maturity_date <= valuation_date:
+                raise ValueError("Maturity date must be after valuation date.")
+
+            averaging_dates = _build_asian_averaging_dates(form_data)
+            pricing_output = _asian_price_mc(
+                form_data["spot_price"],
+                form_data["strike_price"],
+                valuation_date,
+                maturity_date,
+                averaging_dates,
+                form_data["r"],
+                form_data["sigma"],
+                form_data["dividend_yield"],
+                form_data["option_type"],
+                form_data["payoff_variant"],
+                form_data["average_type"],
+                form_data["num_paths"],
+                form_data["seed"],
+                form_data["day_count"],
+            )
+            raw_option_price = pricing_output["price"]
+            raw_greeks = _asian_greeks_finite_difference(
+                form_data,
+                valuation_date,
+                maturity_date,
+                averaging_dates,
+                raw_option_price,
+            )
+            run_summary = _build_asian_analytics(
+                form_data,
+                valuation_date,
+                maturity_date,
+                averaging_dates,
+                pricing_output,
+                raw_greeks,
+            )
+            session["asian_form_data"] = form_data.copy()
+
+            option_price = _format_currency(raw_option_price)
+            delta = "{:.4f}".format(raw_greeks["delta"])
+            gamma = "{:.6f}".format(raw_greeks["gamma"])
+            vega = "{:.4f}".format(raw_greeks["vega"])
+            theta = "N/A"
+            rho = "{:.4f}".format(raw_greeks["rho"])
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type="asian_option",
+                    ticker=form_data["ticker"],
+                    model_name="monte_carlo_asian_variants",
+                    start_date=form_data["start_date"],
+                    end_date=form_data["end_date"],
+                    params_json={
+                        "strike_price": form_data["strike_price"],
+                        "risk_free_rate": form_data["r"],
+                        "volatility": form_data["sigma"],
+                        "spot_price": form_data["spot_price"],
+                        "dividend_yield": form_data["dividend_yield"],
+                        "notional": form_data["notional"],
+                        "contract_multiplier": form_data["contract_multiplier"],
+                        "day_count": form_data["day_count"],
+                        "option_type": form_data["option_type"],
+                        "payoff_variant": form_data["payoff_variant"],
+                        "average_type": form_data["average_type"],
+                        "averaging_start_date": form_data["averaging_start_date"],
+                        "averaging_end_date": form_data["averaging_end_date"],
+                        "averaging_frequency": form_data["averaging_frequency"],
+                        "custom_averaging_dates": form_data["custom_averaging_dates"],
+                        "averaging_dates": [d.isoformat() for d in averaging_dates],
+                        "num_paths": form_data["num_paths"],
+                        "seed": form_data["seed"],
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=raw_option_price,
+                    delta=raw_greeks["delta"],
+                    gamma=raw_greeks["gamma"],
+                    vega=raw_greeks["vega"],
+                    theta=None,
+                    rho=raw_greeks["rho"],
+                    result_json={
+                        "option_price": raw_option_price,
+                        "delta": raw_greeks["delta"],
+                        "gamma": raw_greeks["gamma"],
+                        "vega": raw_greeks["vega"],
+                        "theta": None,
+                        "rho": raw_greeks["rho"],
+                        "run_summary": run_summary,
+                    },
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
+
+        except Exception as exc:
+            logger.exception("Error using Asian variant Monte Carlo pricing")
+            db.session.rollback()
+            pricing_error = str(exc)
+
+    return render_template(
+        "asian_options.html",
+        option_price=option_price,
+        form_data=form_data,
+        delta=delta,
+        gamma=gamma,
+        vega=vega,
+        theta=theta,
+        rho=rho,
+        md_content=md_content,
+        run_summary=run_summary,
+        pricing_error=pricing_error,
+    )
+
+
+@exotic_options_bp.route("/asian-legacy", methods=["GET", "POST"])
+def asian_options_legacy():
+    readme_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "asian_options.md"
+    )
+    with open(readme_path, "r") as readme_file:
+        content = readme_file.read()
+    md_content = markdown.markdown(content)
+
     option_price = sensitivity_results = scenario_results = convergence_results = (
         risk_pl_results
     ) = None
@@ -1408,6 +2379,311 @@ def asian_options():
 
 @exotic_options_bp.route("/barrier", methods=["GET", "POST"])
 def barrier_options():
+    readme_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "barrier_options.md"
+    )
+    with open(readme_path, "r") as readme_file:
+        content = readme_file.read()
+    md_content = markdown.markdown(content)
+
+    form_data = _default_barrier_form_data()
+    option_price = None
+    delta = None
+    gamma = None
+    vega = None
+    theta = None
+    rho = None
+    run_summary = None
+    pricing_error = None
+    market_reference = None
+    market_error = None
+    market_query = {
+        "symbol": form_data["ticker"],
+        "period": "6mo",
+        "option_type": form_data["option_type"],
+        "strike": form_data["strike_price"],
+        "maturity_date": form_data["end_date"],
+        "visual_mode": "none",
+    }
+
+    if current_user.is_authenticated:
+        latest_pricing_result = _get_latest_pricing_result_for_user("barrier_option")
+        if latest_pricing_result:
+            option_price = _format_currency(latest_pricing_result.price)
+            delta = "{:.4f}".format(float(latest_pricing_result.delta))
+            gamma = "{:.6f}".format(float(latest_pricing_result.gamma))
+            vega = "{:.4f}".format(float(latest_pricing_result.vega))
+            theta = "{:.4f}".format(float(latest_pricing_result.theta))
+            rho = "{:.4f}".format(float(latest_pricing_result.rho))
+
+            if latest_pricing_result.instrument:
+                form_data.update(
+                    _build_barrier_form_data_from_instrument(
+                        latest_pricing_result.instrument
+                    )
+                )
+                market_query.update(
+                    {
+                        "symbol": form_data.get("ticker", market_query["symbol"]),
+                        "option_type": form_data.get(
+                            "option_type", market_query["option_type"]
+                        ),
+                        "strike": form_data.get("strike_price", market_query["strike"]),
+                        "maturity_date": form_data.get(
+                            "end_date", market_query["maturity_date"]
+                        ),
+                    }
+                )
+            if latest_pricing_result.result_json:
+                run_summary = latest_pricing_result.result_json.get("run_summary")
+
+    if request.method == "POST":
+        action = request.form.get("analysis_type")
+
+        if action == "market_reference":
+            session_form_data = session.get("barrier_form_data", {})
+            if session_form_data:
+                form_data.update(session_form_data)
+
+            market_query = {
+                "symbol": request.form.get(
+                    "market_symbol", form_data.get("ticker", "AAPL")
+                )
+                .upper()
+                .strip(),
+                "period": request.form.get("market_period", "6mo"),
+                "option_type": request.form.get("market_option_type", "call"),
+                "strike": request.form.get("market_strike", type=float),
+                "maturity_date": request.form.get("market_maturity_date", ""),
+                "visual_mode": request.form.get("visual_mode", "none"),
+            }
+            if market_query["symbol"]:
+                form_data["ticker"] = market_query["symbol"]
+
+            try:
+                market_reference = build_equity_market_reference(
+                    market_query["symbol"],
+                    market_query["period"],
+                    market_query["strike"],
+                    market_query["maturity_date"],
+                    market_query["option_type"],
+                    market_query["visual_mode"],
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Barrier market reference fetch failed for %s: %s",
+                    market_query["symbol"],
+                    exc,
+                )
+                market_error = str(exc)
+
+            return render_template(
+                "barrier_options.html",
+                option_price=option_price,
+                form_data=form_data,
+                delta=delta,
+                gamma=gamma,
+                vega=vega,
+                theta=theta,
+                rho=rho,
+                md_content=md_content,
+                run_summary=run_summary,
+                pricing_error=pricing_error,
+                market_query=market_query,
+                market_reference=market_reference,
+                market_error=market_error,
+            )
+
+        def safe_int(raw_value, default):
+            try:
+                if raw_value in [None, ""]:
+                    return default
+                return int(raw_value)
+            except (TypeError, ValueError):
+                return default
+
+        try:
+            form_data = {
+                "ticker": request.form.get("ticker", "AAPL").upper().strip(),
+                "strike_price": request.form.get("strike_price", type=float),
+                "start_date": str(request.form.get("start_date")),
+                "end_date": str(request.form.get("end_date")),
+                "r": request.form.get("r", type=float),
+                "sigma": request.form.get("sigma", type=float),
+                "spot_price": request.form.get("spot_price", type=float),
+                "dividend_yield": request.form.get(
+                    "dividend_yield", type=float, default=0.0
+                ),
+                "notional": request.form.get("notional", type=int, default=1),
+                "contract_multiplier": request.form.get(
+                    "contract_multiplier", type=float, default=100.0
+                ),
+                "day_count": request.form.get("day_count", "ACT/365"),
+                "option_type": request.form.get("option_type", "call"),
+                "barrier_type": request.form.get("barrier_type", "up_and_out"),
+                "barrier": request.form.get("barrier", type=float),
+                "num_steps": safe_int(request.form.get("num_steps"), 252),
+                "num_paths": safe_int(request.form.get("num_paths"), 10000),
+                "random_type": request.form.get("random_type", "sobol"),
+                "discretization": request.form.get("discretization", "euler"),
+            }
+
+            required_positive_fields = [
+                ("spot_price", "Spot price"),
+                ("strike_price", "Strike price"),
+                ("sigma", "Volatility"),
+                ("barrier", "Barrier level"),
+            ]
+            for field_name, label in required_positive_fields:
+                if form_data[field_name] is None or form_data[field_name] <= 0:
+                    raise ValueError(f"{label} must be positive.")
+
+            if form_data["option_type"] not in {"call", "put"}:
+                raise ValueError("Option type must be call or put.")
+            if form_data["barrier_type"] not in {
+                "up_and_out",
+                "down_and_out",
+                "up_and_in",
+                "down_and_in",
+            }:
+                raise ValueError("Unsupported barrier type.")
+
+            start_date_obj = datetime.strptime(
+                form_data["start_date"], "%Y-%m-%d"
+            ).date()
+            end_date_obj = datetime.strptime(form_data["end_date"], "%Y-%m-%d").date()
+            time_to_maturity = _year_fraction(
+                start_date_obj,
+                end_date_obj,
+                form_data["day_count"],
+            )
+            session["barrier_form_data"] = form_data.copy()
+            market_query.update(
+                {
+                    "symbol": form_data.get("ticker", market_query["symbol"]),
+                    "option_type": form_data.get(
+                        "option_type", market_query["option_type"]
+                    ),
+                    "strike": form_data.get("strike_price", market_query["strike"]),
+                    "maturity_date": form_data.get(
+                        "end_date", market_query["maturity_date"]
+                    ),
+                }
+            )
+
+            raw_option_price = _price_barrier_mc(
+                form_data["spot_price"],
+                form_data["strike_price"],
+                time_to_maturity,
+                form_data["r"],
+                form_data["sigma"],
+                form_data["dividend_yield"],
+                form_data["option_type"],
+                form_data["barrier_type"],
+                form_data["barrier"],
+                form_data["num_paths"],
+                form_data["num_steps"],
+                form_data["random_type"],
+            )
+            raw_greeks = _barrier_greeks_finite_difference(
+                form_data,
+                form_data["spot_price"],
+                form_data["strike_price"],
+                time_to_maturity,
+                raw_option_price,
+            )
+            run_summary = _build_barrier_analytics(
+                form_data,
+                form_data["spot_price"],
+                form_data["strike_price"],
+                time_to_maturity,
+                raw_option_price,
+                raw_greeks,
+            )
+
+            option_price = _format_currency(raw_option_price)
+            delta = "{:.4f}".format(raw_greeks["delta"])
+            gamma = "{:.6f}".format(raw_greeks["gamma"])
+            vega = "{:.4f}".format(raw_greeks["vega"])
+            theta = "{:.4f}".format(raw_greeks["theta"])
+            rho = "{:.4f}".format(raw_greeks["rho"])
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type="barrier_option",
+                    ticker=form_data["ticker"],
+                    model_name="monte_carlo_v2",
+                    start_date=form_data["start_date"],
+                    end_date=form_data["end_date"],
+                    params_json={
+                        "strike_price": form_data["strike_price"],
+                        "risk_free_rate": form_data["r"],
+                        "volatility": form_data["sigma"],
+                        "spot_price": form_data["spot_price"],
+                        "dividend_yield": form_data["dividend_yield"],
+                        "notional": form_data["notional"],
+                        "contract_multiplier": form_data["contract_multiplier"],
+                        "day_count": form_data["day_count"],
+                        "option_type": form_data["option_type"],
+                        "barrier_type": form_data["barrier_type"],
+                        "barrier_level": form_data["barrier"],
+                        "num_steps": form_data["num_steps"],
+                        "num_paths": form_data["num_paths"],
+                        "random_type": form_data["random_type"],
+                        "discretization": form_data["discretization"],
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=raw_option_price,
+                    delta=raw_greeks["delta"],
+                    gamma=raw_greeks["gamma"],
+                    vega=raw_greeks["vega"],
+                    theta=raw_greeks["theta"],
+                    rho=raw_greeks["rho"],
+                    result_json={
+                        "option_price": raw_option_price,
+                        "delta": raw_greeks["delta"],
+                        "gamma": raw_greeks["gamma"],
+                        "vega": raw_greeks["vega"],
+                        "theta": raw_greeks["theta"],
+                        "rho": raw_greeks["rho"],
+                        "run_summary": run_summary,
+                    },
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
+
+        except Exception as exc:
+            logger.exception("Error using v2 MC engine for barrier pricing")
+            db.session.rollback()
+            pricing_error = str(exc)
+
+    return render_template(
+        "barrier_options.html",
+        option_price=option_price,
+        form_data=form_data,
+        delta=delta,
+        gamma=gamma,
+        vega=vega,
+        theta=theta,
+        rho=rho,
+        md_content=md_content,
+        run_summary=run_summary,
+        pricing_error=pricing_error,
+        market_query=market_query,
+        market_reference=market_reference,
+        market_error=market_error,
+    )
+
+
+@exotic_options_bp.route("/barrier-legacy", methods=["GET", "POST"])
+def barrier_options_legacy():
     readme_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "barrier_options.md"
     )

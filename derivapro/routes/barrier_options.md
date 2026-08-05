@@ -1,25 +1,14 @@
-**Description:**
-Barrier call (put) option is a type of derivative where the payoff depends on whether or not the underlying asset has reached or exceeded a pre-determined price.
+## Barrier Options
 
-Knock-out options expire worthless if the underlying asset breaches the barrier at any time before expiration $T$ (i.e., if the barrier is breached at any $t<T$). 
-This limits potential profits for the option holder but also limits losses for the writer. There are two main types:
+Barrier options are path-dependent options whose payoff depends on whether the underlying price breaches a specified barrier during the monitoring period.
 
-Up-and-out: The option ceases to exist if, at any time $t<T$, the underlying asset price moves above a barrier set above its initial price.
+DerivaPro currently supports four single-underlying barrier styles:
 
-* Call Option Payoff at Expiration T: $\max(S_T - K, 0)$; 
-* Put Option Payoff at Expiration T: $\max(K - S_T, 0)$,
+- **Up-and-out:** payoff is extinguished if the path breaches an upper barrier.
+- **Down-and-out:** payoff is extinguished if the path breaches a lower barrier.
+- **Up-and-in:** payoff is activated only if the path breaches an upper barrier.
+- **Down-and-in:** payoff is activated only if the path breaches a lower barrier.
 
-where $S_T$ is the value of the underlying asset at excerise $T$ and $K$ is the strike price.
+The current product-standard workflow uses explicit user assumptions, Monte Carlo path simulation, finite-difference Greeks, a European vanilla benchmark, barrier breach diagnostics, first-pass driver sensitivity, and a structured run summary.
 
-Down-and-out: The option ceases to exist if, at any time $t<T$, the underlying asset price moves below a barrier set below its initial price.
-
-* Call Option Payoff at Expiration T: $\max(S_T - K, 0)$;
-* Put Option Payoff at Expiration T: $\max(K - S_T, 0)$,
-
-where $S_T$ is the value of the underlying asset at excerise $T$ and $K$ is the strike price.
-
-For the full model documentation on Exotic Barrier Options, please refer to the [documentation](/exotic-options) here.
-
-**Instructions:**
-The QDPTB (DerivaPro) enables users to price a Exotic option using real-time market data and customized user inputs. 
-For any derivative and pricing method selected, the platform provides the Net Present Value (NPV), relevant Greeks, and supporting analyses.
+Full methodology documentation is available in [`docs/methodology/barrier_option.md`](../../docs/methodology/barrier_option.md).

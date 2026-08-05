@@ -86,12 +86,14 @@ DerivaPro already includes active workflows across several major financial produ
 
 ## 📚 Methodology Documentation
 
-DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/methodology/). The first product-level note is available for the European vanilla option workflow:
+DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/methodology/). Product-level notes are being expanded as each workflow is upgraded to the platform standard:
 
 | Product | Methodology Note |
 |---|---|
 | **European Vanilla Option** | [Pricing methodology, Greeks, diagnostics, market reference data, Monte Carlo comparison, and limitations](docs/methodology/european_option.md) |
 | **American Vanilla Option** | [Early-exercise methodology, tree valuation, Greeks, European benchmark comparison, market reference data, and limitations](docs/methodology/american_option.md) |
+| **Barrier Option** | [Path-dependent barrier methodology, Monte Carlo valuation, breach diagnostics, vanilla benchmark comparison, and limitations](docs/methodology/barrier_option.md) |
+| **Asian Option** | [Average-price and average-strike methodology, arithmetic/geometric averaging, Monte Carlo valuation, diagnostics, and limitations](docs/methodology/asian_option.md) |
 
 These notes are intended to support transparency, model review, implementation consistency, and future model governance workflows.
 

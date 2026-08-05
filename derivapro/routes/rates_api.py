@@ -3,13 +3,15 @@ from flask import Blueprint, request, jsonify
 import datetime as dt
 import io
 
-from derivapro.models.curve import Curve
-from derivapro.models.swaps import price_plain_swap, _read_curve_csv, _read_curve_file
-from derivapro.models.vol_surface import VolSurface
-from derivapro.models.swaptions import (
-    price_european as price_swaption_eu,
-    price_hw1f_mc
-)
+from ..utils.lazy_imports import LazyAttribute
+
+Curve = LazyAttribute("derivapro.models.curve", "Curve")
+price_plain_swap = LazyAttribute("derivapro.models.swaps", "price_plain_swap")
+_read_curve_csv = LazyAttribute("derivapro.models.swaps", "_read_curve_csv")
+_read_curve_file = LazyAttribute("derivapro.models.swaps", "_read_curve_file")
+VolSurface = LazyAttribute("derivapro.models.vol_surface", "VolSurface")
+price_swaption_eu = LazyAttribute("derivapro.models.swaptions", "price_european")
+price_hw1f_mc = LazyAttribute("derivapro.models.swaptions", "price_hw1f_mc")
 
 rates_api_bp = Blueprint("rates_api", __name__, url_prefix="/api/rates")
 
