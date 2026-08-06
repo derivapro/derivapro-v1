@@ -26,7 +26,7 @@ The current version is a working analytical application with broad instrument co
 
 ### Recent Platform Update
 
-DerivaPro now includes an upgraded **Autocallable / Phoenix Note** workspace in the Flask application. The workflow supports single-underlying or worst-of basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional/maturity inputs, static volatility assumptions, flat basket correlation, and reusable Monte Carlo simulation controls. It reuses the newer Monte Carlo path engine and applies structured-note payoff logic on top of the simulated paths.
+DerivaPro now includes an expanded **Structured Products** workspace in the Flask application. In addition to the upgraded Autocallable / Phoenix note workflow, the first-wave structured-products family includes barrier reverse convertibles, principal-protected market-linked notes, enhanced participation / buffered notes, digital coupon / contingent income notes, and credit-linked notes. These pages follow the product-standard layout with description, pricing, analysis, run summary, reporting placeholder, and methodology documentation.
 
 ---
 
@@ -73,7 +73,7 @@ DerivaPro already includes active workflows across several major financial produ
 | Category | Current Coverage |
 |---|---|
 | **Equity Options** | European and American options, Black-Scholes, binomial/lattice models, Monte Carlo workflows, Greeks, convergence, sensitivity, and scenario analysis. |
-| **Exotic Options / Structured Products** | Barrier options, Asian options, basic autocallable workflows, and Phoenix-style structured autocallable notes with basket, memory coupon, autocall, coupon barrier, and protection barrier terms. |
+| **Exotic Options / Structured Products** | Barrier options, Asian options, Phoenix-style autocallable notes, barrier reverse convertibles, principal-protected notes, enhanced participation / buffered notes, contingent income notes, and credit-linked notes. |
 | **Fixed Income** | Non-callable fixed-rate bonds, fixed-rate amortizing bonds, floating-rate bonds, and floating-rate amortizing bonds. |
 | **Interest Rate Derivatives** | Swaps, swaptions, term structure analytics, market-rate extraction, and rates API utilities. |
 | **Credit Derivatives** | Credit default swaps, synthetic CDO analytics, and credit-linked notes. |
@@ -95,6 +95,11 @@ DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/meth
 | **Barrier Option** | [Path-dependent barrier methodology, Monte Carlo valuation, breach diagnostics, vanilla benchmark comparison, and limitations](docs/methodology/barrier_option.md) |
 | **Asian Option** | [Average-price and average-strike methodology, arithmetic/geometric averaging, Monte Carlo valuation, diagnostics, and limitations](docs/methodology/asian_option.md) |
 | **Autocallable / Phoenix Note** | [Phoenix-style note methodology, worst-of basket payoff logic, memory coupon behavior, Monte Carlo valuation, diagnostics, and limitations](docs/methodology/autocallable_note.md) |
+| **Barrier Reverse Convertible** | [Coupon-enhanced principal-at-risk note methodology, barrier redemption logic, Monte Carlo valuation, and limitations](docs/methodology/barrier_reverse_convertible.md) |
+| **Principal-Protected Market-Linked Note** | [Protected principal, upside participation, capped return, first-pass valuation, and limitations](docs/methodology/principal_protected_note.md) |
+| **Enhanced Participation / Buffered Note** | [Leveraged upside, downside buffer, capped return, Monte Carlo valuation, and limitations](docs/methodology/enhanced_participation_note.md) |
+| **Digital Coupon / Contingent Income Note** | [Conditional coupon observation logic, memory coupon behavior, protection barrier, and limitations](docs/methodology/contingent_income_note.md) |
+| **Credit-Linked Note** | [Reduced-form credit-linked note valuation, hazard rate, recovery, coupon survival logic, and limitations](docs/methodology/credit_linked_note_structured.md) |
 
 These notes are intended to support transparency, model review, implementation consistency, and future model governance workflows.
 
@@ -112,7 +117,7 @@ These notes are intended to support transparency, model review, implementation c
 | Monte Carlo modernization | 🟡 In progress | Both legacy and v2 Monte Carlo modules exist; the structured autocallable workflow now reuses the v2 path engine and introduces reusable simulation configuration controls. |
 | Prepayment modeling workflow | 🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries. |
 | Report generation | 🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned. |
-| Structured product payoff coverage | 🟡 In progress | Phoenix-style autocallable note support has started; broader payoff-builder components remain a roadmap item. |
+| Structured product payoff coverage | 🟡 In progress | First-wave structured product pages now cover autocallables, reverse convertibles, principal-protected notes, enhanced/buffered notes, contingent income notes, and credit-linked notes. Broader payoff-builder components remain a roadmap item. |
 | Portfolio-level risk | 🔵 Planned | Current workflows are mostly instrument-level; portfolio aggregation is the next major product step. |
 | Database persistence and user identity | 🔵 Planned | Current state is mostly session/file based. |
 | Automated tests and CI | 🔵 Planned | Pricing regression tests and route tests are needed before production use. |

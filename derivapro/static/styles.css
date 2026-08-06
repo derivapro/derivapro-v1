@@ -518,10 +518,12 @@ main,
 .app-main {
     flex: 1;
     min-width: 0;
+    max-width: calc(100vw - var(--dp-nav-width));
     background: var(--dp-surface);
     padding: 20px 24px;
     box-sizing: border-box;
-    overflow: visible;
+    overflow-x: clip;
+    overflow-y: visible;
     position: relative;
     z-index: 0;
     min-height: calc(100vh - var(--dp-topbar-height));
@@ -533,8 +535,12 @@ main,
     border-radius: 0;
     box-shadow: none;
     padding: 8px 12px 20px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: calc(100vh - 122px);
     box-sizing: border-box;
+    overflow-x: clip;
 }
 
 /* ===== Flash Messages ===== */
@@ -2061,7 +2067,7 @@ details summary {
 
 .available-analysis-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 12px;
 }
 
@@ -2104,6 +2110,7 @@ details summary {
     grid-column: 2;
     display: inline-flex;
     justify-self: flex-start;
+    max-width: 100%;
     padding: 4px 8px;
     border: 1px solid rgba(178, 136, 55, 0.32);
     border-radius: 999px;
@@ -2114,6 +2121,16 @@ details summary {
     font-weight: 800;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+}
+
+.analysis-availability-card em a {
+    color: inherit;
+    text-decoration: none;
+    white-space: normal;
+}
+
+.workspace-link-pill {
+    overflow-wrap: anywhere;
 }
 
 .summary-definition-list {

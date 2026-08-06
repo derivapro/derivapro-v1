@@ -11,6 +11,11 @@ METHODOLOGY_DOCS = {
     "barrier_option": "barrier_option.md",
     "asian_option": "asian_option.md",
     "autocallable_note": "autocallable_note.md",
+    "barrier_reverse_convertible": "barrier_reverse_convertible.md",
+    "principal_protected_note": "principal_protected_note.md",
+    "enhanced_participation_note": "enhanced_participation_note.md",
+    "contingent_income_note": "contingent_income_note.md",
+    "credit_linked_note_structured": "credit_linked_note_structured.md",
 }
 
 

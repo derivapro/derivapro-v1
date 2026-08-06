@@ -118,10 +118,18 @@
                         <summary>Structured Products</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
+                            <li><a href="{{ url_for('structured_products.structured_products_home') }}" class="nav-link">Structured Products Home</a></li>
                             <li><a href="{{ url_for('exotic_options.autocallable_options') }}" class="nav-link">Autocallables / Phoenix</a></li>
+                            <li><a href="{{ url_for('structured_products.structured_product', product_slug='barrier-reverse-convertible') }}" class="nav-link">Barrier Reverse Convertibles</a></li>
+                            <li><a href="{{ url_for('structured_products.structured_product', product_slug='principal-protected-note') }}" class="nav-link">Principal-Protected Notes</a></li>
+                            <li><a href="{{ url_for('structured_products.structured_product', product_slug='enhanced-participation-note') }}" class="nav-link">Enhanced / Buffered Notes</a></li>
+                            <li><a href="{{ url_for('structured_products.structured_product', product_slug='contingent-income-note') }}" class="nav-link">Contingent Income Notes</a></li>
+                            <li><a href="{{ url_for('structured_products.structured_product', product_slug='credit-linked-note') }}" class="nav-link">Credit-Linked Notes</a></li>
                             {% else %}
                             <li><span class="nav-link nav-link-locked">Autocallables / Phoenix</span></li>
-                            <li><span class="nav-link nav-link-locked">Basket Notes</span></li>
+                            <li><span class="nav-link nav-link-locked">Reverse Convertibles</span></li>
+                            <li><span class="nav-link nav-link-locked">Principal-Protected Notes</span></li>
+                            <li><span class="nav-link nav-link-locked">Contingent Income Notes</span></li>
                             {% endif %}
                         </ul>
                     </details>

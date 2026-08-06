@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | {{ config.title }}{% endblock %}
+
+{% block content %}
+{{ product.header(
+    config.title,
+    config.subtitle,
+    "Structured Products",
+    "Registered Workspace"
+) }}
+
+{{ product.description(
+    config.description_title,
+    config.description_body,
+    config.chips,
+    "Methodology documentation is available in the repository.",
+    methodology_url
+) }}
+
+{% call product.section("Pricing", "Enter note terms, market assumptions, and model settings for the first-pass valuation framework.") %}
+<form method="post" class="european-pricing-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for section in form_sections %}
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">{% if loop.index == 1 %}📄{% elif loop.index == 2 %}📈{% else %}🎲{% endif %}</span>
+            <div>
+                <strong>{{ section.title }}</strong>
+                <p>Review and adjust the assumptions used by this structured-note workflow.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
+            {% for field in section.fields %}
+            <div class="form-group {% if field.type == 'checkbox' %}checkbox-form-group{% endif %}">
+                <label for="{{ field.name }}">{{ field.label }}</label>
+                {% if field.type == 'checkbox' %}
+                <input type="checkbox" id="{{ field.name }}" name="{{ field.name }}" {% if field.value == 'on' %}checked{% endif %}>
+                {% else %}
+                <input type="{{ field.type }}" id="{{ field.name }}" name="{{ field.name }}" step="{{ field.step }}" value="{{ field.value }}" required>
+                {% endif %}
+                <div class="field-hint">{{ field.hint }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+    <div class="pricing-action-row">
+        <button type="submit" class="btn-primary">Run Valuation</button>
+        <a href="{{ url_for('structured_products.structured_products_home') }}" class="btn-secondary">Structured Products Home</a>
+    </div>
+</form>
+
+{% if pricing_error %}
+<div class="info-box error-box">
+    <p><strong>Pricing error:</strong> {{ pricing_error }}</p>
+</div>
+{% elif results %}
+<div class="pricing-results-shell">
+    <div class="result-kpi-grid">
+        {% for metric in results.primary_metrics %}
+        <div class="pricing-summary-card">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+            <small>Current run</small>
+        </div>
+        {% endfor %}
+    </div>
+    {% if results.distribution %}
+    <div class="analysis-grid">
+        <article class="analysis-card">
+            <span>Distribution Diagnostics</span>
+            <dl class="summary-definition-list">
+                {% for row in results.distribution %}
+                <div><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>
+                {% endfor %}
+            </dl>
+        </article>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="empty-state-panel">
+    <strong>No pricing run yet.</strong>
+    <p>Populate the product terms and run valuation to generate present value, risk diagnostics, and scenario results.</p>
+</div>
+{% endif %}
+{% endcall %}
+
+{% call product.section("Analysis", "Scenario outputs and model diagnostics for the latest valuation run.") %}
+{% if scenarios %}
+<div class="analysis-card">
+    <span>Scenario Sensitivity</span>
+    <table class="results-table compact-results-table">
+        <thead>
+            <tr>
+                <th>Scenario</th>
+                <th>Price</th>
+                <th>Change</th>
+                <th>Change / Notional</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in scenarios %}
+            <tr>
+                <td>{{ row.name }}</td>
+                <td>{{ row.price }}</td>
+                <td>{{ row.change }}</td>
+                <td>{{ row.change_pct_notional }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="available-analysis-grid">
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">✅</span>
+        <strong>Valuation diagnostics</strong>
+        <p>The pricing run will report PV, standard error, product-specific event probabilities, and distribution diagnostics.</p>
+        <em>Available after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🧭</span>
+        <strong>Scenario sensitivity</strong>
+        <p>The page generates a first-pass scenario table once a pricing run is completed.</p>
+        <em>Available after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📌</span>
+        <strong>Model limitations</strong>
+        <p>The linked methodology note documents assumptions, supported conventions, and roadmap items for this product.</p>
+        <em>Documented</em>
+    </article>
+</div>
+{% endif %}
+{% endcall %}
+
+{% call product.section("Run Summary", "A structured summary replaces custom reporting until product-specific report templates are introduced.") %}
+<div class="run-summary-grid">
+    <div>
+        <span>Pricing Framework</span>
+        <strong>First-wave structured-products model</strong>
+        <p>Transparent payoff simulation or reduced-form credit valuation using user-supplied assumptions.</p>
+    </div>
+    <div>
+        <span>Methodology</span>
+        <strong><a href="{{ methodology_url }}" target="_blank" rel="noopener">Open methodology</a></strong>
+        <p>Review product scope, assumptions, limitations, and recommended validation checks.</p>
+    </div>
+</div>
+{% endcall %}
+
+{{ product.reporting(config.title) }}
+{% endblock %}
