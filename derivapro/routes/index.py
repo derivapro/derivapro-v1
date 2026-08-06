@@ -10,6 +10,7 @@ METHODOLOGY_DOCS = {
     "american_option": "american_option.md",
     "barrier_option": "barrier_option.md",
     "asian_option": "asian_option.md",
+    "autocallable_note": "autocallable_note.md",
 }
 
 

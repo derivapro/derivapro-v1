@@ -79,6 +79,114 @@ def _format_percent(value):
     return "{:.2f}%".format(float(value) * 100)
 
 
+def _default_autocallable_structured_form_data():
+    return {
+        "structured_product_variant": "phoenix_worst_of",
+        "structured_underlying_labels": "AAPL, MSFT, NVDA",
+        "structured_spot_prices": "100, 95, 90",
+        "structured_volatilities": "0.22, 0.24, 0.26",
+        "structured_correlation": "0.30",
+        "structured_notional": "1000000",
+        "structured_maturity": "1.0",
+        "structured_observation_times": "0.25, 0.50, 0.75, 1.00",
+        "structured_coupon_rate": "0.025",
+        "structured_coupon_barrier": "0.70",
+        "structured_autocall_barrier": "1.00",
+        "structured_protection_barrier": "0.60",
+        "structured_r": "0.045",
+        "structured_q": "0.000",
+        "structured_num_paths": "10000",
+        "structured_num_steps": "252",
+        "structured_random_type": "pseudo",
+        "structured_memory_coupon": "on",
+    }
+
+
+def _build_autocallable_structured_terms(form_data):
+    spot_prices = _parse_float_list(form_data.get("structured_spot_prices"), [100.0])
+    volatilities = _parse_float_list(
+        form_data.get("structured_volatilities"),
+        [0.20] * len(spot_prices),
+    )
+    if len(volatilities) == 1 and len(spot_prices) > 1:
+        volatilities = volatilities * len(spot_prices)
+    if len(volatilities) != len(spot_prices):
+        raise ValueError("Volatility count must be one value or match the number of spot prices.")
+    if form_data.get("structured_product_variant") == "phoenix_single":
+        spot_prices = spot_prices[:1]
+        volatilities = volatilities[:1]
+
+    observation_times = _parse_float_list(
+        form_data.get("structured_observation_times"),
+        [0.25, 0.50, 0.75, 1.00],
+    )
+    if not observation_times:
+        raise ValueError("At least one autocall observation time is required.")
+
+    maturity = float(form_data.get("structured_maturity", 1.0))
+    if any(obs <= 0 or obs > maturity for obs in observation_times):
+        raise ValueError("Observation times must be greater than zero and no later than maturity.")
+
+    return AutocallableNoteTerms(
+        spot_prices=spot_prices,
+        volatilities=volatilities,
+        risk_free_rate=float(form_data.get("structured_r", 0.045)),
+        dividend_yield=float(form_data.get("structured_q", 0.0)),
+        maturity=maturity,
+        observation_times=observation_times,
+        notional=float(form_data.get("structured_notional", 1000000)),
+        coupon_rate=float(form_data.get("structured_coupon_rate", 0.025)),
+        coupon_barrier=float(form_data.get("structured_coupon_barrier", 0.70)),
+        autocall_barrier=float(form_data.get("structured_autocall_barrier", 1.00)),
+        protection_barrier=float(form_data.get("structured_protection_barrier", 0.60)),
+        memory_coupon=form_data.get("structured_memory_coupon") == "on",
+        correlation=0.0
+        if form_data.get("structured_product_variant") == "phoenix_single"
+        else float(form_data.get("structured_correlation", 0.30)),
+        num_paths=int(form_data.get("structured_num_paths", 10000)),
+        num_steps=int(form_data.get("structured_num_steps", 252)),
+        random_type=form_data.get("structured_random_type", "sobol"),
+    )
+
+
+def _format_autocallable_structured_results(raw_results, terms):
+    price_pct_notional = raw_results["price"] / terms.notional
+    stderr_pct_notional = raw_results["standard_error"] / terms.notional
+    coupon_mode = "Memory" if terms.memory_coupon else "Non-memory"
+    underlying_mode = "Worst-of basket" if len(terms.spot_prices) > 1 else "Single underlying"
+
+    return {
+        "price": _format_currency(raw_results["price"]),
+        "price_pct_notional": _format_percent(price_pct_notional),
+        "standard_error": _format_currency(raw_results["standard_error"]),
+        "standard_error_pct_notional": _format_percent(stderr_pct_notional),
+        "autocall_probability": _format_percent(raw_results["autocall_probability"]),
+        "protection_breach_probability": _format_percent(
+            raw_results["protection_breach_probability"]
+        ),
+        "average_coupon_count": "{:.2f}".format(raw_results["average_coupon_count"]),
+        "observation_count": raw_results["observation_count"],
+        "underlying_count": raw_results["underlying_count"],
+        "worst_final_level_mean": _format_percent(raw_results["worst_final_level_mean"]),
+        "worst_final_level_p05": _format_percent(raw_results["worst_final_level_p05"]),
+        "worst_final_level_p50": _format_percent(raw_results["worst_final_level_p50"]),
+        "worst_final_level_p95": _format_percent(raw_results["worst_final_level_p95"]),
+        "underlying_mode": underlying_mode,
+        "coupon_mode": coupon_mode,
+        "simulation": {
+            "paths": "{:,}".format(terms.num_paths),
+            "steps": "{:,}".format(terms.num_steps),
+            "random_type": terms.random_type.title(),
+        },
+        "barriers": {
+            "coupon": _format_percent(terms.coupon_barrier),
+            "autocall": _format_percent(terms.autocall_barrier),
+            "protection": _format_percent(terms.protection_barrier),
+        },
+        "raw": raw_results,
+    }
+
+
 def _get_latest_result_ids(user_id):
     latest_pricing = (
         PricingResult.query
@@ -878,7 +986,7 @@ def autocallable_options():
     latest_analysis = None
     latest_pricing_result = None
     form_data = {}
-    structured_form_data = {}
+    structured_form_data = _default_autocallable_structured_form_data()
     latest_pricing_result_id = None
     latest_analysis_result_id = None
 
@@ -925,79 +1033,74 @@ def autocallable_options():
         action = request.form.get("analysis_type")
 
         if action == "structured_pricing":
-            structured_form_data = dict(request.form)
+            structured_form_data = {
+                **_default_autocallable_structured_form_data(),
+                **dict(request.form),
+            }
+            if "structured_memory_coupon" not in request.form:
+                structured_form_data["structured_memory_coupon"] = "off"
             try:
-                spot_prices = _parse_float_list(
-                    request.form.get("structured_spot_prices"),
-                    [100.0],
-                )
-                volatilities = _parse_float_list(
-                    request.form.get("structured_volatilities"),
-                    [0.20] * len(spot_prices),
-                )
-                if len(volatilities) == 1 and len(spot_prices) > 1:
-                    volatilities = volatilities * len(spot_prices)
-
-                observation_times = _parse_float_list(
-                    request.form.get("structured_observation_times"),
-                    [0.25, 0.50, 0.75, 1.00],
-                )
-
-                terms = AutocallableNoteTerms(
-                    spot_prices=spot_prices,
-                    volatilities=volatilities,
-                    risk_free_rate=float(request.form.get("structured_r", 0.045)),
-                    dividend_yield=float(request.form.get("structured_q", 0.0)),
-                    maturity=float(request.form.get("structured_maturity", 1.0)),
-                    observation_times=observation_times,
-                    notional=float(request.form.get("structured_notional", 1000000)),
-                    coupon_rate=float(
-                        request.form.get("structured_coupon_rate", 0.025)
-                    ),
-                    coupon_barrier=float(
-                        request.form.get("structured_coupon_barrier", 0.70)
-                    ),
-                    autocall_barrier=float(
-                        request.form.get("structured_autocall_barrier", 1.00)
-                    ),
-                    protection_barrier=float(
-                        request.form.get("structured_protection_barrier", 0.60)
-                    ),
-                    memory_coupon=request.form.get("structured_memory_coupon") == "on",
-                    correlation=float(request.form.get("structured_correlation", 0.30)),
-                    num_paths=int(request.form.get("structured_num_paths", 10000)),
-                    num_steps=int(request.form.get("structured_num_steps", 252)),
-                    random_type=request.form.get("structured_random_type", "sobol"),
-                )
-
+                terms = _build_autocallable_structured_terms(structured_form_data)
                 raw_results = price_autocallable_note(terms)
-                structured_results = {
-                    "price": _format_currency(raw_results["price"]),
-                    "standard_error": _format_currency(raw_results["standard_error"]),
-                    "autocall_probability": _format_percent(
-                        raw_results["autocall_probability"]
-                    ),
-                    "protection_breach_probability": _format_percent(
-                        raw_results["protection_breach_probability"]
-                    ),
-                    "average_coupon_count": "{:.2f}".format(
-                        raw_results["average_coupon_count"]
-                    ),
-                    "observation_count": raw_results["observation_count"],
-                    "underlying_count": raw_results["underlying_count"],
-                    "worst_final_level_mean": _format_percent(
-                        raw_results["worst_final_level_mean"]
-                    ),
-                    "worst_final_level_p05": _format_percent(
-                        raw_results["worst_final_level_p05"]
-                    ),
-                    "worst_final_level_p50": _format_percent(
-                        raw_results["worst_final_level_p50"]
-                    ),
-                    "worst_final_level_p95": _format_percent(
-                        raw_results["worst_final_level_p95"]
-                    ),
-                }
+                structured_results = _format_autocallable_structured_results(
+                    raw_results,
+                    terms,
+                )
+
+                if current_user.is_authenticated:
+                    labels = [
+                        item.strip()
+                        for item in structured_form_data.get(
+                            "structured_underlying_labels", ""
+                        ).split(",")
+                        if item.strip()
+                    ]
+                    instrument = Instrument(
+                        user_id=current_user.id,
+                        product_type="autocallable_structured_note",
+                        ticker=", ".join(labels) if labels else None,
+                        model_name="structured_note_monte_carlo_v2",
+                        start_date=None,
+                        end_date=None,
+                        params_json={
+                            "product_variant": structured_form_data.get(
+                                "structured_product_variant"
+                            ),
+                            "underlying_labels": labels,
+                            "spot_prices": terms.spot_prices,
+                            "volatilities": terms.volatilities,
+                            "risk_free_rate": terms.risk_free_rate,
+                            "dividend_yield": terms.dividend_yield,
+                            "maturity": terms.maturity,
+                            "observation_times": terms.observation_times,
+                            "notional": terms.notional,
+                            "coupon_rate": terms.coupon_rate,
+                            "coupon_barrier": terms.coupon_barrier,
+                            "autocall_barrier": terms.autocall_barrier,
+                            "protection_barrier": terms.protection_barrier,
+                            "memory_coupon": terms.memory_coupon,
+                            "correlation": terms.correlation,
+                            "num_paths": terms.num_paths,
+                            "num_steps": terms.num_steps,
+                            "random_type": terms.random_type,
+                        },
+                    )
+                    db.session.add(instrument)
+                    db.session.flush()
+
+                    pricing_result = PricingResult(
+                        user_id=current_user.id,
+                        instrument_id=instrument.id,
+                        price=float(raw_results["price"]),
+                        delta=None,
+                        gamma=None,
+                        vega=None,
+                        theta=None,
+                        rho=None,
+                        result_json=structured_results,
+                    )
+                    db.session.add(pricing_result)
+                    db.session.commit()
             except Exception as exc:
                 logger.exception("Structured autocallable pricing failed")
                 structured_results = {"error": str(exc)}

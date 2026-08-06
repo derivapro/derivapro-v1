@@ -1,674 +1,339 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
+{% import "components/simulation_settings.html" as simulation %}
+
+{% block title %}DerivaPro | Autocallable Structured Notes{% endblock %}
 
 {% block content %}
+{% set sp_form = structured_form_data|default({}) %}
+
 {{ product.header(
-    "Autocallable Structured Products",
-    "Price structured autocallable products, review outputs, and explore analytics and validation workflows from one page.",
+    "Autocallable / Phoenix Notes",
+    "A Monte Carlo workspace for structured notes with conditional coupons, autocall observations, basket risk, and downside protection.",
     "Structured Products",
-    "Pricing Workflow"
+    "Registered Workspace" if current_user.is_authenticated else "Preview"
 ) }}
 
 {{ product.description(
-    "Structured notes with conditional coupons, autocall events, and downside protection features.",
-    "This workflow supports real-world autocallable and Phoenix-style terms including single or basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional, maturity, volatility, and correlation assumptions.",
-    ["Single underlying", "Basket underlying", "Autocall observations", "Memory coupon", "Knock-in protection", "Monte Carlo"],
-    "A full methodology link will be added here once the autocallable documentation is published in the repository."
+    "Callable structured notes whose coupon and redemption profile depends on scheduled barrier observations.",
+    "This product-standard workflow supports Phoenix-style autocallable notes on a single underlying or worst-of basket. The current model includes observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional redemption, flat volatility assumptions, and flat basket correlation.",
+    ["Phoenix note", "Single / worst-of basket", "Memory coupon", "Autocall barrier", "Coupon barrier", "Knock-in protection", "Monte Carlo"],
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name="autocallable_note")
 ) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-{% call product.section("Pricing", "Enter structured-note termsheet assumptions and run Monte Carlo pricing for the product payoff.") %}
-<h4>Structured Note / Phoenix Termsheet Pricing</h4>
-{% set sp_form = structured_form_data|default({}) %}
-<p>
-    This workflow supports richer real-world autocallable terms: single or basket underlyings,
-    observation dates, coupon barrier, autocall barrier, knock-in protection barrier, memory coupon,
-    notional, maturity, volatility, and basket correlation.
-</p>
-
-<form id="structured-autocallable-form" method="post" class="form-grid">
+{% call product.section("Pricing", "Enter termsheet assumptions and run Monte Carlo valuation for the Phoenix / autocallable payoff.") %}
+<form id="structured-autocallable-form" method="post" class="european-pricing-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="analysis_type" value="structured_pricing">
 
-    <div class="form-group">
-        <label for="structured_spot_prices">Spot Prices (comma-separated):</label>
-        <input type="text" id="structured_spot_prices" name="structured_spot_prices"
-            value="{{ sp_form.get('structured_spot_prices', '100, 95, 90') }}" required>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">🏛️</span>
+            <div>
+                <strong>Product & Underlyings</strong>
+                <p>Define the structure type and the underlying assets used for the worst-of payoff test.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="structured_product_variant">Product Variant</label>
+                <select id="structured_product_variant" name="structured_product_variant">
+                    <option value="phoenix_worst_of" {% if sp_form.get('structured_product_variant', 'phoenix_worst_of') == 'phoenix_worst_of' %}selected{% endif %}>Phoenix worst-of autocallable</option>
+                    <option value="phoenix_single" {% if sp_form.get('structured_product_variant') == 'phoenix_single' %}selected{% endif %}>Phoenix single underlying</option>
+                </select>
+                <div class="field-hint">Single mode uses the first spot/vol value; worst-of mode uses all supplied underlyings.</div>
+            </div>
+            <div class="form-group">
+                <label for="structured_underlying_labels">Underlying Labels</label>
+                <input type="text" id="structured_underlying_labels" name="structured_underlying_labels"
+                    value="{{ sp_form.get('structured_underlying_labels', 'AAPL, MSFT, NVDA') }}">
+                <div class="field-hint">Labels are saved with the run for review and reporting context.</div>
+            </div>
+            <div class="form-group">
+                <label for="structured_spot_prices">Initial Spot Levels</label>
+                <input type="text" id="structured_spot_prices" name="structured_spot_prices"
+                    value="{{ sp_form.get('structured_spot_prices', '100, 95, 90') }}" required>
+                <div class="field-hint">Comma-separated spot or indexed initial levels.</div>
+            </div>
+            <div class="form-group">
+                <label for="structured_volatilities">Flat Volatilities</label>
+                <input type="text" id="structured_volatilities" name="structured_volatilities"
+                    value="{{ sp_form.get('structured_volatilities', '0.22, 0.24, 0.26') }}" required>
+                <div class="field-hint">One value per underlying, or one value applied to all underlyings.</div>
+            </div>
+            <div class="form-group">
+                <label for="structured_correlation">Flat Basket Correlation</label>
+                <input type="number" step="0.01" min="-0.95" max="0.95" id="structured_correlation" name="structured_correlation"
+                    value="{{ sp_form.get('structured_correlation', '0.30') }}" required>
+                <div class="field-hint">Used only when the note has multiple underlyings.</div>
+            </div>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label for="structured_volatilities">Volatilities (comma-separated decimals):</label>
-        <input type="text" id="structured_volatilities" name="structured_volatilities"
-            value="{{ sp_form.get('structured_volatilities', '0.22, 0.24, 0.26') }}" required>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">📄</span>
+            <div>
+                <strong>Term Sheet Economics</strong>
+                <p>Set notional, coupons, observation schedule, and downside protection levels.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="structured_notional">Notional</label>
+                <input type="number" step="10000" min="1" id="structured_notional" name="structured_notional"
+                    value="{{ sp_form.get('structured_notional', '1000000') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="structured_maturity">Maturity (Years)</label>
+                <input type="number" step="0.25" min="0.01" id="structured_maturity" name="structured_maturity"
+                    value="{{ sp_form.get('structured_maturity', '1.0') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="structured_observation_times">Observation Times</label>
+                <input type="text" id="structured_observation_times" name="structured_observation_times"
+                    value="{{ sp_form.get('structured_observation_times', '0.25, 0.50, 0.75, 1.00') }}" required>
+                <div class="field-hint">Comma-separated year fractions from valuation date.</div>
+            </div>
+            <div class="form-group">
+                <label for="structured_coupon_rate">Coupon Per Observation</label>
+                <input type="number" step="0.001" min="0" id="structured_coupon_rate" name="structured_coupon_rate"
+                    value="{{ sp_form.get('structured_coupon_rate', '0.025') }}" required>
+                <div class="field-hint">Example: 0.025 means 2.5% of notional per observation.</div>
+            </div>
+            <div class="form-group">
+                <label for="structured_coupon_barrier">Coupon Barrier</label>
+                <input type="number" step="0.01" min="0" id="structured_coupon_barrier" name="structured_coupon_barrier"
+                    value="{{ sp_form.get('structured_coupon_barrier', '0.70') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="structured_autocall_barrier">Autocall Barrier</label>
+                <input type="number" step="0.01" min="0" id="structured_autocall_barrier" name="structured_autocall_barrier"
+                    value="{{ sp_form.get('structured_autocall_barrier', '1.00') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="structured_protection_barrier">Protection / Knock-In Barrier</label>
+                <input type="number" step="0.01" min="0" id="structured_protection_barrier" name="structured_protection_barrier"
+                    value="{{ sp_form.get('structured_protection_barrier', '0.60') }}" required>
+            </div>
+            <div class="form-group checkbox-form-group">
+                <label for="structured_memory_coupon">Memory Coupon</label>
+                <input type="checkbox" id="structured_memory_coupon" name="structured_memory_coupon" {% if sp_form.get('structured_memory_coupon', 'on') == 'on' %}checked{% endif %}>
+                <div class="field-hint">Missed coupons accrue and are paid when a future coupon condition is met.</div>
+            </div>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label for="structured_correlation">Flat Basket Correlation:</label>
-        <input type="number" step="0.01" id="structured_correlation" name="structured_correlation"
-            value="{{ sp_form.get('structured_correlation', '0.30') }}" required>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">📈</span>
+            <div>
+                <strong>Market Assumptions</strong>
+                <p>Set deterministic rate and dividend assumptions used by the path engine.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
+            <div class="form-group">
+                <label for="structured_r">Risk-Free Rate</label>
+                <input type="number" step="0.001" id="structured_r" name="structured_r"
+                    value="{{ sp_form.get('structured_r', '0.045') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="structured_q">Dividend Yield</label>
+                <input type="number" step="0.001" id="structured_q" name="structured_q"
+                    value="{{ sp_form.get('structured_q', '0.000') }}" required>
+            </div>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label for="structured_notional">Notional:</label>
-        <input type="number" step="10000" id="structured_notional" name="structured_notional"
-            value="{{ sp_form.get('structured_notional', '1000000') }}" required>
-    </div>
+    {{ simulation.monte_carlo(sp_form, "structured", "Number of Paths", "Time Steps") }}
 
-    <div class="form-group">
-        <label for="structured_maturity">Maturity (years):</label>
-        <input type="number" step="0.25" id="structured_maturity" name="structured_maturity"
-            value="{{ sp_form.get('structured_maturity', '1.0') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_observation_times">Autocall Observation Times (years):</label>
-        <input type="text" id="structured_observation_times" name="structured_observation_times"
-            value="{{ sp_form.get('structured_observation_times', '0.25, 0.50, 0.75, 1.00') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_coupon_rate">Coupon per Observation (decimal):</label>
-        <input type="number" step="0.001" id="structured_coupon_rate" name="structured_coupon_rate"
-            value="{{ sp_form.get('structured_coupon_rate', '0.025') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_coupon_barrier">Coupon Barrier (% initial, decimal):</label>
-        <input type="number" step="0.01" id="structured_coupon_barrier" name="structured_coupon_barrier"
-            value="{{ sp_form.get('structured_coupon_barrier', '0.70') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_autocall_barrier">Autocall Barrier (% initial, decimal):</label>
-        <input type="number" step="0.01" id="structured_autocall_barrier" name="structured_autocall_barrier"
-            value="{{ sp_form.get('structured_autocall_barrier', '1.00') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_protection_barrier">Knock-in Protection Barrier (% initial, decimal):</label>
-        <input type="number" step="0.01" id="structured_protection_barrier" name="structured_protection_barrier"
-            value="{{ sp_form.get('structured_protection_barrier', '0.60') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_r">Risk-Free Rate (decimal):</label>
-        <input type="number" step="0.001" id="structured_r" name="structured_r"
-            value="{{ sp_form.get('structured_r', '0.045') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_q">Dividend Yield (decimal):</label>
-        <input type="number" step="0.001" id="structured_q" name="structured_q"
-            value="{{ sp_form.get('structured_q', '0.000') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_num_paths">Number of Paths:</label>
-        <input type="number" id="structured_num_paths" name="structured_num_paths"
-            value="{{ sp_form.get('structured_num_paths', '10000') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_num_steps">Number of Time Steps:</label>
-        <input type="number" id="structured_num_steps" name="structured_num_steps"
-            value="{{ sp_form.get('structured_num_steps', '252') }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_random_type">Random Type:</label>
-        <select id="structured_random_type" name="structured_random_type">
-            <option value="sobol" {% if sp_form.get('structured_random_type', 'sobol' )=='sobol' %}selected{% endif %}>
-                Sobol</option>
-            <option value="pseudo" {% if sp_form.get('structured_random_type')=='pseudo' %}selected{% endif %}>
-                Pseudo-random</option>
-        </select>
-    </div>
-
-    <div class="form-group">
-        <label for="structured_memory_coupon">Memory Coupon:</label>
-        <input type="checkbox" id="structured_memory_coupon" name="structured_memory_coupon" {% if
-            sp_form.get('structured_memory_coupon', 'on' )=='on' %}checked{% endif %}>
-    </div>
-
-    <div class="form-group full-width">
-        <button type="submit">Price Structured Autocallable Note</button>
+    <div class="pricing-action-row">
+        <button type="submit" class="btn-primary">Price Autocallable Note</button>
     </div>
 </form>
 
 {% if structured_results %}
-<div class="result">
-    {% if structured_results.error %}
-    <h3>Structured Autocallable Pricing Error</h3>
-    <p>{{ structured_results.error }}</p>
-    {% else %}
-    <h3>Structured Autocallable Pricing Results</h3>
-    <div class="horizontal-table">
-        <div class="table-row">
-            <div class="table-cell"><strong>Price / PV</strong></div>
-            <div class="table-cell">{{ structured_results.price }}</div>
+{% if structured_results.error %}
+<div class="info-box error-box">
+    <p><strong>Pricing error:</strong> {{ structured_results.error }}</p>
+</div>
+{% else %}
+<div class="pricing-results-shell">
+    <div class="result-kpi-grid">
+        <div class="pricing-summary-card">
+            <span>Present Value</span>
+            <strong>{{ structured_results.price }}</strong>
+            <small>{{ structured_results.price_pct_notional }} of notional</small>
         </div>
-        <div class="table-row">
-            <div class="table-cell"><strong>Standard Error</strong></div>
-            <div class="table-cell">{{ structured_results.standard_error }}</div>
+        <div class="pricing-summary-card">
+            <span>Standard Error</span>
+            <strong>{{ structured_results.standard_error }}</strong>
+            <small>{{ structured_results.standard_error_pct_notional }} of notional</small>
         </div>
-        <div class="table-row">
-            <div class="table-cell"><strong>Autocall Probability</strong></div>
-            <div class="table-cell">{{ structured_results.autocall_probability }}</div>
+        <div class="pricing-summary-card">
+            <span>Autocall Probability</span>
+            <strong>{{ structured_results.autocall_probability }}</strong>
+            <small>{{ structured_results.observation_count }} scheduled observations</small>
         </div>
-        <div class="table-row">
-            <div class="table-cell"><strong>Protection Breach Probability</strong></div>
-            <div class="table-cell">{{ structured_results.protection_breach_probability }}</div>
+        <div class="pricing-summary-card">
+            <span>Protection Breach</span>
+            <strong>{{ structured_results.protection_breach_probability }}</strong>
+            <small>Measured at final maturity level</small>
         </div>
-        <div class="table-row">
-            <div class="table-cell"><strong>Average Coupons Paid</strong></div>
-            <div class="table-cell">{{ structured_results.average_coupon_count }}</div>
+        <div class="pricing-summary-card">
+            <span>Average Coupons Paid</span>
+            <strong>{{ structured_results.average_coupon_count }}</strong>
+            <small>{{ structured_results.coupon_mode }} coupon logic</small>
         </div>
-        <div class="table-row">
-            <div class="table-cell"><strong>Underlyings / Observation Dates</strong></div>
-            <div class="table-cell">{{ structured_results.underlying_count }} / {{ structured_results.observation_count
-                }}</div>
+    </div>
+
+    <div class="analysis-grid">
+        <article class="analysis-card">
+            <span>Payoff Drivers</span>
+            <dl class="summary-definition-list">
+                <div><dt>Underlying Mode</dt><dd>{{ structured_results.underlying_mode }}</dd></div>
+                <div><dt>Underlyings</dt><dd>{{ structured_results.underlying_count }}</dd></div>
+                <div><dt>Coupon Barrier</dt><dd>{{ structured_results.barriers.coupon }}</dd></div>
+                <div><dt>Autocall Barrier</dt><dd>{{ structured_results.barriers.autocall }}</dd></div>
+                <div><dt>Protection Barrier</dt><dd>{{ structured_results.barriers.protection }}</dd></div>
+            </dl>
+        </article>
+        <article class="analysis-card">
+            <span>Worst-of Final Level</span>
+            <dl class="summary-definition-list">
+                <div><dt>Mean</dt><dd>{{ structured_results.worst_final_level_mean }}</dd></div>
+                <div><dt>5th Percentile</dt><dd>{{ structured_results.worst_final_level_p05 }}</dd></div>
+                <div><dt>Median</dt><dd>{{ structured_results.worst_final_level_p50 }}</dd></div>
+                <div><dt>95th Percentile</dt><dd>{{ structured_results.worst_final_level_p95 }}</dd></div>
+            </dl>
+        </article>
+        <article class="analysis-card">
+            <span>Simulation Run</span>
+            <dl class="summary-definition-list">
+                <div><dt>Paths</dt><dd>{{ structured_results.simulation.paths }}</dd></div>
+                <div><dt>Steps</dt><dd>{{ structured_results.simulation.steps }}</dd></div>
+                <div><dt>Random Sequence</dt><dd>{{ structured_results.simulation.random_type }}</dd></div>
+            </dl>
+        </article>
+    </div>
+</div>
+{% endif %}
+{% else %}
+<div class="empty-state-panel">
+    <strong>No structured-note pricing run yet.</strong>
+    <p>Populate the termsheet fields above and run pricing to generate PV, autocall probability, protection-breach probability, coupon diagnostics, and worst-of final-level distribution metrics.</p>
+</div>
+{% endif %}
+
+<details class="legacy-product-panel">
+    <summary>Legacy basic autocallable option pricer</summary>
+    <p>This older workflow remains available for continuity. The Phoenix structured-note workflow above is the preferred product-standard implementation.</p>
+    <form id="options-form" method="post" class="form-grid compact-form-grid">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="ticker">Stock Ticker</label>
+            <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}">
         </div>
-        <div class="table-row">
-            <div class="table-cell"><strong>Worst-of Final Level (5% / 50% / 95%)</strong></div>
-            <div class="table-cell">{{ structured_results.worst_final_level_p05 }} / {{
-                structured_results.worst_final_level_p50 }} / {{ structured_results.worst_final_level_p95 }}</div>
+        <div class="form-group">
+            <label for="K">Strike Price</label>
+            <input type="number" step="0.01" id="K" name="K" value="{{ form_data.K }}">
         </div>
+        <div class="form-group">
+            <label for="r">Risk-Free Rate</label>
+            <input type="number" step="0.001" id="r" name="r" value="{{ form_data.r }}">
+        </div>
+        <div class="form-group">
+            <label for="sigma">Volatility</label>
+            <input type="number" step="0.001" id="sigma" name="sigma" value="{{ form_data.sigma }}">
+        </div>
+        <div class="form-group">
+            <label for="T">Time to Expiry</label>
+            <input type="number" step="0.01" id="T" name="T" value="{{ form_data.T }}">
+        </div>
+        <div class="form-group">
+            <label for="q">Dividend Yield</label>
+            <input type="number" step="0.001" id="q" name="q" value="{{ form_data.q }}">
+        </div>
+        <div class="form-group">
+            <label for="N">Time Steps</label>
+            <input type="number" id="N" name="N" value="{{ form_data.N }}">
+        </div>
+        <div class="form-group">
+            <label for="M">Simulations</label>
+            <input type="number" id="M" name="M" value="{{ form_data.M }}">
+        </div>
+        <div class="form-group">
+            <label for="barrier_levels">Barrier Level</label>
+            <input type="number" step="0.001" id="barrier_levels" name="barrier_levels" value="{{ form_data.barrier_levels }}">
+        </div>
+        <div class="form-group">
+            <label for="coupon_rates">Coupon Rate</label>
+            <input type="number" step="0.001" id="coupon_rates" name="coupon_rates" value="{{ form_data.coupon_rates }}">
+        </div>
+        <div class="form-group">
+            <label for="discretization">Discretization</label>
+            <select id="discretization" name="discretization">
+                <option value="euler" {% if form_data.discretization == 'euler' %}selected{% endif %}>Euler</option>
+            </select>
+        </div>
+        <div class="form-group full-width">
+            <button type="submit" class="btn-secondary">Calculate Legacy Price</button>
+        </div>
+    </form>
+    {% if option_price is not none %}
+    <div class="result">
+        <h3>Legacy Autocallable Option Price: {{ option_price }}</h3>
     </div>
     {% endif %}
-</div>
-{% endif %}
-
-<hr>
-<h4>Legacy Basic Autocallable Option Pricing</h4>
-
-<form id="options-form" method="post" class="form-grid">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-group">
-        <label for="ticker">Stock Ticker:</label>
-        <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="K">Strike Price (K):</label>
-        <input type="number" step="0.01" id="K" name="K" value="{{ form_data.K }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="r">Risk-Free Rate (r):</label>
-        <input type="number" step="0.001" id="r" name="r" value="{{ form_data.r }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="sigma">Volatility (sigma):</label>
-        <input type="number" step="0.001" id="sigma" name="sigma" value="{{ form_data.sigma }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="T">Time to Expiry (T) in years:</label>
-        <input type="number" step="0.01" id="T" name="T" value="{{ form_data.T }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="q">Dividend Yield (q):</label>
-        <input type="number" step="0.001" id="q" name="q" value="{{ form_data.q }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="N">Number of Time Steps (N):</label>
-        <input type="number" id="N" name="N" value="{{ form_data.N }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="M">Number of Simulations (M):</label>
-        <input type="number" id="M" name="M" value="{{ form_data.M }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="barrier_levels">Barrier Levels:</label>
-        <input type="number" step="0.001" id="barrier_levels" name="barrier_levels"
-            value="{{ form_data.barrier_levels }}" required>
-    </div>
-
-    <div class="form-group">
-        <label for="coupon_rates">Coupon Rate:</label>
-        <input type="number" step="0.001" id="coupon_rates" name="coupon_rates" value="{{ form_data.coupon_rates }}"
-            required>
-    </div>
-
-    <div class="form-group">
-        <label for="discretization">Discretization Method:</label>
-        <select id="discretization" name="discretization" required>
-            <option value="euler" {% if form_data.discretization=='euler' %}selected{% endif %}>Euler</option>
-        </select>
-    </div>
-
-    <div class="form-group full-width">
-        <button type="submit">Calculate Autocallable Option Price</button>
-    </div>
-</form>
-
-{% if option_price is not none %}
-<div class="result">
-    <h2>Autocallable Option Price: {{ option_price }}</h2>
-</div>
-{% endif %}
+</details>
 {% endcall %}
 
-<!-- Analysis Tabs -->
-{% call product.section("Analysis", "Run sensitivity, scenario, convergence, and risk-based P&L analysis for autocallable assumptions.") %}
-<div id="analysis-section">
-    <div class="section-title">
-        <h3>Analysis</h3>
-    </div>
-    <div class="tabs">
-        <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
-        <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
-        <button class="tab-button" onclick="openTab(event, 'convergence-analysis')">Convergence Analysis</button>
-        <button class="tab-button" onclick="openTab(event, 'rbpl-analysis')">RBPL Analysis</button>
-    </div>
-    <div id="sensitivity-analysis" class="tab-content">
-        <h4>Sensitivity Analysis</h4>
-        <form id="sensitivity-form" onsubmit="return false;" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="sensitivity">
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="T" value="{{ form_data.T }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier_levels" value="{{ form_data.barrier_levels }}">
-            <input type="hidden" name="coupon_rates" value="{{ form_data.coupon_rates }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-            <div class="form-group">
-                <label for="num_steps">Number of Steps:</label>
-                <input type="number" id="num_steps" name="num_steps" value="{{ form_data.num_steps }}" required>
-            </div>
-            <div class="form-group">
-                <label for="step_range">Step Range:</label>
-                <input type="number" step="0.01" id="step_range" name="step_range" value="{{ form_data.step_range }}"
-                    required>
-            </div>
-            <div class="form-group">
-                <label for="variable">Input Variable:</label>
-                <select id="variable" name="variable" required>
-                    <option value="strike_price" {% if form_data.variable=='strike_price' %}selected{% endif %}>Strike
-                        Price</option>
-                    <option value="risk_free_rate" {% if form_data.variable=='risk_free_rate' %}selected{% endif %}>Risk
-                        Free Rate</option>
-                    <option value="volatility" {% if form_data.variable=='volatility' %}selected{% endif %}>Volatility
-                    </option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="target_variable">Target Variable:</label>
-                <select id="target_variable" name="target_variable" required>
-                    <option value="option_price" {% if form_data.target_variable=='option_price' %}selected{% endif %}>
-                        Option Price</option>
-                    <option value="delta" {% if form_data.target_variable=='delta' %}selected{% endif %}>Delta</option>
-                    <option value="gamma" {% if form_data.target_variable=='gamma' %}selected{% endif %}>Gamma</option>
-                    <option value="vega" {% if form_data.target_variable=='vega' %}selected{% endif %}>Vega</option>
-                    <option value="theta" {% if form_data.target_variable=='theta' %}selected{% endif %}>Theta</option>
-                    <option value="rho" {% if form_data.target_variable=='rho' %}selected{% endif %}>Rho</option>
-                </select>
-            </div>
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('sensitivity-form', '/exotic-options/autocallable', 'sensitivity-results');">Run
-                    Sensitivity Analysis</button>
-            </div>
-        </form>
-    </div>
-    <div id="sensitivity-results" class="sens-results">
-        {% if sensitivity_results %}
-        {% if sensitivity_results and sensitivity_results.get('plot_filename') %}
-        <img src="{{ url_for('static', filename=sensitivity_results.get('plot_filename')) }}"
-            alt="Sensitivity Analysis Plot">
-        {% endif %}
-        <form id="ai-assessment-form" method="post">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <!-- AI Assessment Form Fields -->
-            <input type="hidden" name="analysis_type" value="ai_sensitivity_assessment">
-            <input type="hidden" name="sensitivity_results" value="{{ sensitivity_results }}">
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('ai-assessment-form', '/exotic-options/autocallable', 'gpt-assessment-section');">AI
-                    Assessment</button>
-            </div>
-        </form>
-        {% endif %}
-    </div>
-    <div id="scenario-analysis" class="tab-content">
-        <h4>Scenario Analysis</h4>
-        <form id="scenario-form" onsubmit="return false;" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="scenario">
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="T" value="{{ form_data.T }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier_levels" value="{{ form_data.barrier_levels }}">
-            <input type="hidden" name="coupon_rates" value="{{ form_data.coupon_rates }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-            <div class="form-group">
-                <label for="spot_scenario">Spot Price Scenario (% change):</label>
-                <select id="spot_scenario" name="spot_scenario" required>
-                    <option value="-0.25">-25%</option>
-                    <option value="-0.10">-10%</option>
-                    <option value="-0.05">-5%</option>
-                    <option value="0">0%</option>
-                    <option value="0.05">5%</option>
-                    <option value="0.10">10%</option>
-                    <option value="0.25">25%</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="vol_scenario">Volatility Scenario (abs change):</label>
-                <select id="vol_scenario" name="vol_scenario" required>
-                    <option value="-0.30">-30%</option>
-                    <option value="-0.10">-10%</option>
-                    <option value="-0.05">-5%</option>
-                    <option value="0">0%</option>
-                    <option value="0.05">5%</option>
-                    <option value="0.10">10%</option>
-                    <option value="0.30">30%</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="rate_scenario">Interest Rate Scenario (abs change):</label>
-                <select id="rate_scenario" name="rate_scenario" required>
-                    <option value="-0.05">-5%</option>
-                    <option value="-0.02">-2%</option>
-                    <option value="-0.01">-1%</option>
-                    <option value="0">0%</option>
-                    <option value="0.01">1%</option>
-                    <option value="0.02">2%</option>
-                    <option value="0.05">5%</option>
-                </select>
-            </div>
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('scenario-form', '/exotic-options/autocallable', 'scenario-results');">Run
-                    Scenario Analysis</button>
-            </div>
-        </form>
-        <!-- Scenario Analysis Results -->
-        <div id="scenario-results" class="sens-results">
-            {% if scenario_results %}
-            <h4>Scenario Analysis Results</h4>
-            <table class="results-table">
-                <thead>
-                    <tr>
-                        <th>Scenarios</th>
-                        <th>Option Price</th>
-                        <th>Delta</th>
-                        <th>Gamma</th>
-                        <th>Vega</th>
-                        <th>Theta</th>
-                        <th>Rho</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Baseline</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_price'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_delta'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_gamma'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_vega'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_theta'] }}</td>
-                        <td>{{ scenario_results['baseline_scenario_table']['baseline_rho'] }}</td>
-                    </tr>
-                    <tr>
-                        <td>Stressed</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_price'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_delta'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_gamma'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_vega'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_theta'] }}</td>
-                        <td>{{ scenario_results['stressed_scenario_table']['stressed_rho'] }}</td>
-                    </tr>
-                </tbody>
-            </table>
-            <form id="ai-scenario-assessment-form" method="post">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="analysis_type" value="ai_scenario_assessment">
-                <div class="form-group full-width">
-                    <button type="button"
-                        onclick="submitForm('ai-scenario-assessment-form', '/exotic-options/autocallable', 'gpt-scenario-assessment-section');">AI
-                        Assessment</button>
-                </div>
-            </form>
-            {% endif %}
-        </div>
-        <div id="gpt-scenario-assessment-section" class="gpt-results">
-            {% if gpt_scenario_assessment %}
-            <h4>MRM Assessment:</h4>
-            <textarea id="gpt-scenario-assessment" class="assessment-textarea"
-                readonly>{{ gpt_scenario_assessment }}</textarea>
-            <button type="button" id="edit-scenario-assessment-btn"
-                onclick="editAssessment('gpt-scenario-assessment');">Edit</button>
-            <button type="button" id="save-scenario-assessment-btn"
-                onclick="saveAssessment('gpt-scenario-assessment', '/exotic-options/save-scenario-assessment');"
-                style="display: inline;">Save</button>
-            {% endif %}
-        </div>
-    </div>
-    <div id="convergence-analysis" class="tab-content">
-        <h4>Convergence Analysis</h4>
-        <form id="convergence-form" method="post" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="convergence">
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="T" value="{{ form_data.T }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier_levels" value="{{ form_data.barrier_levels }}">
-            <input type="hidden" name="coupon_rates" value="{{ form_data.coupon_rates }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-
-            <div class="form-group">
-                <label for="mode">Mode:</label>
-                <select id="mode" name="mode" required>
-                    <option value="steps" {% if form_data.mode=='steps' %}selected{% endif %}>Steps</option>
-                    <option value="simulations" {% if form_data.mode=='simulations' %}selected{% endif %}>Simulations
-                    </option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="num_steps"># of Time Steps (Maximum if Mode=Steps):</label>
-                <input type="number" id="num_steps" name="num_steps" value="{{ form_data.num_steps }}" required>
-            </div>
-
-            <div class="form-group">
-                <label for="max_sims"># of Simulations (Maximum if Mode=Simulations):</label>
-                <input type="number" id="max_sims" name="max_sims" value="{{ form_data.max_sims }}" required>
-            </div>
-
-            <div class="form-group">
-                <label for="obs">Observations:</label>
-                <input type="number" id="obs" name="obs" value="{{ form_data.obs }}" required>
-            </div>
-
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('convergence-form', '/exotic-options/autocallable', 'convergence-results');">
-                    Run Convergence Analysis
-                </button>
-            </div>
-        </form>
-        <div id="convergence-results" class="sens-results">
-            {% if convergence_results and convergence_results.get('plot_filename') %}
-            <img src="{{ url_for('static', filename=convergence_results.get('plot_filename')) }}"
-                alt="Convergence Analysis Plot">
-            {% endif %}
-        </div>
-    </div>
-    <div id="rbpl-analysis" class="tab-content">
-        <h4>RBPL Analysis</h4>
-        <form id="rbpl-form" method="post" class="form-grid">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="analysis_type" value="risk_pl">
-
-            <input type="hidden" name="ticker" value="{{ form_data.ticker }}">
-            <input type="hidden" name="K" value="{{ form_data.K }}">
-            <input type="hidden" name="r" value="{{ form_data.r }}">
-            <input type="hidden" name="sigma" value="{{ form_data.sigma }}">
-            <input type="hidden" name="T" value="{{ form_data.T }}">
-            <input type="hidden" name="q" value="{{ form_data.q }}">
-            <input type="hidden" name="N" value="{{ form_data.N }}">
-            <input type="hidden" name="M" value="{{ form_data.M }}">
-            <input type="hidden" name="barrier_levels" value="{{ form_data.barrier_levels }}">
-            <input type="hidden" name="coupon_rates" value="{{ form_data.coupon_rates }}">
-            <input type="hidden" name="discretization" value="{{ form_data.discretization }}">
-
-            <div class="form-group">
-                <label for="price_change">Bump in Spot Price:</label>
-                <input type="number" step="0.01" id="price_change" name="price_change"
-                    value="{{ form_data.price_change }}" required>
-            </div>
-            <div class="form-group">
-                <label for="vol_change">Bump in Volatility:</label>
-                <input type="number" step="0.01" id="vol_change" name="vol_change" value="{{ form_data.vol_change }}"
-                    required>
-            </div>
-            <div class="form-group full-width">
-                <button type="button"
-                    onclick="submitForm('rbpl-form', '/exotic-options/autocallable', 'rbpl-results');">
-                    Run RBPL Analysis
-                </button>
-            </div>
-        </form>
-        <div id="rbpl-results" class="sens-results">
-            {% if risk_pl_results %}
-            <div class="result">
-                <h4>Results:</h4>
-                <div class="horizontal-table">
-                    <div class="table-row">
-                        <div class="table-cell">Actual P&L</div>
-                        <div class="table-cell">Greek P&L Sum</div>
-                        <div class="table-cell">Difference</div>
-                    </div>
-                    <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Actual P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Greek P&L Sum'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Difference'] }}</div>
-                    </div>
-
-                    <br>
-                    <h4>Intermediate Calcuations:</h4>
-                    <div class="table-row">
-                        <div class="table-cell">Initial Price</div>
-                        <div class="table-cell">Bumped Price</div>
-                        <div class="table-cell">Delta P&L</div>
-                        <div class="table-cell">Gamma P&L</div>
-                        <div class="table-cell">Vega P&L</div>
-                    </div>
-                    <div class="table-row">
-                        <div class="table-cell">{{ risk_pl_results['Initial Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Bumped Price'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Delta P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Gamma P&L'] }}</div>
-                        <div class="table-cell">{{ risk_pl_results['Vega P&L'] }}</div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+{% call product.section("Analysis", "Review what is available now and what should be added next for autocallable model risk and trading review.") %}
+<div class="available-analysis-grid">
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">✅</span>
+        <strong>Path-based PV diagnostics</strong>
+        <p>Current run produces PV, standard error, autocall probability, protection-breach probability, coupon count, and worst-of distribution metrics.</p>
+        <em>Available after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🧭</span>
+        <strong>Scenario analysis</strong>
+        <p>Recommended next enhancement: spot, volatility, correlation, and rate scenario grids against the Phoenix payoff.</p>
+        <em>Planned</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📉</span>
+        <strong>Convergence and simulation quality</strong>
+        <p>Recommended next enhancement: path-count convergence, Sobol versus pseudo-random comparison, and standard-error tolerance checks.</p>
+        <em>Planned</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🧩</span>
+        <strong>Variant coverage</strong>
+        <p>Callable yield notes, step-down autocalls, snowball coupons, fixed coupon notes, and capital-at-risk certificates should be added as explicit sub-variants.</p>
+        <em>Roadmap</em>
+    </article>
 </div>
 {% endcall %}
 
-{{ product.reporting("autocallable structured product") }}
+{{ product.reporting("autocallable structured note") }}
 
-<!-- JavaScript for Form Submission and Loading Spinner -->
 <script>
-    document.getElementById('options-form').addEventListener('submit', function (event) {
-        var loadingSpinner = document.getElementById('loadingSpinner');
-        loadingSpinner.style.display = 'block';  // Show spinner on form submit
-
-        window.addEventListener('load', function () {
-            loadingSpinner.style.display = 'none';  // Hide spinner on page load
-        });
-    });
-
-    // JavaScript for AJAX Form Submission
-    function submitForm(formId, url, updateId) {
-        var form = document.getElementById(formId);
-        var formData = new FormData(form);
-        var xhr = new XMLHttpRequest();
-
-        xhr.open("POST", url, true);
-
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                console.log("Form submitted successfully");
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(xhr.responseText, 'text/html');
-
-                // Update the relevant section
-                var updateSection = doc.getElementById(updateId);
-                if (updateSection) {
-                    document.getElementById(updateId).innerHTML = updateSection.innerHTML;
-                    // Show the results section after successfully updating it
-                    document.getElementById(updateId).style.display = 'block';
-                } else {
-                    console.log("Update section not found");
-                }
-            } else if (xhr.readyState === 4) {
-                console.log("Error in form submission: " + xhr.status);
+    const structuredForm = document.getElementById('structured-autocallable-form');
+    if (structuredForm) {
+        structuredForm.addEventListener('submit', function () {
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            if (loadingSpinner) {
+                loadingSpinner.style.display = 'block';
             }
-        };
-
-        xhr.onerror = function () {
-            console.log("Request failed");
-        };
-
-        xhr.send(formData);
+        });
     }
-
-    // JavaScript for Tabs
-    function openTab(evt, tabName) {
-        var i, tabcontent, tablinks;
-
-        // Hide all tab contents
-        tabcontent = document.getElementsByClassName("tab-content");
-        for (i = 0; i < tabcontent.length; i++) {
-            tabcontent[i].style.display = "none";
-        }
-
-        // Hide the sensitivity results
-        const resultsSection = document.getElementById('sensitivity-results');
-        resultsSection.style.display = "none";
-
-        // Remove the active class from all tab buttons
-        tablinks = document.getElementsByClassName("tab-button");
-        for (i = 0; i < tablinks.length; i++) {
-            tablinks[i].className = tablinks[i].className.replace(" active", "");
-        }
-
-        // Show the current tab content and add an active class to the button that opened the tab
-        document.getElementById(tabName).style.display = "block";
-        evt.currentTarget.className += " active";
-    }
-
-    // By default, open the first tab
-    document.addEventListener("DOMContentLoaded", function () {
-        document.querySelector(".tab-button").click();
-    });
 </script>
-
 {% endblock %}

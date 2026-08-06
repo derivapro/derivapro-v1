@@ -26,7 +26,7 @@ The current version is a working analytical application with broad instrument co
 
 ### Recent Platform Update
 
-DerivaPro now includes a first structured-products expansion for **Phoenix-style autocallable notes** in the Flask application. The new workflow supports single-underlying or worst-of basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional/maturity inputs, static volatility assumptions, and flat basket correlation. It reuses the newer Monte Carlo path engine and applies structured-note payoff logic on top of the simulated paths.
+DerivaPro now includes an upgraded **Autocallable / Phoenix Note** workspace in the Flask application. The workflow supports single-underlying or worst-of basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional/maturity inputs, static volatility assumptions, flat basket correlation, and reusable Monte Carlo simulation controls. It reuses the newer Monte Carlo path engine and applies structured-note payoff logic on top of the simulated paths.
 
 ---
 
@@ -94,6 +94,7 @@ DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/meth
 | **American Vanilla Option** | [Early-exercise methodology, tree valuation, Greeks, European benchmark comparison, market reference data, and limitations](docs/methodology/american_option.md) |
 | **Barrier Option** | [Path-dependent barrier methodology, Monte Carlo valuation, breach diagnostics, vanilla benchmark comparison, and limitations](docs/methodology/barrier_option.md) |
 | **Asian Option** | [Average-price and average-strike methodology, arithmetic/geometric averaging, Monte Carlo valuation, diagnostics, and limitations](docs/methodology/asian_option.md) |
+| **Autocallable / Phoenix Note** | [Phoenix-style note methodology, worst-of basket payoff logic, memory coupon behavior, Monte Carlo valuation, diagnostics, and limitations](docs/methodology/autocallable_note.md) |
 
 These notes are intended to support transparency, model review, implementation consistency, and future model governance workflows.
 
@@ -108,7 +109,7 @@ These notes are intended to support transparency, model review, implementation c
 | Markdown-backed model documentation | ✅ Done / active | Route-level Markdown content supports explanations, governance notes, and user guidance. |
 | Environment-based secrets/configuration | 🟡 In progress | `.env.example` exists; configuration should continue moving away from hardcoded values. |
 | Structured logging | 🟡 In progress | `logging_config.py` exists; remaining ad hoc logging should be normalized. |
-| Monte Carlo modernization | 🟡 In progress | Both legacy and v2 Monte Carlo modules exist; the new structured autocallable workflow now reuses the v2 path engine for payoff simulation. |
+| Monte Carlo modernization | 🟡 In progress | Both legacy and v2 Monte Carlo modules exist; the structured autocallable workflow now reuses the v2 path engine and introduces reusable simulation configuration controls. |
 | Prepayment modeling workflow | 🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries. |
 | Report generation | 🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned. |
 | Structured product payoff coverage | 🟡 In progress | Phoenix-style autocallable note support has started; broader payoff-builder components remain a roadmap item. |

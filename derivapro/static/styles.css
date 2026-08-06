@@ -1492,6 +1492,38 @@ details summary {
     box-shadow: none;
 }
 
+.simulation-settings-block {
+    border-style: dashed;
+}
+
+.checkbox-form-group input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    margin-top: 8px;
+    accent-color: var(--dp-accent);
+}
+
+.legacy-product-panel {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--dp-border);
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.legacy-product-panel summary {
+    cursor: pointer;
+    color: var(--dp-heading);
+    font-weight: 800;
+}
+
+.legacy-product-panel>p {
+    margin: 10px 0 14px;
+    color: var(--dp-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
 .market-reference-form {
     margin-bottom: 16px;
     padding: 16px;

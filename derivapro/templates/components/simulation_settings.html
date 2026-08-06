@@ -1,0 +1,35 @@
+{% macro monte_carlo(form_data, prefix="structured", paths_label="Number of Paths", steps_label="Time Steps", show_random_type=True) -%}
+<div class="pricing-form-block simulation-settings-block">
+    <div class="pricing-form-heading">
+        <span aria-hidden="true">🎲</span>
+        <div>
+            <strong>Simulation Configuration</strong>
+            <p>Reusable Monte Carlo controls for path count, monitoring resolution, and random sequence generation.</p>
+        </div>
+    </div>
+    <div class="form-grid compact-form-grid">
+        <div class="form-group">
+            <label for="{{ prefix }}_num_paths">{{ paths_label }}</label>
+            <input type="number" min="100" step="100" id="{{ prefix }}_num_paths" name="{{ prefix }}_num_paths"
+                value="{{ form_data.get(prefix ~ '_num_paths', '10000') }}" required>
+            <div class="field-hint">More paths reduce sampling error but increase runtime.</div>
+        </div>
+        <div class="form-group">
+            <label for="{{ prefix }}_num_steps">{{ steps_label }}</label>
+            <input type="number" min="12" step="1" id="{{ prefix }}_num_steps" name="{{ prefix }}_num_steps"
+                value="{{ form_data.get(prefix ~ '_num_steps', '252') }}" required>
+            <div class="field-hint">Used to simulate path-dependent monitoring between valuation and maturity.</div>
+        </div>
+        {% if show_random_type %}
+        <div class="form-group">
+            <label for="{{ prefix }}_random_type">Random Sequence</label>
+            <select id="{{ prefix }}_random_type" name="{{ prefix }}_random_type">
+                <option value="pseudo" {% if form_data.get(prefix ~ '_random_type', 'pseudo') == 'pseudo' %}selected{% endif %}>Pseudo-random</option>
+                <option value="sobol" {% if form_data.get(prefix ~ '_random_type') == 'sobol' %}selected{% endif %}>Sobol low-discrepancy</option>
+            </select>
+            <div class="field-hint">Pseudo-random is the faster default; Sobol can be used for convergence review.</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{%- endmacro %}
