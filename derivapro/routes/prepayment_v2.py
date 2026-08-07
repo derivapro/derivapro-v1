@@ -11,6 +11,9 @@ from flask import (
 )
 import os
 import logging
+from datetime import datetime
+from pathlib import Path
+
 import pandas as pd
 from werkzeug.utils import secure_filename
 from flask_login import current_user, login_required
@@ -23,13 +26,65 @@ from ..utils.model_storage import save_model_artifact, load_model_artifact
 logger = logging.getLogger(__name__)
 
 prepayment_v2_bp = Blueprint("prepayment_v2", __name__)
-UPLOAD_FOLDER = "derivapro/static/uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+DEFAULT_UPLOAD_ROOT = "derivapro/static/uploads"
+os.makedirs(DEFAULT_UPLOAD_ROOT, exist_ok=True)
 
+
+@prepayment_v2_bp.before_request
+@login_required
+def require_authenticated_user():
+    """Require login for the complete prepayment-v2 workflow."""
+    return None
+
+
+def _current_user_upload_folder() -> str:
+    upload_root = current_app.config.get("PREPAYMENT_UPLOAD_ROOT", DEFAULT_UPLOAD_ROOT)
+    return str(Path(upload_root, f"user_{current_user.id}").resolve())
+
+
+def _current_user_temp_model_folder() -> str:
+    return str(
+        Path(
+            current_app.config["PREPAYMENT_TEMP_MODEL_DIR"],
+            f"user_{current_user.id}",
+        ).resolve()
+    )
+
+
+def _is_path_inside(path: str, directory: str) -> bool:
+    try:
+        resolved_path = Path(path).resolve()
+        resolved_directory = Path(directory).resolve()
+        return (
+            os.path.commonpath([resolved_path, resolved_directory])
+            == str(resolved_directory)
+            and resolved_path != resolved_directory
+        )
+    except (OSError, ValueError):
+        return False
+
+
+def _current_upload_path() -> str | None:
+    filepath = session.get("uploaded_data_file_path")
+    if not filepath:
+        return None
+
+    user_upload_folder = _current_user_upload_folder()
+    if not _is_path_inside(filepath, user_upload_folder):
+        logger.warning(
+            "Rejected prepayment upload path outside current user directory: %s",
+            filepath,
+        )
+        session.pop("uploaded_data_file_path", None)
+        session.pop("uploaded_filename", None)
+        session.pop("uploaded_stored_filename", None)
+        return None
+
+    return filepath
 
 @prepayment_v2_bp.route("/prepayment-model-validator", methods=["GET", "POST"])
 def prepayment_model_validator():
-    uploader = PrepaymentDataUploader(upload_folder=UPLOAD_FOLDER)
+    uploader = PrepaymentDataUploader(upload_folder=_current_user_upload_folder())
     upload_success, uploaded_filename, data_info = False, None, None
     summary_num, summary_cat, missing_table = None, None, None
     dist_plot, scatter_plot, heatmap_plot = None, None, None
@@ -42,6 +97,7 @@ def prepayment_model_validator():
             if result["success"]:
                 session["uploaded_data_file_path"] = result["filepath"]
                 session["uploaded_filename"] = result["filename"]
+                session["uploaded_stored_filename"] = result.get("stored_filename")
                 flash(f'File "{result["filename"]}" uploaded successfully!', "success")
             else:
                 flash(result["error"], "error")
@@ -51,10 +107,8 @@ def prepayment_model_validator():
             return redirect(request.url)
 
     # Load existing file if present
-    if "uploaded_data_file_path" in session and os.path.exists(
-        session["uploaded_data_file_path"]
-    ):
-        filepath = session["uploaded_data_file_path"]
+    filepath = _current_upload_path()
+    if filepath and os.path.exists(filepath):
         uploaded_filename = session["uploaded_filename"]
         validator = Validation(filepath)
         df_columns = list(validator.data.columns)
@@ -118,10 +172,10 @@ def convert_columns():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -170,10 +224,10 @@ def impute_data():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -219,10 +273,10 @@ def normalize_data():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -268,10 +322,10 @@ def prepare_data():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -362,9 +416,9 @@ def get_columns():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         validator = Validation(filepath)
@@ -393,9 +447,9 @@ def get_current_features():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         validator = Validation(filepath)
@@ -445,9 +499,9 @@ def apply_column_selection():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         data = request.get_json()
@@ -499,10 +553,10 @@ def feature_selection():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -585,10 +639,10 @@ def remove_features():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -644,10 +698,10 @@ def final_column_selection():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -708,10 +762,10 @@ def model_training():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         # Get request data
@@ -743,18 +797,15 @@ def model_training():
             # Store the trained model in temp file for registration
             import uuid
 
-            # Create temp directory
-            temp_dir = current_app.config["PREPAYMENT_TEMP_MODEL_DIR"]
+            # Create a user-specific temp directory
+            temp_dir = _current_user_temp_model_folder()
             os.makedirs(temp_dir, exist_ok=True)
 
-            # Create UNIQUE filename with timestamp or UUID
+            # Create a collision-safe server filename.
             dataset_name = os.path.basename(filepath).replace(".csv", "")
-            from datetime import datetime
-
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             temp_model_file = os.path.join(
                 temp_dir,
-                f"temp_model_user_{current_user.id}_{dataset_name}_{timestamp}.joblib",
+                f"temp_model_{dataset_name}_{uuid.uuid4().hex}.joblib",
             )
 
             model_data = {
@@ -765,7 +816,7 @@ def model_training():
             }
 
             # Save to file instead of session
-            save_model_artifact(model_data, temp_model_file)
+            save_model_artifact(model_data, temp_model_file, temp_dir)
 
             logger.debug("Stored trained model in temp file: %s", temp_model_file)
 
@@ -826,11 +877,11 @@ def register_model():
             logger.warning("No file uploaded in session during model registration")
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
         logger.debug("Using filepath for model registration: %s", filepath)
 
         # Check if file exists
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             logger.warning(
                 "Uploaded file not found during model registration: %s", filepath
             )
@@ -882,7 +933,10 @@ def register_model():
         # Load the trained model from temp file
         try:
             logger.debug("Loading model from temp file: %s", temp_model_file)
-            model_data = load_model_artifact(temp_model_file)
+            model_data = load_model_artifact(
+                temp_model_file,
+                _current_user_temp_model_folder(),
+            )
 
             validator.trained_model = model_data["model"]
             validator.last_training_results = model_data["results"]
@@ -928,9 +982,9 @@ def get_registered_model():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
 
-        if not os.path.exists(filepath):
+        if not filepath or not os.path.exists(filepath):
             return jsonify({"success": False, "error": "Uploaded file not found"})
 
         validator = Validation(filepath)
@@ -980,7 +1034,7 @@ def reregister_model():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
         validator = Validation(filepath)
 
         latest_temp_entry = (
@@ -1008,7 +1062,10 @@ def reregister_model():
             })
 
         # Load the new model
-        model_data = load_model_artifact(temp_model_file)
+        model_data = load_model_artifact(
+            temp_model_file,
+            _current_user_temp_model_folder(),
+        )
 
         validator.trained_model = model_data["model"]
         validator.last_training_results = model_data["results"]
@@ -1048,7 +1105,7 @@ def deregister_model():
         if "uploaded_data_file_path" not in session:
             return jsonify({"success": False, "error": "No file uploaded"})
 
-        filepath = session["uploaded_data_file_path"]
+        filepath = _current_upload_path()
         validator = Validation(filepath)
 
         # Deregister the model
@@ -1076,12 +1133,13 @@ def model_performance_testing():
 
 @prepayment_v2_bp.route("/delete_upload", methods=["POST"])
 def delete_upload():
-    if "uploaded_data_file_path" in session:
-        filepath = session["uploaded_data_file_path"]
+    filepath = _current_upload_path()
+    if filepath:
         if os.path.exists(filepath):
             os.remove(filepath)
         session.pop("uploaded_data_file_path", None)
         session.pop("uploaded_filename", None)
+        session.pop("uploaded_stored_filename", None)
         flash("File deleted successfully", "success")
     return redirect(url_for("prepayment_v2.prepayment_model_validator"))
 
@@ -1095,8 +1153,8 @@ def start_over():
 
         # 1. Clean up model files FIRST (while CSV file still exists)
         if "uploaded_data_file_path" in session:
-            filepath = session["uploaded_data_file_path"]
-            if os.path.exists(filepath):
+            filepath = _current_upload_path()
+            if filepath and os.path.exists(filepath):
                 try:
                     validator = Validation(filepath)
 
@@ -1126,8 +1184,8 @@ def start_over():
 
         # 2. Delete uploaded CSV file and its metadata
         if "uploaded_data_file_path" in session:
-            filepath = session["uploaded_data_file_path"]
-            if os.path.exists(filepath):
+            filepath = _current_upload_path()
+            if filepath and os.path.exists(filepath):
                 # Delete the CSV file
                 os.remove(filepath)
                 cleanup_results.append(
@@ -1167,6 +1225,7 @@ def start_over():
         session_keys_to_clear = [
             "uploaded_data_file_path",
             "uploaded_filename",
+            "uploaded_stored_filename",
             "feature_selection_plot",
             "feature_selection_result",
             "feature_selection_method",

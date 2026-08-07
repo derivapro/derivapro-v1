@@ -63,16 +63,26 @@ def _format_percent(value):
     return "{:.2f}%".format(float(value) * 100)
 
 
-def _get_latest_result_ids(user_id):
+def _get_latest_result_ids(user_id, product_type):
     latest_pricing = (
         PricingResult.query
-        .filter_by(user_id=user_id)
+        .join(Instrument, PricingResult.instrument_id == Instrument.id)
+        .filter(
+            PricingResult.user_id == user_id,
+            Instrument.user_id == user_id,
+            Instrument.product_type == product_type,
+        )
         .order_by(PricingResult.created_at.desc())
         .first()
     )
     latest_analysis = (
         AnalysisResult.query
-        .filter_by(user_id=user_id)
+        .join(Instrument, AnalysisResult.instrument_id == Instrument.id)
+        .filter(
+            AnalysisResult.user_id == user_id,
+            Instrument.user_id == user_id,
+            Instrument.product_type == product_type,
+        )
         .order_by(AnalysisResult.created_at.desc())
         .first()
     )
@@ -109,7 +119,8 @@ def autocallable_options():
 
     if current_user.is_authenticated:
         latest_pricing_result_id, latest_analysis_result_id = _get_latest_result_ids(
-            current_user.id
+            current_user.id,
+            "autocallable_option",
         )
         last_result_id = latest_pricing_result_id
         last_analysis_result_id = latest_analysis_result_id
@@ -814,7 +825,8 @@ def asian_options():
 
     if current_user.is_authenticated:
         latest_pricing_result_id, latest_analysis_result_id = _get_latest_result_ids(
-            current_user.id
+            current_user.id,
+            "asian_option",
         )
         last_result_id = latest_pricing_result_id
         last_analysis_result_id = latest_analysis_result_id
@@ -1416,7 +1428,8 @@ def barrier_options():
 
     if current_user.is_authenticated:
         latest_pricing_result_id, latest_analysis_result_id = _get_latest_result_ids(
-            current_user.id
+            current_user.id,
+            "barrier_option",
         )
         last_result_id = latest_pricing_result_id
         last_analysis_result_id = latest_analysis_result_id

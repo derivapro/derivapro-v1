@@ -171,5 +171,3 @@ myenv/
 .env
 __pycache__/
 *.pyc
-
-

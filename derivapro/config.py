@@ -36,6 +36,25 @@ class Config:
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///derivapro.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    SESSION_COOKIE_SECURE = _env_flag("SESSION_COOKIE_SECURE", "false")
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = os.getenv("REMEMBER_COOKIE_SAMESITE", "Lax")
+    REMEMBER_COOKIE_SECURE = _env_flag("REMEMBER_COOKIE_SECURE", "false")
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_CONTENT_LENGTH", str(16 * 1024 * 1024)))
+    PASSWORD_MIN_LENGTH = int(os.getenv("PASSWORD_MIN_LENGTH", "12"))
+    AUTH_RATE_LIMIT_ATTEMPTS = int(os.getenv("AUTH_RATE_LIMIT_ATTEMPTS", "5"))
+    AUTH_RATE_LIMIT_WINDOW_SECONDS = int(
+        os.getenv("AUTH_RATE_LIMIT_WINDOW_SECONDS", "900")
+    )
+    PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS = int(
+        os.getenv("PASSWORD_RESET_TOKEN_MAX_AGE_SECONDS", "1800")
+    )
+    PREPAYMENT_UPLOAD_ROOT = os.getenv(
+        "PREPAYMENT_UPLOAD_ROOT",
+        "derivapro/static/uploads",
+    )
     PREPAYMENT_TEMP_MODEL_DIR = os.getenv(
         "PREPAYMENT_TEMP_MODEL_DIR",
         "derivapro/static/temp_models",
@@ -75,6 +94,8 @@ class ProductionConfig(Config):
     CACHE_TYPE: str = "RedisCache"
     CACHE_REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     CACHE_KEY_PREFIX: str = "derivapro:"
+    SESSION_COOKIE_SECURE = _env_flag("SESSION_COOKIE_SECURE", "true")
+    REMEMBER_COOKIE_SECURE = _env_flag("REMEMBER_COOKIE_SECURE", "true")
 
 
 config_by_name = {

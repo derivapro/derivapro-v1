@@ -189,7 +189,7 @@ Legacy, debug, commented, and historical artifacts remain, including:
 - Rates API requests explicitly send CSRF tokens.
 - `base.html` centrally protects same-origin Fetch and XMLHttpRequest calls.
 
-**Remaining validation:** Include CSRF-protected POSTs in route regression tests.
+**Validation update:** A targeted regression test now confirms that an anonymous prepayment POST with a valid CSRF token reaches authentication enforcement and redirects to login. Broader product POST coverage remains in Stage D.
 
 ### 5.1 Portfolio and Position Manager — ✅ Implemented
 
@@ -270,48 +270,50 @@ Quantity is ignored whenever notional is provided. This may or may not be correc
 
 #### Batch A1 — Low-risk platform hardening
 
-- [ ] Add `curl_cffi` as a direct dependency in `requirements.txt`.
-- [ ] Enable SQLite foreign-key enforcement for every SQLAlchemy connection.
-- [ ] Add explicit production cookie settings.
-- [ ] Require authentication for the complete prepayment-v2 workflow.
-- [ ] Reject unsupported prepayment storage backends instead of recording false S3 state.
+- [X] Add `curl_cffi` as a direct dependency in `requirements.txt`.
+- [X] Enable SQLite foreign-key enforcement for every SQLAlchemy connection.
+- [X] Add explicit production cookie settings.
+- [X] Require authentication for the complete prepayment-v2 workflow.
+- [X] Reject unsupported prepayment storage backends instead of recording false S3 state.
 
 **A1 validation gate**
 
-- [ ] `python -m compileall -q derivapro migrations run.py scripts` passes using `.venv`.
-- [ ] `create_app()` succeeds.
-- [ ] 83 expected routes still register, unless a deliberate route change is documented.
-- [ ] `flask db current` remains at migration head.
-- [ ] `PRAGMA foreign_keys` returns `1` inside an application DB connection.
-- [ ] Anonymous requests to all prepayment-v2 workflow routes redirect to login.
-- [ ] Authenticated prepayment-v2 GET renders successfully.
-- [ ] No CSRF regressions occur.
+- [X] `python -m compileall -q derivapro migrations run.py scripts` passes using `.venv`.
+- [X] `create_app()` succeeds in development.
+- [X] 84 routes register; the deliberate additional route is the token-based password reset route.
+- [X] `flask db current` remains at migration head.
+- [X] `PRAGMA foreign_keys` returns `1` inside an application DB connection.
+- [X] Anonymous prepayment GET routes redirect to login, and a targeted POST with valid CSRF redirects to login rather than failing CSRF validation.
+- [X] Authenticated prepayment-v2 GET renders successfully.
+- [X] The CSRF regression script passes when run as a module.
+
+> Validation update (2026-07-29): `redis>=5.0.0` is declared, production-mode `create_app()` succeeds, the configured session cookie emits `Secure`, `HttpOnly`, and `SameSite=Lax`, and a Redis Cloud cache write/read/delete round trip succeeds.
 
 #### Batch A2 — User-isolated prepayment files
 
-- [ ] Introduce a user-specific upload root, such as `uploads/user_<id>/`.
-- [ ] Generate a collision-safe stored filename using a UUID.
-- [ ] Retain the sanitized original filename only as display/metadata.
-- [ ] Validate that session paths resolve inside the current user's allowed directory.
-- [ ] Use user-safe UUID-based filenames for temporary and registered model artifacts.
-- [ ] Prevent deletion endpoints from removing files outside the current user's directory.
-- [ ] Add a maximum upload size and explicit CSV validation.
+- [X] Introduce a user-specific upload root, such as `uploads/user_<id>/`.
+- [X] Generate a collision-safe stored filename using a UUID.
+- [X] Retain the sanitized original filename only as display/metadata.
+- [X] Validate that session upload paths resolve inside the current user's allowed directory.
+- [X] Use user-safe UUID-based filenames for temporary and registered model artifacts.
+- [X] Constrain model artifact save, load, and deletion operations to the current user's resolved temporary or registry directory.
+- [X] Add a maximum upload size and explicit CSV validation.
 
 **A2 validation gate**
 
-- [ ] Two users can upload files with the same original name without collision.
-- [ ] One user cannot read, preprocess, register, or delete another user's data/artifacts.
-- [ ] Path traversal attempts are rejected.
-- [ ] Existing single-user upload and model-training behavior remains functional.
+- [X] Two users can upload files with the same original name without collision.
+- [X] Cross-user upload paths and tampered temporary/registered artifact paths are rejected without reading or deleting another path.
+- [X] Path traversal and resolved-path escapes are rejected by centralized allowed-root validation.
+- [X] Existing single-user model training and temporary registry persistence remain functional.
 
 #### Batch A3 — Correct future analysis linkage
 
-- [ ] Stop creating an unrelated instrument row when an analysis belongs to an existing pricing result.
-- [ ] Resolve the current user-owned pricing result first.
-- [ ] Set `AnalysisResult.instrument_id` from `pricing_result.instrument_id` when linked.
-- [ ] If no pricing result exists, create a standalone instrument and leave `pricing_result_id` null.
-- [ ] Apply the same rule to associated `Plot` and `Report` rows.
-- [ ] Centralize this linkage behavior to avoid route-by-route drift.
+- [ ] Stop creating an unrelated instrument row when an analysis belongs to an existing pricing result; all 11 vanilla analysis paths are migrated, while exotic analysis paths remain.
+- [ ] Resolve the current user-owned pricing result first; vanilla routes and exotic product lookup are complete, but exotic persistence migration remains.
+- [X] Set `AnalysisResult.instrument_id` from `pricing_result.instrument_id` when linked, with same-user enforcement.
+- [X] If no pricing result exists, preserve a standalone analysis with an owned instrument and null `pricing_result_id`.
+- [X] Centrally align and validate linked `Plot` and `Report` ownership, pricing-result, analysis-result, and instrument relationships.
+- [X] Reject missing, cross-user, and conflicting instrument/pricing/analysis links through model event listeners.
 
 **Required invariant** — for every analysis with a linked pricing result:
 
@@ -322,19 +324,20 @@ analysis.instrument_id == pricing_result.instrument_id
 
 **A3 validation gate**
 
-- [ ] New European option analyses satisfy the invariant.
-- [ ] New American option analyses satisfy the invariant.
-- [ ] New barrier, Asian, and autocallable analyses satisfy the invariant.
-- [ ] Cross-user result IDs cannot be linked.
-- [ ] Analysis history and reports still render.
+- [ ] New European option analyses satisfy the invariant in product POST tests; all four persistence paths are statically migrated.
+- [ ] New American option analyses satisfy the invariant in product POST tests; all seven persistence paths are statically migrated.
+- [ ] New barrier, Asian, and autocallable analyses satisfy the invariant; product lookup is scoped, but persistence migration and POST tests remain.
+- [X] Centralized tests reject cross-user and conflicting pricing/analysis links.
+- [X] Centralized tests validate linked and standalone analysis, plot, and report invariants.
+- [ ] Analysis history and reports still render after route-level A3 changes.
 
 #### Batch A4 — Repair existing data
 
-- [ ] Back up `instance/derivapro.db`.
-- [ ] Produce a dry-run report listing every proposed row update.
-- [ ] Decide whether each existing analysis should adopt the linked pricing result's instrument or have `pricing_result_id` cleared.
-- [ ] Apply the repair in a versioned migration or auditable maintenance script.
-- [ ] Re-run all consistency queries.
+- [ ] Back up `instance/derivapro.db`; no backup file is currently present.
+- [X] Produce a dry-run report listing every proposed row update.
+- [X] Encode the policy: adopt the pricing instrument for same-user rows; clear cross-user pricing links.
+- [ ] Apply the repair using the auditable maintenance script.
+- [X] Re-run consistency queries; four analysis/pricing instrument mismatches remain, while the other five counters are zero.
 
 **A4 validation gate** — expected result:
 
@@ -351,15 +354,15 @@ position_pricing_mismatch = 0
 
 ### 🅱️ Stage B — Authentication Hardening
 
-- [ ] Make logout POST-only and CSRF-protected.
-- [ ] Configure production cookies with `SESSION_COOKIE_SECURE=True`.
-- [ ] Set `SESSION_COOKIE_HTTPONLY=True`.
-- [ ] Set an appropriate `SESSION_COOKIE_SAMESITE` policy.
-- [ ] Add minimum password requirements.
-- [ ] Add login and password-reset throttling.
-- [ ] Add security headers, preferably through Flask-Talisman.
-- [ ] Replace security-question reset with expiring, single-use reset tokens when email infrastructure is available.
-- [ ] Add audit logging for authentication-sensitive actions without logging secrets.
+- [X] Make logout POST-only and CSRF-protected.
+- [X] Configure production cookies with `SESSION_COOKIE_SECURE=True`.
+- [X] Set `SESSION_COOKIE_HTTPONLY=True`.
+- [X] Set an appropriate `SESSION_COOKIE_SAMESITE` policy.
+- [X] Add minimum password requirements.
+- [X] Add login and password-reset throttling (in-memory only; not suitable for multi-worker production deployment).
+- [X] Add baseline security headers through an application response hook; CSP/Talisman is not configured.
+- [X] Replace the active security-question reset flow with expiring, password-change-invalidated tokens; delivery remains an on-page development link until email exists.
+- [X] Add audit logging for authentication-sensitive actions without logging secrets.
 
 **Stage B validation gate**
 
@@ -368,7 +371,7 @@ position_pricing_mismatch = 0
 - [ ] Unsafe `next` redirects are rejected.
 - [ ] Logout cannot be triggered through GET.
 - [ ] Rate limits work as configured.
-- [ ] Production cookies carry the expected flags.
+- [X] Production session cookies carry `Secure`, `HttpOnly`, and `SameSite=Lax`; configuration tests also cover the equivalent remember-cookie settings.
 
 ---
 
@@ -446,6 +449,19 @@ For every sensitivity, scenario, convergence, and RBPL workflow:
 - [ ] Assert `AnalysisResult`, `Plot`, and linked pricing records satisfy ownership/instrument invariants.
 - [ ] Assert invalid inputs do not leave partial DB rows or orphan files.
 
+**Targeted hardening tests added (2026-07-29):**
+
+- anonymous prepayment POST with a valid CSRF token redirects to login;
+- production session and remember-cookie configuration is secure;
+- unsupported prepayment storage backends fail application startup;
+- authenticated prepayment model training reaches temporary artifact and registry persistence;
+- two users can upload the same original filename without collision;
+- cross-user upload session paths are rejected and cleared;
+- tampered temporary artifact paths cannot be loaded; and
+- external registered artifact paths cannot be deleted or falsely deactivated.
+
+Current targeted result: `15 passed` across `tests/test_platform_hardening.py` and `tests/test_analysis_linkage.py`. The suite uses isolated temporary SQLite databases and artifact directories; seven A3 tests cover linked/standalone analyses, cross-user rejection, and plot/report inheritance and conflict handling.
+
 #### D4 — Cross-user tests
 
 - [ ] Users cannot view each other's saved results.
@@ -485,7 +501,7 @@ $env:FLASK_APP = "run.py"
 
 - compilation succeeds;
 - app creation succeeds;
-- 83 routes register unless intentionally changed;
+- 84 routes register, including the deliberate token-based password-reset route;
 - current migration equals head `c1a2f3b4d5e6` until a new migration is deliberately added;
 - no dependency conflicts are reported.
 
@@ -501,8 +517,8 @@ $env:FLASK_APP = "run.py"
 | Authentication                  | ⚠️ Implemented; hardening required             |
 | User-scoped saved results       | ✅ Pass                                          |
 | User-scoped analysis history    | ✅ Pass                                          |
-| Prepayment user isolation       | 🔴 Fail                                          |
-| Analysis relational consistency | 🔴 Fail                                          |
+| Prepayment user isolation       | ✅ A2 targeted gate passed                       |
+| Analysis relational consistency | ⚠️ Future-write guards pass; A3 routes/A4 pending |
 | Portfolio manager               | ✅ Implemented                                   |
 | Aggregated Greeks               | ⚠️ Implemented; convention validation required |
 | PDF reporting                   | ⚠️ Partial                                     |
@@ -511,7 +527,7 @@ $env:FLASK_APP = "run.py"
 | Type hints                      | ⚠️ Partial                                     |
 | Dead-code removal               | ⚠️ Partial                                     |
 | Full product correctness        | ⬜ Not yet verified                              |
-| Automated tests                 | 🔴 Missing                                       |
+| Automated tests                 | ⚠️ Initial targeted suite: 15 passing tests      |
 | CI                              | 🔴 Missing                                       |
 
 ---
@@ -520,27 +536,25 @@ $env:FLASK_APP = "run.py"
 
 *Update this section after each independently validated batch.*
 
-| Date    | Batch                      | Result         | Commit/Reference | Notes                                                       |
-| ------- | -------------------------- | -------------- | ---------------- | ----------------------------------------------------------- |
-| 2026-07 | Baseline and Phase 2 audit | ✅ Completed   | —               | Findings documented; no backend pricing-model changes made. |
-|         | A1                         | ⬜ Not started |                  |                                                             |
-|         | A2                         | ⬜ Not started |                  |                                                             |
-|         | A3                         | ⬜ Not started |                  |                                                             |
-|         | A4                         | ⬜ Not started |                  |                                                             |
-|         | B                          | ⬜ Not started |                  |                                                             |
-|         | C                          | ⬜ Not started |                  |                                                             |
-|         | D                          | ⬜ Not started |                  |                                                             |
+| Date    | Batch                      | Result         | Commit/Reference | Notes                                                                                                                                                                                                                     |
+| ------- | -------------------------- | -------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07 | Baseline and Phase 2 audit | ✅ Completed   | —               | Findings documented; no backend pricing-model changes made.                                                                                                                                                               |
+| 2026-07 | A1                         | ✅ Completed   | pending commit   | Development and production startup pass; FK=1, 84 routes, CSRF/auth enforcement, secure cookies, Redis Cloud caching, and unsupported-backend rejection are validated.                                                    |
+| 2026-07 | A2                         | ✅ Completed   | pending commit   | User-scoped uploads and model directories, UUID filenames, resolved allowed-root enforcement, cross-user/tampered-path rejection, and normal persistence are validated by the 8-test suite.                               |
+| 2026-07 | A3                         | ⚠️ Partial     | pending commit   | Seven centralized invariant tests pass; all 11 vanilla paths use pricing-first resolution and exotic lookup is product-scoped. Exotic persistence migration and product POST/render tests remain. |
+| 2026-07 | A4                         | ❌ Not applied | `3ce1504e`     | Dry-run script exists, but no backup is present and the live database still reports`analysis_pricing_mismatch = 4`.                                                                                                     |
+| 2026-07 | B                          | ⚠️ Partial   | `3ce1504e`     | Production startup and cookie configuration now pass. Remaining validation covers auth flows, safe redirects, logout, and throttling; throttling is process-local, CSP is absent, and reset delivery is development-only. |
+|         | C                          | ⬜ Not started |                  |                                                                                                                                                                                                                           |
+|         | D                          | ⬜ Not started |                  |                                                                                                                                                                                                                           |
 
 ---
 
 ## Recommended next action
 
-**Start with Stage A, Batch A1 only:**
+**Finish exotic A3 persistence before A4 or Stage C:**
 
-1. declare `curl_cffi` as a direct dependency;
-2. enable SQLite foreign-key enforcement;
-3. configure production session-cookie security;
-4. authenticate the full prepayment-v2 workflow; and
-5. fail safely for unsupported model-storage backends.
-
-Validate A1 completely before proceeding to user-specific upload paths or analysis-link repairs.
+1. apply pricing-first instrument resolution to four autocallable analysis branches and make their plots inherit analysis pricing links;
+2. repeat the migration for four Asian and four barrier analysis branches;
+3. add focused exotic persistence tests and run valid European/American/exotic POST and history/report render checks;
+4. confirm new linked analyses, plots, and reports satisfy ownership/instrument invariants without creating unused instruments; and
+5. only after A3 passes, back up the live database and perform the reviewed A4 repair.

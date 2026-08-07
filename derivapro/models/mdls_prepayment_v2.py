@@ -1,4 +1,5 @@
 import os
+import uuid
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +9,8 @@ import json
 import joblib
 import logging
 from datetime import datetime
+from pathlib import Path
+
 from werkzeug.utils import secure_filename
 from flask import current_app
 from sklearn.ensemble import RandomForestClassifier
@@ -85,13 +88,28 @@ class PrepaymentDataUploader:
                 "error": "Invalid file type. Please upload CSV files only.",
             }
         try:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(self.upload_folder, filename)
+            original_filename = secure_filename(file.filename)
+            if not original_filename:
+                return {"success": False, "error": "Invalid file name"}
+
+            stored_filename = f"{uuid.uuid4().hex}_{original_filename}"
+            filepath = os.path.join(self.upload_folder, stored_filename)
             file.save(filepath)
+
+            try:
+                pd.read_csv(filepath, nrows=5)
+            except Exception:
+                os.remove(filepath)
+                return {
+                    "success": False,
+                    "error": "Invalid CSV file. Please upload a readable CSV file.",
+                }
+
             return {
                 "success": True,
                 "filepath": filepath,
-                "filename": filename,
+                "filename": original_filename,
+                "stored_filename": stored_filename,
                 "error": None,
             }
         except Exception as e:
@@ -1516,8 +1534,13 @@ class Validation:
             }
 
         try:
-            # Create model registry directory
-            registry_dir = current_app.config["PREPAYMENT_MODEL_REGISTRY_DIR"]
+            # Create a user-specific model registry directory.
+            registry_dir = str(
+                Path(
+                    current_app.config["PREPAYMENT_MODEL_REGISTRY_DIR"],
+                    f"user_{user_id}",
+                ).resolve()
+            )
             os.makedirs(registry_dir, exist_ok=True)
 
             replaced_existing = False
@@ -1530,11 +1553,11 @@ class Validation:
             # Generate timestamp for the registration
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-            # Save the registered model
-            model_filename = f"registered_model_{timestamp}.joblib"
+            # Save the registered model with a collision-safe server filename.
+            model_filename = f"registered_model_{uuid.uuid4().hex}_{timestamp}.joblib"
             model_path = os.path.join(registry_dir, model_filename)
 
-            save_model_artifact(self.trained_model, model_path)
+            save_model_artifact(self.trained_model, model_path, registry_dir)
 
             metadata = {
                 "registration_timestamp": timestamp,
@@ -1594,21 +1617,20 @@ class Validation:
             db.session.add(registry_entry)
             db.session.commit()
 
-            # Clean up temporary registry entries for this user
+            # Clean up temporary registry entries for this user.
+            temp_dir = str(
+                Path(
+                    current_app.config["PREPAYMENT_TEMP_MODEL_DIR"],
+                    f"user_{user_id}",
+                ).resolve()
+            )
             temp_entries = PrepaymentModelRegistry.query.filter_by(
                 user_id=user_id,
                 is_temporary=True,
             ).all()
             for temp_entry in temp_entries:
-                if (
-                    temp_entry.artifact_path
-                    and os.path.exists(temp_entry.artifact_path)
-                    and temp_entry.artifact_path != model_path
-                ):
-                    try:
-                        delete_model_artifact(temp_entry.artifact_path)
-                    except Exception:
-                        pass
+                if temp_entry.artifact_path and temp_entry.artifact_path != model_path:
+                    delete_model_artifact(temp_entry.artifact_path, temp_dir)
 
                 db.session.delete(temp_entry)
 
@@ -1673,7 +1695,6 @@ class Validation:
                 "feature_columns": registry_entry.feature_columns_json,
                 "data_preprocessing": registry_entry.preprocessing_json,
                 "model_file": registry_entry.artifact_filename,
-                "artifact_path": registry_entry.artifact_path,
                 "storage_backend": registry_entry.storage_backend,
                 "dataset_name": registry_entry.dataset_name,
             }
@@ -1715,9 +1736,15 @@ class Validation:
                 return {"success": False, "message": "No model is currently registered"}
 
             files_deleted = []
+            registry_dir = str(
+                Path(
+                    current_app.config["PREPAYMENT_MODEL_REGISTRY_DIR"],
+                    f"user_{user_id}",
+                ).resolve()
+            )
 
             for entry in active_entries:
-                if delete_model_artifact(entry.artifact_path):
+                if delete_model_artifact(entry.artifact_path, registry_dir):
                     files_deleted.append(entry.artifact_filename)
 
                 entry.is_active = False
@@ -1746,7 +1773,12 @@ class Validation:
                     "error": "A valid user is required to clean up temp models.",
                 }
 
-            temp_dir = current_app.config["PREPAYMENT_TEMP_MODEL_DIR"]
+            temp_dir = str(
+                Path(
+                    current_app.config["PREPAYMENT_TEMP_MODEL_DIR"],
+                    f"user_{user_id}",
+                ).resolve()
+            )
             if not os.path.exists(temp_dir):
                 return {"success": True, "message": "No temp files to clean"}
 
@@ -1754,13 +1786,10 @@ class Validation:
             files_deleted = []
 
             for filename in os.listdir(temp_dir):
-                if filename.startswith(f"temp_model_user_{user_id}_{dataset_name}_"):
+                if filename.startswith(f"temp_model_{dataset_name}_"):
                     file_path = os.path.join(temp_dir, filename)
-                    try:
-                        if delete_model_artifact(file_path):
-                            files_deleted.append(filename)
-                    except:
-                        pass  # Continue if file can't be deleted
+                    if delete_model_artifact(file_path, temp_dir):
+                        files_deleted.append(filename)
 
             return {
                 "success": True,

@@ -32,7 +32,7 @@
                         Show
                     </button>
                 </div>
-                <small class="auth-help-text">Use a strong password that you can remember securely.</small>
+                <small class="auth-help-text">Use at least 12 characters with uppercase, lowercase, number, and symbol.</small>
             </div>
 
             <div class="auth-form-group">
@@ -42,32 +42,6 @@
                         placeholder="Re-enter your password" required>
                     <button type="button" class="auth-password-toggle"
                         onclick="togglePassword('confirm_password', this)">
-                        Show
-                    </button>
-                </div>
-            </div>
-
-            <div class="auth-form-group">
-                <label for="security_question">Security Question</label>
-                <select id="security_question" name="security_question" required>
-                    <option value="">Select a security question</option>
-                    <option value="What was the name of your first school?">What was the name of your first school?
-                    </option>
-                    <option value="What is your mother’s maiden name?">What is your mother’s maiden name?</option>
-                    <option value="What was the name of your first pet?">What was the name of your first pet?</option>
-                    <option value="What city were you born in?">What city were you born in?</option>
-                </select>
-                <small class="auth-help-text">This will be used to verify your identity if you need to reset your
-                    password.</small>
-            </div>
-
-            <div class="auth-form-group">
-                <label for="security_answer">Security Answer</label>
-                <div class="auth-password-wrapper">
-                    <input type="password" id="security_answer" name="security_answer"
-                        placeholder="Enter your security answer" required>
-                    <button type="button" class="auth-password-toggle"
-                        onclick="togglePassword('security_answer', this)">
                         Show
                     </button>
                 </div>
