@@ -408,6 +408,11 @@
                 </select>
             </div>
             <div class="form-group">
+                <label for="random_seed">Random Seed</label>
+                <input type="number" step="1" id="random_seed" name="random_seed" value="{{ form_data.random_seed|default(42) }}" min="0" required>
+                <div class="field-hint">Controls repeatability for supported Monte Carlo runs.</div>
+            </div>
+            <div class="form-group">
                 <label for="discretization">Discretization</label>
                 <select id="discretization" name="discretization">
                     <option value="euler" {% if form_data.discretization=='euler' %}selected{% endif %}>Euler</option>

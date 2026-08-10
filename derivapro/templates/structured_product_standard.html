@@ -47,14 +47,14 @@
     </div>
     {% endfor %}
     <div class="pricing-action-row">
-        <button type="submit" class="btn-primary">Run Valuation</button>
+        <button type="submit" class="btn-primary" name="action" value="price">Run Valuation</button>
         <a href="{{ url_for('structured_products.structured_products_home') }}" class="btn-secondary">Structured Products Home</a>
     </div>
 </form>
 
 {% if pricing_error %}
 <div class="info-box error-box">
-    <p><strong>Pricing error:</strong> {{ pricing_error }}</p>
+    <p><strong>Run error:</strong> {{ pricing_error }}</p>
 </div>
 {% elif results %}
 <div class="pricing-results-shell">
@@ -83,35 +83,355 @@
 {% else %}
 <div class="empty-state-panel">
     <strong>No pricing run yet.</strong>
-    <p>Populate the product terms and run valuation to generate present value, risk diagnostics, and scenario results.</p>
+    <p>Populate the product terms and run valuation to generate present value and distribution diagnostics. Product analysis can be run separately below.</p>
 </div>
 {% endif %}
 {% endcall %}
 
-{% call product.section("Analysis", "Scenario outputs and model diagnostics for the latest valuation run.") %}
-{% if scenarios %}
+{% call product.section("Analysis", "Scenario outputs, driver sensitivity, payoff diagnostics, and model review for the latest valuation run.") %}
+{% if supports_configurable_analysis %}
+<form method="post" class="analysis-control-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for section in form_sections %}
+        {% for field in section.fields %}
+            {% if field.type == 'checkbox' %}
+                {% if field.value == 'on' %}
+                <input type="hidden" name="{{ field.name }}" value="on">
+                {% endif %}
+            {% else %}
+            <input type="hidden" name="{{ field.name }}" value="{{ field.value }}">
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+
+    <div class="analysis-control-shell">
+        <div class="analysis-control-header">
+            <div>
+                <span class="section-eyebrow">Configurable Analysis</span>
+                <h3>Choose the analytics package to run</h3>
+                <p>Start with the house-standard BRC review, then adjust controlled shock sizes when a desk or model-review use case requires it.</p>
+            </div>
+            <button type="submit" class="btn-primary" name="action" value="analysis">Run Selected Analysis</button>
+        </div>
+
+        <div class="analysis-toggle-grid">
+            <label><input type="checkbox" name="run_scenario_analysis" {% if analysis_form_data.run_scenario_analysis == 'on' %}checked{% endif %}> Scenario analysis</label>
+            <label><input type="checkbox" name="run_driver_sensitivity" {% if analysis_form_data.run_driver_sensitivity == 'on' %}checked{% endif %}> Driver sensitivity</label>
+            <label><input type="checkbox" name="run_pnl_attribution" {% if analysis_form_data.run_pnl_attribution == 'on' %}checked{% endif %}> P&amp;L attribution</label>
+            <label><input type="checkbox" name="run_payoff_profile" {% if analysis_form_data.run_payoff_profile == 'on' %}checked{% endif %}> Payoff profile</label>
+            <label><input type="checkbox" name="run_risk_diagnostics" {% if analysis_form_data.run_risk_diagnostics == 'on' %}checked{% endif %}> Risk diagnostics</label>
+            <label><input type="checkbox" name="include_visuals" {% if analysis_form_data.include_visuals == 'on' %}checked{% endif %}> Visual summary</label>
+        </div>
+
+        <div class="analysis-config-grid">
+            <div class="form-group">
+                <label for="scenario_package">Scenario Package</label>
+                <select id="scenario_package" name="scenario_package">
+                    <option value="standard" {% if analysis_form_data.scenario_package == 'standard' %}selected{% endif %}>Standard BRC Risk Review</option>
+                    <option value="downside" {% if analysis_form_data.scenario_package == 'downside' %}selected{% endif %}>Downside Repricing</option>
+                    <option value="defensive" {% if analysis_form_data.scenario_package == 'defensive' %}selected{% endif %}>Defensive / Favorable Terms</option>
+                </select>
+                <div class="field-hint">Controls which scenario rows are generated.</div>
+            </div>
+            <div class="form-group">
+                <label for="scenario_volatility_shock">Scenario Vol Shock</label>
+                <input type="number" id="scenario_volatility_shock" name="scenario_volatility_shock" step="0.001" value="{{ analysis_form_data.scenario_volatility_shock }}">
+                <div class="field-hint">Absolute volatility change, e.g. 0.10 = 10 pp.</div>
+            </div>
+            <div class="form-group">
+                <label for="scenario_barrier_shock">Scenario Barrier Shock</label>
+                <input type="number" id="scenario_barrier_shock" name="scenario_barrier_shock" step="0.001" value="{{ analysis_form_data.scenario_barrier_shock }}">
+                <div class="field-hint">Absolute barrier move, e.g. 0.05 = 5 pp.</div>
+            </div>
+            <div class="form-group">
+                <label for="scenario_coupon_shock">Scenario Coupon Shock</label>
+                <input type="number" id="scenario_coupon_shock" name="scenario_coupon_shock" step="0.001" value="{{ analysis_form_data.scenario_coupon_shock }}">
+                <div class="field-hint">Absolute coupon change used in combined stress.</div>
+            </div>
+            <div class="form-group">
+                <label for="scenario_rate_shock">Scenario Rate Shock</label>
+                <input type="number" id="scenario_rate_shock" name="scenario_rate_shock" step="0.001" value="{{ analysis_form_data.scenario_rate_shock }}">
+                <div class="field-hint">Absolute discount-rate change used in scenarios.</div>
+            </div>
+            <div class="form-group">
+                <label for="sensitivity_volatility_shock">Sensitivity Vol Step</label>
+                <input type="number" id="sensitivity_volatility_shock" name="sensitivity_volatility_shock" step="0.001" value="{{ analysis_form_data.sensitivity_volatility_shock }}">
+                <div class="field-hint">One-way volatility sensitivity step.</div>
+            </div>
+            <div class="form-group">
+                <label for="sensitivity_barrier_shock">Sensitivity Barrier Step</label>
+                <input type="number" id="sensitivity_barrier_shock" name="sensitivity_barrier_shock" step="0.001" value="{{ analysis_form_data.sensitivity_barrier_shock }}">
+                <div class="field-hint">One-way protection-barrier sensitivity step.</div>
+            </div>
+            <div class="form-group">
+                <label for="sensitivity_coupon_shock">Sensitivity Coupon Step</label>
+                <input type="number" id="sensitivity_coupon_shock" name="sensitivity_coupon_shock" step="0.001" value="{{ analysis_form_data.sensitivity_coupon_shock }}">
+                <div class="field-hint">One-way coupon sensitivity step.</div>
+            </div>
+            <div class="form-group">
+                <label for="sensitivity_rate_shock">Sensitivity Rate Step</label>
+                <input type="number" id="sensitivity_rate_shock" name="sensitivity_rate_shock" step="0.001" value="{{ analysis_form_data.sensitivity_rate_shock }}">
+                <div class="field-hint">One-way rate sensitivity step.</div>
+            </div>
+            <div class="form-group">
+                <label for="payoff_floor">Payoff Chart Floor</label>
+                <input type="number" id="payoff_floor" name="payoff_floor" step="0.01" value="{{ analysis_form_data.payoff_floor }}">
+                <div class="field-hint">Lowest terminal level in payoff profile.</div>
+            </div>
+            <div class="form-group">
+                <label for="payoff_ceiling">Payoff Chart Ceiling</label>
+                <input type="number" id="payoff_ceiling" name="payoff_ceiling" step="0.01" value="{{ analysis_form_data.payoff_ceiling }}">
+                <div class="field-hint">Highest terminal level in payoff profile.</div>
+            </div>
+            <div class="form-group">
+                <label for="payoff_points">Payoff Chart Points</label>
+                <input type="number" id="payoff_points" name="payoff_points" step="1" value="{{ analysis_form_data.payoff_points }}">
+                <div class="field-hint">Number of terminal levels, from 3 to 21.</div>
+            </div>
+        </div>
+    </div>
+</form>
+{% endif %}
+
+{% if analysis_report and analysis_report.is_product_specific %}
 <div class="analysis-card">
-    <span>Scenario Sensitivity</span>
+    <span>{{ analysis_report.title }}</span>
+    <p>{{ analysis_report.summary }}</p>
+</div>
+
+{% if analysis_report.visuals %}
+<div class="analysis-visual-grid">
+    {% if analysis_report.visuals.sensitivity_chart %}
+    <article class="analysis-card">
+        <span>Driver Sensitivity Visual</span>
+        <div class="analysis-bar-chart">
+            {% for bar in analysis_report.visuals.sensitivity_chart %}
+            <div class="analysis-bar-row">
+                <small>{{ bar.label }}</small>
+                <div class="analysis-bar-track">
+                    <i class="{{ bar.direction }}" style="width: {{ bar.width }}"></i>
+                </div>
+                <strong>{{ bar.value }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </article>
+    {% endif %}
+
+    {% if analysis_report.visuals.pnl_chart %}
+    <article class="analysis-card">
+        <span>P&amp;L Attribution Visual</span>
+        <div class="analysis-bar-chart">
+            {% for bar in analysis_report.visuals.pnl_chart %}
+            <div class="analysis-bar-row">
+                <small>{{ bar.label }}</small>
+                <div class="analysis-bar-track">
+                    <i class="{{ bar.direction }}" style="width: {{ bar.width }}"></i>
+                </div>
+                <strong>{{ bar.value }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </article>
+    {% endif %}
+
+    {% if analysis_report.visuals.payoff_chart %}
+    <article class="analysis-card analysis-card-wide">
+        <span>Payoff Profile Visual</span>
+        <svg class="structured-payoff-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Barrier reverse convertible payoff profile">
+            <polyline points="{{ analysis_report.visuals.payoff_chart.points }}"></polyline>
+        </svg>
+        <div class="market-chart-axis">
+            <span>{{ analysis_report.visuals.payoff_chart.x_min }} terminal</span>
+            <span>{{ analysis_report.visuals.payoff_chart.x_max }} terminal</span>
+        </div>
+        <div class="market-chart-axis">
+            <span>{{ analysis_report.visuals.payoff_chart.y_min }} payoff</span>
+            <span>{{ analysis_report.visuals.payoff_chart.y_max }} payoff</span>
+        </div>
+    </article>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if analysis_report.scenario_rows %}
+<div class="analysis-card">
+    <span>Scenario Analysis</span>
+    <div class="analysis-table-scroll">
     <table class="results-table compact-results-table">
         <thead>
             <tr>
                 <th>Scenario</th>
+                <th>Description</th>
                 <th>Price</th>
                 <th>Change</th>
                 <th>Change / Notional</th>
+                <th>Breach Probability</th>
             </tr>
         </thead>
         <tbody>
-            {% for row in scenarios %}
+            {% for row in analysis_report.scenario_rows %}
             <tr>
                 <td>{{ row.name }}</td>
+                <td>{{ row.description }}</td>
                 <td>{{ row.price }}</td>
                 <td>{{ row.change }}</td>
                 <td>{{ row.change_pct_notional }}</td>
+                <td>{{ row.breach_probability or "N/A" }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
+</div>
+{% endif %}
+
+{% if analysis_report.sensitivity_rows %}
+<div class="analysis-card">
+    <span>Driver Sensitivity</span>
+    <div class="analysis-table-scroll">
+    <table class="results-table compact-results-table">
+        <thead>
+            <tr>
+                <th>Driver</th>
+                <th>Shock</th>
+                <th>Price</th>
+                <th>Change</th>
+                <th>Change / Notional</th>
+                <th>Breach Probability</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in analysis_report.sensitivity_rows %}
+            <tr>
+                <td>{{ row.driver }}</td>
+                <td>{{ row.shock }}</td>
+                <td>{{ row.price }}</td>
+                <td>{{ row.change }}</td>
+                <td>{{ row.change_pct_notional }}</td>
+                <td>{{ row.breach_probability }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{% if analysis_report.pnl_attribution %}
+<div class="analysis-card">
+    <span>P&amp;L Attribution</span>
+    <p>{{ analysis_report.pnl_attribution.description }}</p>
+    <div class="analysis-table-scroll">
+    <table class="results-table compact-results-table">
+        <thead>
+            <tr>
+                <th>Step</th>
+                <th>Repriced PV</th>
+                <th>Contribution</th>
+                <th>Contribution / Notional</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in analysis_report.pnl_attribution.rows %}
+            <tr>
+                <td>{{ row.step }}</td>
+                <td>{{ row.price }}</td>
+                <td>{{ row.contribution }}</td>
+                <td>{{ row.contribution_pct_notional }}</td>
+            </tr>
+            {% endfor %}
+            <tr>
+                <td><strong>Total</strong></td>
+                <td></td>
+                <td><strong>{{ analysis_report.pnl_attribution.total_change }}</strong></td>
+                <td><strong>{{ analysis_report.pnl_attribution.total_change_pct_notional }}</strong></td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="analysis-grid">
+    {% if analysis_report.risk_indicators %}
+    <article class="analysis-card">
+        <span>Risk Diagnostics</span>
+        <dl class="summary-definition-list">
+            {% for indicator in analysis_report.risk_indicators %}
+            <div>
+                <dt>{{ indicator.label }}</dt>
+                <dd>{{ indicator.value }}</dd>
+            </div>
+            {% endfor %}
+        </dl>
+    </article>
+    {% endif %}
+
+    {% if analysis_report.payoff_profile %}
+    <article class="analysis-card">
+        <span>Payoff Profile</span>
+        <div class="analysis-table-scroll">
+        <table class="results-table compact-results-table">
+            <thead>
+                <tr>
+                    <th>Final Level</th>
+                    <th>State</th>
+                    <th>Redemption</th>
+                    <th>Coupon</th>
+                    <th>Payoff</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in analysis_report.payoff_profile %}
+                <tr>
+                    <td>{{ row.final_level }}</td>
+                    <td>{{ row.state }}</td>
+                    <td>{{ row.redemption_pct }}</td>
+                    <td>{{ row.coupon_pct }}</td>
+                    <td>{{ row.payoff_pct }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </article>
+    {% endif %}
+</div>
+{% elif analysis_report %}
+<div class="analysis-card">
+    <span>Product-Specific Analysis Pending</span>
+    <p>
+        This product currently has first-pass valuation outputs. Product-specific scenarios,
+        sensitivity tables, P&amp;L attribution, and payoff diagnostics will be added using the
+        same review standard now applied to the Barrier Reverse Convertible page.
+    </p>
+</div>
+<div class="available-analysis-grid">
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">✅</span>
+        <strong>Valuation diagnostics</strong>
+        <p>The pricing run reports PV, standard error, product-specific event probabilities, and distribution diagnostics.</p>
+        <em>Available now</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">🧭</span>
+        <strong>Scenario design</strong>
+        <p>The next pass will define product-relevant shocks instead of generic scenario placeholders.</p>
+        <em>Planned</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📊</span>
+        <strong>P&amp;L attribution</strong>
+        <p>Sequential attribution will be customized to the dominant risk drivers for this payoff.</p>
+        <em>Planned</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📌</span>
+        <strong>Methodology coverage</strong>
+        <p>The methodology note documents the current pricing framework and limitations.</p>
+        <em>Documented</em>
+    </article>
 </div>
 {% else %}
 <div class="available-analysis-grid">
@@ -123,8 +443,14 @@
     </article>
     <article class="analysis-availability-card">
         <span aria-hidden="true">🧭</span>
-        <strong>Scenario sensitivity</strong>
-        <p>The page generates a first-pass scenario table once a pricing run is completed.</p>
+        <strong>Scenario and driver sensitivity</strong>
+        <p>The page generates scenario and driver tables once a pricing run is completed.</p>
+        <em>Available after pricing</em>
+    </article>
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">📊</span>
+        <strong>P&amp;L attribution</strong>
+        <p>Supported products include a sequential attribution view for selected stress cases.</p>
         <em>Available after pricing</em>
     </article>
     <article class="analysis-availability-card">
@@ -143,6 +469,17 @@
         <span>Pricing Framework</span>
         <strong>First-wave structured-products model</strong>
         <p>Transparent payoff simulation or reduced-form credit valuation using user-supplied assumptions.</p>
+    </div>
+    <div>
+        <span>Simulation Configuration</span>
+        <strong>{{ "{:,}".format(simulation_settings.num_paths) }} paths | seed {{ simulation_settings.random_seed }}</strong>
+        <p>
+            {% if simulation_settings.apply_globally %}
+            Workspace defaults are applied to eligible simulation inputs.
+            {% else %}
+            Workspace defaults are recorded but not automatically applied.
+            {% endif %}
+        </p>
     </div>
     <div>
         <span>Methodology</span>

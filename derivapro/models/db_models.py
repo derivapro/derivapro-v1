@@ -28,6 +28,13 @@ class User(UserMixin, db.Model):
     positions = db.relationship("Position", back_populates="user", lazy=True)
     plots = db.relationship("Plot", back_populates="user", lazy=True)
     reports = db.relationship("Report", back_populates="user", lazy=True)
+    simulation_config = db.relationship(
+        "UserSimulationConfig",
+        back_populates="user",
+        lazy=True,
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     prepayment_models = db.relationship(
         "PrepaymentModelRegistry", back_populates="user", lazy=True
     )
@@ -112,6 +119,32 @@ class PricingResult(db.Model):
 
     def __repr__(self):
         return f"<PricingResult instrument_id={self.instrument_id} price={self.price}>"
+
+
+class UserSimulationConfig(db.Model):
+    __tablename__ = "user_simulation_configs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    settings_json = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    user = db.relationship("User", back_populates="simulation_config")
+
+    def __repr__(self):
+        return f"<UserSimulationConfig user_id={self.user_id}>"
 
 
 class AnalysisResult(db.Model):

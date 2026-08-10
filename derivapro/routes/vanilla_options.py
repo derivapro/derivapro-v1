@@ -28,6 +28,11 @@ from random import random
 from datetime import datetime, timedelta
 from ..extensions import db
 from ..models.db_models import AnalysisResult, Instrument, PricingResult, Report
+from ..services.simulation_config import (
+    apply_simulation_defaults,
+    get_effective_simulation_settings,
+    simulation_audit_payload,
+)
 from ..utils.lazy_imports import LazyAttribute, LazyImport
 
 from dotenv import load_dotenv, find_dotenv
@@ -187,6 +192,7 @@ def _build_european_form_data_from_instrument(instrument):
         ),
         "num_paths": params.get("num_paths", 10000),
         "num_steps": params.get("num_steps", 252),
+        "random_seed": params.get("random_seed", 42),
     }
 
 
@@ -209,6 +215,7 @@ def _default_european_form_data():
         "model_type": "black_scholes",
         "num_paths": 10000,
         "num_steps": 252,
+        "random_seed": 42,
     }
 
 
@@ -310,6 +317,7 @@ def _price_european_monte_carlo(
     dividend_yield,
     option_type,
     num_paths,
+    random_seed=42,
 ):
     """Fast terminal-distribution MC for plain European options.
 
@@ -318,7 +326,7 @@ def _price_european_monte_carlo(
     registered European workflow is responsive and still simulation-based.
     """
     paths = max(100, min(int(num_paths or 10000), 200000))
-    rng = random_module.Random(1729)
+    rng = random_module.Random(int(random_seed))
     discount = math.exp(-risk_free_rate * time_to_maturity)
     drift = (
         math.log(spot_price)
@@ -357,6 +365,8 @@ def _price_european_monte_carlo(
     return {
         "price": mean,
         "num_paths": count,
+        "num_steps": None,
+        "random_seed": int(random_seed),
         "standard_error": standard_error,
         "ci_low": mean - 1.96 * standard_error,
         "ci_high": mean + 1.96 * standard_error,
@@ -911,7 +921,14 @@ def european_options():
         content = readme_file.read()
     md_content = markdown.markdown(content)
 
+    simulation_settings = get_effective_simulation_settings(current_user)
     form_data = _default_european_form_data()
+    apply_simulation_defaults(
+        form_data,
+        simulation_settings,
+        random_key=None,
+        seed_key="random_seed",
+    )
     market_query = {
         "symbol": form_data["ticker"],
         "period": "6mo",
@@ -1065,6 +1082,7 @@ def european_options():
             "model_type": requested_model_type,
             "num_paths": request.form.get("num_paths", type=int, default=10000),
             "num_steps": request.form.get("num_steps", type=int, default=252),
+            "random_seed": request.form.get("random_seed", type=int, default=42),
         }
 
         market_query.update(
@@ -1096,6 +1114,7 @@ def european_options():
             "model_type": form_data.get("model_type", "black_scholes"),
             "num_paths": form_data.get("num_paths", 10000),
             "num_steps": form_data.get("num_steps", 252),
+            "random_seed": form_data.get("random_seed", 42),
         }
 
         ticker = form_data["ticker"]
@@ -1319,6 +1338,7 @@ def european_options():
             elif model_type == "monte_carlo":
                 num_paths = form_data.get("num_paths", 10000)
                 num_steps = form_data.get("num_steps", 252)
+                random_seed = form_data.get("random_seed", 42)
 
                 mc_stats = _price_european_monte_carlo(
                     spot_price,
@@ -1329,6 +1349,7 @@ def european_options():
                     dividend_yield,
                     option_type,
                     num_paths,
+                    random_seed,
                 )
                 option_price = mc_stats["price"]
 
@@ -1441,6 +1462,10 @@ def european_options():
                         "model_type": model_type,
                         "num_paths": form_data.get("num_paths"),
                         "num_steps": form_data.get("num_steps"),
+                        "random_seed": form_data.get("random_seed"),
+                        "simulation_configuration": simulation_audit_payload(
+                            simulation_settings
+                        ),
                     },
                 )
                 db.session.add(instrument)
@@ -1463,6 +1488,9 @@ def european_options():
                         "theta": raw_theta,
                         "rho": raw_rho,
                         "run_summary": run_summary,
+                        "simulation_configuration": simulation_audit_payload(
+                            simulation_settings
+                        ),
                     },
                 )
                 db.session.add(pricing_result)

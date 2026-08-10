@@ -87,7 +87,7 @@ class SobolTimeDiscretization:
         return idx[:min_dim] if len(idx) > min_dim else idx
 
     @staticmethod
-    def apply(time_length, num_steps, sobol_matrix):
+    def apply(time_length, num_steps, sobol_matrix, rng=None):
         """
         Sobol Sequence Application to Time Grid
 
@@ -108,7 +108,10 @@ class SobolTimeDiscretization:
         # Fill gaps with pseudo-random (as fallback when Sobol insufficient)
         for t in range(num_steps):
             if np.all(u[:, t] == 0):
-                u[:, t] = np.random.uniform(0, 1, size=n_paths)
+                if rng is None:
+                    u[:, t] = np.random.uniform(0, 1, size=n_paths)
+                else:
+                    u[:, t] = rng.uniform(0, 1, size=n_paths)
         return u
 
 
@@ -410,6 +413,7 @@ class MonteCarloSimulationEngine:
         random_type: str = "sobol",
         basket: bool = False,
         cov_matrix: Optional[np.ndarray] = None,
+        random_seed: Optional[int] = None,
     ) -> None:
         """
         Initialize Monte Carlo Engine
@@ -427,6 +431,10 @@ class MonteCarloSimulationEngine:
         self.random_type = random_type
         self.basket = basket
         self.cov_matrix = cov_matrix if basket else None
+        self.random_seed = random_seed
+
+    def _rng(self):
+        return np.random.default_rng(self.random_seed)
 
     def validate_parameters(self) -> bool:
         validation_errors = []
@@ -478,7 +486,8 @@ class MonteCarloSimulationEngine:
                     self.num_steps, min_dim=min_dim
                 )
                 sobol_dim = max(len(time_idx), min_dim)
-                sampler = qmc.Sobol(d=sobol_dim, scramble=True)
+                rng = self._rng()
+                sampler = qmc.Sobol(d=sobol_dim, scramble=True, seed=self.random_seed)
 
                 # Sobol works best with powers of 2
                 next_pow2 = 2 ** int(np.ceil(np.log2(self.num_paths)))
@@ -489,7 +498,7 @@ class MonteCarloSimulationEngine:
                 if self.n_assets == 1:
                     # Single asset case
                     uniform = SobolTimeDiscretization.apply(
-                        self.T, self.num_steps, sample
+                        self.T, self.num_steps, sample, rng=rng
                     )
                     # shape (n_paths, num_steps)
                     return uniform[..., None]
@@ -500,17 +509,17 @@ class MonteCarloSimulationEngine:
                         # Cycle through available Sobol dimensions
                         this_dim = i % sample.shape[1]
                         uniform[:, :, i] = SobolTimeDiscretization.apply(
-                            self.T, self.num_steps, sample[:, [this_dim]]
+                            self.T, self.num_steps, sample[:, [this_dim]], rng=rng
                         )
                     return uniform
             except Exception:
                 # Fallback to uniform if Sobol fails
-                return np.random.uniform(
+                return self._rng().uniform(
                     0, 1, size=(self.num_paths, self.num_steps, self.n_assets)
                 )
         else:
             # Pseudo-random fallback
-            return np.random.uniform(
+            return self._rng().uniform(
                 0, 1, size=(self.num_paths, self.num_steps, self.n_assets)
             )
 
@@ -561,7 +570,7 @@ class MonteCarloSimulationEngine:
         (n_paths, n_steps, n_assets) = paths.shape
         if normals_to_insert is None:
             # Generate pseudo-randoms for bridge interpolation
-            normals_to_insert = np.random.normal(size=(n_paths, n_steps, n_assets))
+            normals_to_insert = self._rng().normal(size=(n_paths, n_steps, n_assets))
 
         # Use Sobol indices as pillars for bridge construction
         indices = SobolTimeDiscretization.sobol_indices(n_steps - 1)
@@ -898,7 +907,7 @@ class MonteCarloSimulationEngine:
         S_paths = np.zeros((n_paths, len(time_grid)))
         S_paths[:, 0] = self.S0[0] if isinstance(self.S0, np.ndarray) else self.S0
 
-        Z = np.random.normal(size=(n_paths, num_steps))
+        Z = self._rng().normal(size=(n_paths, num_steps))
         for i in range(1, len(time_grid)):
             dt = time_grid[i] - time_grid[i - 1]
             drift = (self.r - dividend_yield - 0.5 * self.sigma[0] ** 2) * dt
@@ -1627,6 +1636,7 @@ def create_monte_carlo_engine(
     random_type: str = "sobol",
     basket: bool = False,
     cov_matrix: Optional[np.ndarray] = None,
+    random_seed: Optional[int] = None,
 ) -> MonteCarloSimulationEngine:
     """
 
@@ -1640,6 +1650,7 @@ def create_monte_carlo_engine(
     - random_type: "sobol" or "pseudo" (Sobol recommended)
     - basket: Boolean for multi-asset simulation
     - cov_matrix: Correlation matrix for multi-asset (optional)
+    - random_seed: Optional deterministic seed for repeatable simulations
 
     Returns:
     - MonteCarloSimulationEngine instance configured
@@ -1654,6 +1665,7 @@ def create_monte_carlo_engine(
         random_type=random_type,
         basket=basket,
         cov_matrix=cov_matrix,
+        random_seed=random_seed,
     )
 
 

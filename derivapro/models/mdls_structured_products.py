@@ -26,6 +26,7 @@ class AutocallableNoteTerms:
     num_paths: int = 10000
     num_steps: int = 252
     random_type: str = "sobol"
+    random_seed: int | None = 42
 
 
 def _equicorrelation_matrix(n_assets: int, correlation: float) -> np.ndarray:
@@ -90,6 +91,7 @@ def price_autocallable_note(terms: AutocallableNoteTerms) -> dict:
         random_type=terms.random_type,
         basket=n_assets > 1,
         cov_matrix=corr_matrix if n_assets > 1 else None,
+        random_seed=terms.random_seed,
     )
     engine.q = terms.dividend_yield
     engine.validate_parameters()

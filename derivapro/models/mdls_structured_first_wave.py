@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 
@@ -30,6 +30,28 @@ class StructuredNoteTerms:
     num_paths: int = 10_000
     num_steps: int = 252
     random_seed: int = 42
+
+
+@dataclass
+class StructuredAnalysisConfig:
+    scenario_package: str = "standard"
+    run_scenario_analysis: bool = True
+    run_driver_sensitivity: bool = True
+    run_pnl_attribution: bool = True
+    run_payoff_profile: bool = True
+    run_risk_diagnostics: bool = True
+    include_visuals: bool = True
+    scenario_volatility_shock: float = 0.10
+    scenario_barrier_shock: float = 0.05
+    scenario_coupon_shock: float = 0.02
+    scenario_rate_shock: float = 0.005
+    sensitivity_volatility_shock: float = 0.05
+    sensitivity_barrier_shock: float = 0.05
+    sensitivity_coupon_shock: float = 0.01
+    sensitivity_rate_shock: float = 0.01
+    payoff_floor: float = 0.40
+    payoff_ceiling: float = 1.20
+    payoff_points: int = 7
 
 
 def _validate_terms(terms: StructuredNoteTerms) -> None:
@@ -296,9 +318,483 @@ def price_structured_note(terms: StructuredNoteTerms) -> Dict[str, float]:
     return result
 
 
+def _terms_with_updates(terms: StructuredNoteTerms, updates: Dict[str, float]) -> StructuredNoteTerms:
+    return StructuredNoteTerms(**{**terms.__dict__, **updates})
+
+
+def _format_pp(value: float) -> str:
+    return f"{value * 100:.0f} pp"
+
+
+def _format_bp(value: float) -> str:
+    return f"{value * 10000:.0f} bp"
+
+
+def _validate_analysis_config(config: StructuredAnalysisConfig) -> StructuredAnalysisConfig:
+    if config.scenario_package not in {"standard", "downside", "defensive"}:
+        raise ValueError("Unsupported scenario package.")
+    if not any(
+        [
+            config.run_scenario_analysis,
+            config.run_driver_sensitivity,
+            config.run_pnl_attribution,
+            config.run_payoff_profile,
+            config.run_risk_diagnostics,
+        ]
+    ):
+        raise ValueError("Select at least one analysis module to run.")
+    for value in [
+        config.scenario_volatility_shock,
+        config.scenario_barrier_shock,
+        config.scenario_coupon_shock,
+        config.scenario_rate_shock,
+        config.sensitivity_volatility_shock,
+        config.sensitivity_barrier_shock,
+        config.sensitivity_coupon_shock,
+        config.sensitivity_rate_shock,
+    ]:
+        if value < 0:
+            raise ValueError("Analysis shock sizes must be non-negative.")
+    if config.payoff_ceiling <= config.payoff_floor:
+        raise ValueError("Payoff profile ceiling must be above the floor.")
+    if config.payoff_points < 3:
+        raise ValueError("Payoff profile requires at least 3 points.")
+    if config.payoff_points > 21:
+        raise ValueError("Payoff profile supports at most 21 points.")
+    if config.payoff_floor < 0:
+        raise ValueError("Payoff profile floor cannot be negative.")
+    return config
+
+
+def _scenario_result(
+    terms: StructuredNoteTerms,
+    name: str,
+    updates: Dict[str, float],
+    description: str,
+    base_price: float,
+) -> Dict[str, float | str]:
+    scenario_terms = _terms_with_updates(terms, updates)
+    scenario_result = price_structured_note(scenario_terms)
+    row: Dict[str, float | str] = {
+        "name": name,
+        "description": description,
+        "price": scenario_result["price"],
+        "change": scenario_result["price"] - base_price,
+        "change_pct_notional": (scenario_result["price"] - base_price) / terms.notional,
+        "standard_error": scenario_result["standard_error"],
+    }
+    for key in [
+        "breach_probability",
+        "default_probability",
+        "protection_breach_probability",
+        "coupon_payment_probability",
+        "cap_hit_probability",
+        "buffer_breach_probability",
+    ]:
+        if key in scenario_result:
+            row[key] = scenario_result[key]
+    return row
+
+
+def _barrier_reverse_convertible_scenarios(
+    terms: StructuredNoteTerms,
+    base: Dict[str, float],
+    config: StructuredAnalysisConfig,
+) -> List[Dict[str, float | str]]:
+    standard_rows = [
+        {
+            "name": "Base",
+            "description": "Current submitted assumptions.",
+            "price": base["price"],
+            "change": 0.0,
+            "change_pct_notional": 0.0,
+            "standard_error": base["standard_error"],
+            "breach_probability": base["breach_probability"],
+        },
+        _scenario_result(
+            terms,
+            "Volatility shock",
+            {"volatility": terms.volatility + config.scenario_volatility_shock},
+            f"Volatility increases by {_format_pp(config.scenario_volatility_shock)}, raising downside-tail risk.",
+            base["price"],
+        ),
+        _scenario_result(
+            terms,
+            "Barrier step-up",
+            {"protection_barrier": min(0.98, terms.protection_barrier + config.scenario_barrier_shock)},
+            f"Protection barrier is {_format_pp(config.scenario_barrier_shock)} closer to par.",
+            base["price"],
+        ),
+        _scenario_result(
+            terms,
+            "Carry compression",
+            {
+                "coupon_rate": max(0.0, terms.coupon_rate - config.scenario_coupon_shock),
+                "risk_free_rate": terms.risk_free_rate - config.scenario_rate_shock,
+            },
+            f"Coupon falls by {_format_bp(config.scenario_coupon_shock)} and discount rate falls by {_format_bp(config.scenario_rate_shock)}.",
+            base["price"],
+        ),
+        _scenario_result(
+            terms,
+            "Defensive terms",
+            {
+                "volatility": max(0.001, terms.volatility - config.sensitivity_volatility_shock),
+                "protection_barrier": max(0.01, terms.protection_barrier - config.sensitivity_barrier_shock),
+            },
+            f"Volatility falls by {_format_pp(config.sensitivity_volatility_shock)} and barrier moves {_format_pp(config.sensitivity_barrier_shock)} lower.",
+            base["price"],
+        ),
+        _scenario_result(
+            terms,
+            f"Rate +{_format_bp(config.sensitivity_rate_shock)}",
+            {"risk_free_rate": terms.risk_free_rate + config.sensitivity_rate_shock},
+            f"Parallel discount-rate increase of {_format_bp(config.sensitivity_rate_shock)}.",
+            base["price"],
+        ),
+    ]
+
+    if config.scenario_package == "standard":
+        return standard_rows
+
+    if config.scenario_package == "downside":
+        return [
+            standard_rows[0],
+            _scenario_result(
+                terms,
+                "Combined downside stress",
+                {
+                    "volatility": terms.volatility + config.scenario_volatility_shock,
+                    "protection_barrier": min(0.98, terms.protection_barrier + config.scenario_barrier_shock),
+                    "coupon_rate": max(0.0, terms.coupon_rate - config.scenario_coupon_shock),
+                    "risk_free_rate": terms.risk_free_rate - config.scenario_rate_shock,
+                },
+                "Volatility, barrier proximity, coupon carry, and rates move together in a downside repricing package.",
+                base["price"],
+            ),
+            standard_rows[1],
+            standard_rows[2],
+            standard_rows[3],
+        ]
+
+    return [
+        standard_rows[0],
+        standard_rows[4],
+        _scenario_result(
+            terms,
+            "Coupon richening",
+            {"coupon_rate": terms.coupon_rate + config.scenario_coupon_shock},
+            f"Coupon increases by {_format_bp(config.scenario_coupon_shock)} with other assumptions unchanged.",
+            base["price"],
+        ),
+        _scenario_result(
+            terms,
+            "Barrier relief",
+            {"protection_barrier": max(0.01, terms.protection_barrier - config.scenario_barrier_shock)},
+            f"Protection barrier moves {_format_pp(config.scenario_barrier_shock)} lower.",
+            base["price"],
+        ),
+        standard_rows[5],
+    ]
+
+
+def _barrier_reverse_convertible_sensitivity(
+    terms: StructuredNoteTerms,
+    base_price: float,
+    config: StructuredAnalysisConfig,
+) -> List[Dict[str, float | str]]:
+    vol = config.sensitivity_volatility_shock
+    barrier = config.sensitivity_barrier_shock
+    coupon = config.sensitivity_coupon_shock
+    rate = config.sensitivity_rate_shock
+    shocks = [
+        ("Volatility", f"-{_format_pp(vol)}", {"volatility": max(0.001, terms.volatility - vol)}),
+        ("Volatility", f"+{_format_pp(vol)}", {"volatility": terms.volatility + vol}),
+        ("Volatility", f"+{_format_pp(2 * vol)}", {"volatility": terms.volatility + 2 * vol}),
+        (
+            "Protection Barrier",
+            f"-{_format_pp(barrier)}",
+            {"protection_barrier": max(0.01, terms.protection_barrier - barrier)},
+        ),
+        (
+            "Protection Barrier",
+            f"+{_format_pp(barrier)}",
+            {"protection_barrier": min(0.98, terms.protection_barrier + barrier)},
+        ),
+        ("Coupon Rate", f"-{_format_bp(coupon)}", {"coupon_rate": max(0.0, terms.coupon_rate - coupon)}),
+        ("Coupon Rate", f"+{_format_bp(coupon)}", {"coupon_rate": terms.coupon_rate + coupon}),
+        ("Risk-Free Rate", f"-{_format_bp(rate)}", {"risk_free_rate": terms.risk_free_rate - rate}),
+        ("Risk-Free Rate", f"+{_format_bp(rate)}", {"risk_free_rate": terms.risk_free_rate + rate}),
+    ]
+    rows = []
+    for driver, shock, updates in shocks:
+        shocked_result = price_structured_note(_terms_with_updates(terms, updates))
+        rows.append(
+            {
+                "driver": driver,
+                "shock": shock,
+                "price": shocked_result["price"],
+                "change": shocked_result["price"] - base_price,
+                "change_pct_notional": (shocked_result["price"] - base_price)
+                / terms.notional,
+                "breach_probability": shocked_result["breach_probability"],
+            }
+        )
+    return rows
+
+
+def _barrier_reverse_convertible_pnl_attribution(
+    terms: StructuredNoteTerms,
+    base_price: float,
+    config: StructuredAnalysisConfig,
+) -> Dict[str, Any]:
+    attribution_steps = [
+        (
+            f"Volatility +{_format_pp(config.scenario_volatility_shock)}",
+            {"volatility": terms.volatility + config.scenario_volatility_shock},
+        ),
+        (
+            f"Barrier +{_format_pp(config.scenario_barrier_shock)}",
+            {"protection_barrier": min(0.98, terms.protection_barrier + config.scenario_barrier_shock)},
+        ),
+        (
+            f"Coupon -{_format_bp(config.scenario_coupon_shock)}",
+            {"coupon_rate": max(0.0, terms.coupon_rate - config.scenario_coupon_shock)},
+        ),
+        (
+            f"Rate -{_format_bp(config.scenario_rate_shock)}",
+            {"risk_free_rate": terms.risk_free_rate - config.scenario_rate_shock},
+        ),
+    ]
+    cumulative_updates: Dict[str, float] = {}
+    previous_price = base_price
+    rows = []
+    for step, updates in attribution_steps:
+        cumulative_updates.update(updates)
+        step_price = price_structured_note(_terms_with_updates(terms, cumulative_updates))[
+            "price"
+        ]
+        contribution = step_price - previous_price
+        rows.append(
+            {
+                "step": step,
+                "price": step_price,
+                "contribution": contribution,
+                "contribution_pct_notional": contribution / terms.notional,
+            }
+        )
+        previous_price = step_price
+    return {
+        "scenario_name": "Downside-risk repricing",
+        "description": (
+            f"Sequential attribution for a combined stress: volatility +{_format_pp(config.scenario_volatility_shock)}, "
+            f"barrier +{_format_pp(config.scenario_barrier_shock)}, coupon -{_format_bp(config.scenario_coupon_shock)}, "
+            f"and rate -{_format_bp(config.scenario_rate_shock)}."
+        ),
+        "rows": rows,
+        "total_change": previous_price - base_price,
+        "total_change_pct_notional": (previous_price - base_price) / terms.notional,
+    }
+
+
+def _barrier_reverse_convertible_payoff_profile(
+    terms: StructuredNoteTerms,
+    config: StructuredAnalysisConfig,
+) -> List[Dict[str, float | str]]:
+    rows = []
+    coupon_pct = terms.coupon_rate * terms.maturity
+    final_levels = np.linspace(
+        config.payoff_floor,
+        config.payoff_ceiling,
+        int(config.payoff_points),
+    )
+    for final_level in final_levels:
+        final_level = float(final_level)
+        breached = final_level < terms.protection_barrier
+        redemption_pct = final_level if breached else 1.0
+        payoff_pct = redemption_pct + coupon_pct
+        rows.append(
+            {
+                "final_level": final_level,
+                "state": "Barrier breached" if breached else "Full redemption",
+                "redemption_pct": redemption_pct,
+                "coupon_pct": coupon_pct,
+                "payoff_pct": payoff_pct,
+            }
+        )
+    return rows
+
+
+def _barrier_reverse_convertible_risk_indicators(
+    terms: StructuredNoteTerms,
+    base: Dict[str, float],
+) -> List[Dict[str, str | float]]:
+    expected_shortfall = terms.notional - base["expected_redemption"]
+    return [
+        {
+            "label": "Initial Cushion to Barrier",
+            "value": max(0.0, 1.0 - terms.protection_barrier),
+            "value_type": "percent",
+            "comment": "Distance between initial reference level and protection barrier.",
+        },
+        {
+            "label": "Estimated Barrier Breach",
+            "value": base["breach_probability"],
+            "value_type": "percent",
+            "comment": "Monte Carlo probability that final level is below the protection barrier.",
+        },
+        {
+            "label": "Expected Redemption Shortfall",
+            "value": expected_shortfall,
+            "value_type": "currency",
+            "comment": "Expected notional loss before coupon and discounting effects.",
+        },
+        {
+            "label": "5th Percentile Final Level",
+            "value": base["final_level_p05"],
+            "value_type": "percent",
+            "comment": "Left-tail terminal underlying level under submitted assumptions.",
+        },
+    ]
+
+
+def _barrier_reverse_convertible_visuals(report: Dict[str, Any]) -> Dict[str, Any]:
+    visuals: Dict[str, Any] = {}
+    sensitivity_rows = report.get("sensitivity_rows") or []
+    if sensitivity_rows:
+        max_abs_change = max(
+            abs(float(row["change_pct_notional"])) for row in sensitivity_rows
+        ) or 1.0
+        visuals["sensitivity_chart"] = [
+            {
+                "label": f"{row['driver']} {row['shock']}",
+                "value": float(row["change_pct_notional"]),
+                "width": abs(float(row["change_pct_notional"])) / max_abs_change,
+            }
+            for row in sensitivity_rows
+        ]
+
+    attribution = report.get("pnl_attribution")
+    if attribution and attribution.get("rows"):
+        max_abs_contribution = max(
+            abs(float(row["contribution_pct_notional"]))
+            for row in attribution["rows"]
+        ) or 1.0
+        visuals["pnl_chart"] = [
+            {
+                "label": row["step"],
+                "value": float(row["contribution_pct_notional"]),
+                "width": abs(float(row["contribution_pct_notional"]))
+                / max_abs_contribution,
+            }
+            for row in attribution["rows"]
+        ]
+
+    payoff_profile = report.get("payoff_profile") or []
+    if payoff_profile:
+        final_levels = [float(row["final_level"]) for row in payoff_profile]
+        payoff_values = [float(row["payoff_pct"]) for row in payoff_profile]
+        x_min, x_max = min(final_levels), max(final_levels)
+        y_min, y_max = min(payoff_values), max(payoff_values)
+        y_span = y_max - y_min or 1.0
+        x_span = x_max - x_min or 1.0
+        points = []
+        for final_level, payoff_value in zip(final_levels, payoff_values):
+            x = (final_level - x_min) / x_span * 100.0
+            y = 100.0 - ((payoff_value - y_min) / y_span * 90.0 + 5.0)
+            points.append(f"{x:.2f},{y:.2f}")
+        visuals["payoff_chart"] = {
+            "points": " ".join(points),
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_min,
+            "y_max": y_max,
+        }
+
+    return visuals
+
+
+def build_structured_note_analysis(
+    terms: StructuredNoteTerms,
+    config: StructuredAnalysisConfig | None = None,
+) -> Dict[str, Any]:
+    config = _validate_analysis_config(config or StructuredAnalysisConfig())
+    base = price_structured_note(terms)
+    if terms.product_type != "barrier_reverse_convertible":
+        return {
+            "product_type": terms.product_type,
+            "is_product_specific": False,
+            "scenario_rows": structured_note_scenarios(terms),
+        }
+
+    report: Dict[str, Any] = {
+        "product_type": terms.product_type,
+        "is_product_specific": True,
+        "title": "Barrier Reverse Convertible Risk Review",
+        "summary": (
+            "Review downside barrier exposure, coupon carry, volatility/rate sensitivity, "
+            "and sequential P&L attribution for a combined downside-risk repricing scenario."
+        ),
+        "analysis_config": config.__dict__,
+        "scenario_rows": [],
+        "sensitivity_rows": [],
+        "pnl_attribution": None,
+        "payoff_profile": [],
+        "risk_indicators": [],
+        "visuals": {},
+    }
+    if config.run_scenario_analysis:
+        report["scenario_rows"] = _barrier_reverse_convertible_scenarios(
+            terms,
+            base,
+            config,
+        )
+    if config.run_driver_sensitivity:
+        report["sensitivity_rows"] = _barrier_reverse_convertible_sensitivity(
+            terms,
+            base["price"],
+            config,
+        )
+    if config.run_pnl_attribution:
+        report["pnl_attribution"] = _barrier_reverse_convertible_pnl_attribution(
+            terms,
+            base["price"],
+            config,
+        )
+    if config.run_payoff_profile:
+        report["payoff_profile"] = _barrier_reverse_convertible_payoff_profile(
+            terms,
+            config,
+        )
+    if config.run_risk_diagnostics:
+        report["risk_indicators"] = _barrier_reverse_convertible_risk_indicators(
+            terms,
+            base,
+        )
+    if config.include_visuals:
+        report["visuals"] = _barrier_reverse_convertible_visuals(report)
+
+    return report
+
+
 def structured_note_scenarios(terms: StructuredNoteTerms) -> List[Dict[str, float | str]]:
     base = price_structured_note(terms)
-    scenarios = [{"name": "Base", "price": base["price"], "change": 0.0}]
+    if terms.product_type == "barrier_reverse_convertible":
+        return _barrier_reverse_convertible_scenarios(
+            terms,
+            base,
+            StructuredAnalysisConfig(),
+        )
+
+    scenarios = [
+        {
+            "name": "Base",
+            "description": "Current submitted assumptions.",
+            "price": base["price"],
+            "change": 0.0,
+            "change_pct_notional": 0.0,
+        }
+    ]
 
     if terms.product_type == "credit_linked_note":
         shocks = [

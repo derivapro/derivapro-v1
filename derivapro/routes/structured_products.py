@@ -9,9 +9,15 @@ from flask_login import current_user
 from ..extensions import db
 from ..models.db_models import Instrument, PricingResult
 from ..models.mdls_structured_first_wave import (
+    StructuredAnalysisConfig,
     StructuredNoteTerms,
+    build_structured_note_analysis,
     price_structured_note,
-    structured_note_scenarios,
+)
+from ..services.simulation_config import (
+    apply_simulation_defaults,
+    get_effective_simulation_settings,
+    simulation_audit_payload,
 )
 
 structured_products_bp = Blueprint("structured_products", __name__)
@@ -241,6 +247,28 @@ FIELD_META = {
 }
 
 
+ANALYSIS_FORM_DEFAULTS = {
+    "scenario_package": "standard",
+    "run_scenario_analysis": "on",
+    "run_driver_sensitivity": "on",
+    "run_pnl_attribution": "on",
+    "run_payoff_profile": "on",
+    "run_risk_diagnostics": "on",
+    "include_visuals": "on",
+    "scenario_volatility_shock": "0.10",
+    "scenario_barrier_shock": "0.05",
+    "scenario_coupon_shock": "0.02",
+    "scenario_rate_shock": "0.005",
+    "sensitivity_volatility_shock": "0.05",
+    "sensitivity_barrier_shock": "0.05",
+    "sensitivity_coupon_shock": "0.01",
+    "sensitivity_rate_shock": "0.01",
+    "payoff_floor": "0.40",
+    "payoff_ceiling": "1.20",
+    "payoff_points": "7",
+}
+
+
 def _format_value(value, value_type):
     if value is None:
         return "N/A"
@@ -302,6 +330,57 @@ def _build_terms(config, form_data):
     return StructuredNoteTerms(**term_values)
 
 
+def _parse_analysis_form_data():
+    analysis_form_data = dict(ANALYSIS_FORM_DEFAULTS)
+    for key in ANALYSIS_FORM_DEFAULTS:
+        if key in {
+            "run_scenario_analysis",
+            "run_driver_sensitivity",
+            "run_pnl_attribution",
+            "run_payoff_profile",
+            "run_risk_diagnostics",
+            "include_visuals",
+        }:
+            analysis_form_data[key] = "on" if key in request.form else "off"
+        else:
+            analysis_form_data[key] = request.form.get(
+                key,
+                ANALYSIS_FORM_DEFAULTS[key],
+            )
+    return analysis_form_data
+
+
+def _build_analysis_config(analysis_form_data):
+    return StructuredAnalysisConfig(
+        scenario_package=analysis_form_data["scenario_package"],
+        run_scenario_analysis=analysis_form_data["run_scenario_analysis"] == "on",
+        run_driver_sensitivity=analysis_form_data["run_driver_sensitivity"] == "on",
+        run_pnl_attribution=analysis_form_data["run_pnl_attribution"] == "on",
+        run_payoff_profile=analysis_form_data["run_payoff_profile"] == "on",
+        run_risk_diagnostics=analysis_form_data["run_risk_diagnostics"] == "on",
+        include_visuals=analysis_form_data["include_visuals"] == "on",
+        scenario_volatility_shock=float(
+            analysis_form_data["scenario_volatility_shock"],
+        ),
+        scenario_barrier_shock=float(analysis_form_data["scenario_barrier_shock"]),
+        scenario_coupon_shock=float(analysis_form_data["scenario_coupon_shock"]),
+        scenario_rate_shock=float(analysis_form_data["scenario_rate_shock"]),
+        sensitivity_volatility_shock=float(
+            analysis_form_data["sensitivity_volatility_shock"],
+        ),
+        sensitivity_barrier_shock=float(
+            analysis_form_data["sensitivity_barrier_shock"],
+        ),
+        sensitivity_coupon_shock=float(
+            analysis_form_data["sensitivity_coupon_shock"],
+        ),
+        sensitivity_rate_shock=float(analysis_form_data["sensitivity_rate_shock"]),
+        payoff_floor=float(analysis_form_data["payoff_floor"]),
+        payoff_ceiling=float(analysis_form_data["payoff_ceiling"]),
+        payoff_points=int(float(analysis_form_data["payoff_points"])),
+    )
+
+
 def _format_results(config, raw_results):
     primary_metrics = [
         {
@@ -330,15 +409,134 @@ def _format_scenarios(scenarios):
     return [
         {
             "name": row["name"],
+            "description": row.get("description", ""),
             "price": _format_value(row["price"], "currency"),
             "change": _format_value(row["change"], "currency"),
             "change_pct_notional": _format_value(row.get("change_pct_notional", 0.0), "percent"),
+            "breach_probability": _format_value(row.get("breach_probability"), "percent")
+            if "breach_probability" in row
+            else None,
         }
         for row in scenarios
     ]
 
 
-def _save_pricing_result(config, terms, results):
+def _format_analysis_report(report):
+    if not report:
+        return None
+
+    formatted = {
+        "title": report.get("title", "Structured Product Analysis"),
+        "summary": report.get("summary", ""),
+        "is_product_specific": report.get("is_product_specific", False),
+        "scenario_rows": _format_scenarios(report.get("scenario_rows", [])),
+        "sensitivity_rows": [],
+        "risk_indicators": [],
+        "payoff_profile": [],
+        "pnl_attribution": None,
+        "visuals": {},
+    }
+
+    for row in report.get("sensitivity_rows", []):
+        formatted["sensitivity_rows"].append(
+            {
+                "driver": row["driver"],
+                "shock": row["shock"],
+                "price": _format_value(row["price"], "currency"),
+                "change": _format_value(row["change"], "currency"),
+                "change_pct_notional": _format_value(
+                    row["change_pct_notional"],
+                    "percent",
+                ),
+                "breach_probability": _format_value(
+                    row.get("breach_probability"),
+                    "percent",
+                ),
+            }
+        )
+
+    for indicator in report.get("risk_indicators", []):
+        formatted["risk_indicators"].append(
+            {
+                "label": indicator["label"],
+                "value": _format_value(
+                    indicator["value"],
+                    indicator.get("value_type", "number"),
+                ),
+                "comment": indicator.get("comment", ""),
+            }
+        )
+
+    for row in report.get("payoff_profile", []):
+        formatted["payoff_profile"].append(
+            {
+                "final_level": _format_value(row["final_level"], "percent"),
+                "state": row["state"],
+                "redemption_pct": _format_value(row["redemption_pct"], "percent"),
+                "coupon_pct": _format_value(row["coupon_pct"], "percent"),
+                "payoff_pct": _format_value(row["payoff_pct"], "percent"),
+            }
+        )
+
+    attribution = report.get("pnl_attribution")
+    if attribution:
+        formatted["pnl_attribution"] = {
+            "scenario_name": attribution["scenario_name"],
+            "description": attribution["description"],
+            "total_change": _format_value(attribution["total_change"], "currency"),
+            "total_change_pct_notional": _format_value(
+                attribution["total_change_pct_notional"],
+                "percent",
+            ),
+            "rows": [
+                {
+                    "step": row["step"],
+                    "price": _format_value(row["price"], "currency"),
+                    "contribution": _format_value(row["contribution"], "currency"),
+                    "contribution_pct_notional": _format_value(
+                        row["contribution_pct_notional"],
+                        "percent",
+                    ),
+                }
+                for row in attribution.get("rows", [])
+            ],
+        }
+
+    visuals = report.get("visuals") or {}
+    if visuals.get("sensitivity_chart"):
+        formatted["visuals"]["sensitivity_chart"] = [
+            {
+                "label": row["label"],
+                "value": _format_value(row["value"], "percent"),
+                "width": "{:.1f}%".format(float(row["width"]) * 100.0),
+                "direction": "positive" if float(row["value"]) >= 0 else "negative",
+            }
+            for row in visuals["sensitivity_chart"]
+        ]
+    if visuals.get("pnl_chart"):
+        formatted["visuals"]["pnl_chart"] = [
+            {
+                "label": row["label"],
+                "value": _format_value(row["value"], "percent"),
+                "width": "{:.1f}%".format(float(row["width"]) * 100.0),
+                "direction": "positive" if float(row["value"]) >= 0 else "negative",
+            }
+            for row in visuals["pnl_chart"]
+        ]
+    if visuals.get("payoff_chart"):
+        payoff_chart = visuals["payoff_chart"]
+        formatted["visuals"]["payoff_chart"] = {
+            "points": payoff_chart["points"],
+            "x_min": _format_value(payoff_chart["x_min"], "percent"),
+            "x_max": _format_value(payoff_chart["x_max"], "percent"),
+            "y_min": _format_value(payoff_chart["y_min"], "percent"),
+            "y_max": _format_value(payoff_chart["y_max"], "percent"),
+        }
+
+    return formatted
+
+
+def _save_pricing_result(config, terms, results, simulation_settings):
     if not current_user.is_authenticated:
         return
 
@@ -349,7 +547,10 @@ def _save_pricing_result(config, terms, results):
         model_name="structured_products_first_wave",
         start_date=None,
         end_date=None,
-        params_json=terms.__dict__,
+        params_json={
+            **terms.__dict__,
+            "simulation_configuration": simulation_audit_payload(simulation_settings),
+        },
     )
     db.session.add(instrument)
     db.session.flush()
@@ -363,7 +564,10 @@ def _save_pricing_result(config, terms, results):
         vega=None,
         theta=None,
         rho=None,
-        result_json=results,
+        result_json={
+            **results,
+            "simulation_configuration": simulation_audit_payload(simulation_settings),
+        },
     )
     db.session.add(pricing_result)
     db.session.commit()
@@ -383,19 +587,39 @@ def structured_product(product_slug):
     if not config:
         abort(404)
 
-    form_data = config["defaults"]
+    simulation_settings = get_effective_simulation_settings(current_user)
+    form_data = dict(config["defaults"])
+    apply_simulation_defaults(
+        form_data,
+        simulation_settings,
+        random_key=None,
+        seed_key="random_seed",
+    )
     formatted_results = None
     scenario_results = None
+    analysis_report = None
+    analysis_form_data = dict(ANALYSIS_FORM_DEFAULTS)
+    selected_action = "price"
     pricing_error = None
 
     if request.method == "POST":
+        selected_action = request.form.get("action", "price")
         form_data = _parse_form_data(config)
+        analysis_form_data = _parse_analysis_form_data()
         try:
             terms = _build_terms(config, form_data)
             raw_results = price_structured_note(terms)
-            _save_pricing_result(config, terms, raw_results)
+            if selected_action == "price":
+                _save_pricing_result(config, terms, raw_results, simulation_settings)
             formatted_results = _format_results(config, raw_results)
-            scenario_results = _format_scenarios(structured_note_scenarios(terms))
+            if selected_action == "analysis":
+                analysis_config = _build_analysis_config(analysis_form_data)
+                raw_analysis_report = build_structured_note_analysis(
+                    terms,
+                    analysis_config,
+                )
+                analysis_report = _format_analysis_report(raw_analysis_report)
+                scenario_results = analysis_report["scenario_rows"]
         except Exception as exc:
             pricing_error = str(exc)
 
@@ -411,6 +635,12 @@ def structured_product(product_slug):
         form_data=form_data,
         results=formatted_results,
         scenarios=scenario_results,
+        analysis_report=analysis_report,
+        analysis_form_data=analysis_form_data,
+        selected_action=selected_action,
+        supports_configurable_analysis=config["product_type"]
+        == "barrier_reverse_convertible",
         pricing_error=pricing_error,
         methodology_url=methodology_url,
+        simulation_settings=simulation_settings,
     )

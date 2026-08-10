@@ -107,20 +107,20 @@ These notes are intended to support transparency, model review, implementation c
 
 ## 🚦 Development Status
 
-| Area                                                 |           Status | Notes                                                                                                                                                                                                                                             |
-| ---------------------------------------------------- | ---------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Flask application factory and blueprint architecture |          ✅ Done | Modular route registration through`derivapro/routes`.                                                                                                                                                                                           |
-| Product-level pricing workflows                      | ✅ Done / active | Current workflows span options, structured autocallables, rates, credit, fixed income, volatility, forwards, and prepayment.                                                                                                                      |
-| Markdown-backed model documentation                  | ✅ Done / active | Route-level Markdown content supports explanations, governance notes, and user guidance.                                                                                                                                                          |
-| Environment-based secrets/configuration              |   🟡 In progress | `.env.example` exists; configuration should continue moving away from hardcoded values.                                                                                                                                                         |
-| Structured logging                                   |   🟡 In progress | `logging_config.py` exists; remaining ad hoc logging should be normalized.                                                                                                                                                                      |
-| Monte Carlo modernization                            |   🟡 In progress | Both legacy and v2 Monte Carlo modules exist; the structured autocallable workflow now reuses the v2 path engine and introduces reusable simulation configuration controls.                                                                       |
-| Prepayment modeling workflow                         |   🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries.                                                                                                                                                             |
-| Report generation                                    |   🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned.                                                                                                                                                               |
-| Structured product payoff coverage                   |   🟡 In progress | First-wave structured product pages now cover autocallables, reverse convertibles, principal-protected notes, enhanced/buffered notes, contingent income notes, and credit-linked notes. Broader payoff-builder components remain a roadmap item. |
-| Portfolio-level risk                                 |       🔵 Planned | Current workflows are mostly instrument-level; portfolio aggregation is the next major product step.                                                                                                                                              |
-| Database persistence and user identity               |       🔵 Planned | Current state is mostly session/file based.                                                                                                                                                                                                       |
-| Automated tests and CI                               |       🔵 Planned | Pricing regression tests and route tests are needed before production use.                                                                                                                                                                        |
+| Area | Status | Notes |
+|---|---:|---|
+| Flask application factory and blueprint architecture | ✅ Done | Modular route registration through `derivapro/routes`. |
+| Product-level pricing workflows | ✅ Done / active | Current workflows span options, structured autocallables, rates, credit, fixed income, volatility, forwards, and prepayment. |
+| Markdown-backed model documentation | ✅ Done / active | Route-level Markdown content supports explanations, governance notes, and user guidance. |
+| Environment-based secrets/configuration | 🟡 In progress | `.env.example` exists; configuration should continue moving away from hardcoded values. |
+| Structured logging | 🟡 In progress | `logging_config.py` exists; remaining ad hoc logging should be normalized. |
+| Monte Carlo modernization | 🟡 In progress | Shared simulation configuration now supports reusable path-count, time-step, random-sequence, and seed defaults for eligible MC workflows; legacy/product-local simulations still need consolidation. |
+| Prepayment modeling workflow | 🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries. |
+| Report generation | 🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned. |
+| Structured product payoff coverage | 🟡 In progress | First-wave structured product pages now cover autocallables, reverse convertibles, principal-protected notes, enhanced/buffered notes, contingent income notes, and credit-linked notes. Barrier Reverse Convertible now includes configurable user-triggered analysis. Broader payoff-builder components remain a roadmap item. |
+| Portfolio-level risk | 🔵 Planned | Current workflows are mostly instrument-level; portfolio aggregation is the next major product step. |
+| Database persistence and user identity | 🔵 Planned | Current state is mostly session/file based. |
+| Automated tests and CI | 🔵 Planned | Pricing regression tests and route tests are needed before production use. |
 
 ---
 
@@ -241,17 +241,18 @@ derivapro-v1/
 
 ### Key model modules
 
-| Module                                                | Focus                                       |
-| ----------------------------------------------------- | ------------------------------------------- |
-| `market_data.py`                                    | Market data helpers.                        |
-| `mdls_vanilla_options.py`                           | Black-Scholes style pricing and Greeks.     |
-| `mdls_lattice_trees.py` / `mdls_binomial_tree.py` | Lattice and binomial option models.         |
-| `mdls_monte_carlo.py` / `mdls_monte_carlo_v2.py`  | Monte Carlo pricing and simulation engines. |
-| `mdls_bonds.py`                                     | Fixed-income analytics.                     |
-| `mdls_credit.py`                                    | Credit derivatives analytics.               |
-| `mdls_swaps.py` / `swaps.py` / `swaptions.py`   | Rates and swap analytics.                   |
-| `mdls_term_structure.py`                            | Yield curve and term structure modeling.    |
-| `mdls_prepayment.py` / `mdls_prepayment_v2.py`    | Prepayment workflows.                       |
+| Module | Focus |
+|---|---|
+| `market_data.py` | Market data helpers. |
+| `mdls_vanilla_options.py` | Black-Scholes style pricing and Greeks. |
+| `mdls_lattice_trees.py` / `mdls_binomial_tree.py` | Lattice and binomial option models. |
+| `mdls_monte_carlo.py` / `mdls_monte_carlo_v2.py` | Monte Carlo pricing and simulation engines. |
+| `simulation_settings.py` | Shared simulation configuration schema for workspace-level MC defaults. |
+| `mdls_bonds.py` | Fixed-income analytics. |
+| `mdls_credit.py` | Credit derivatives analytics. |
+| `mdls_swaps.py` / `swaps.py` / `swaptions.py` | Rates and swap analytics. |
+| `mdls_term_structure.py` | Yield curve and term structure modeling. |
+| `mdls_prepayment.py` / `mdls_prepayment_v2.py` | Prepayment workflows. |
 
 ---
 

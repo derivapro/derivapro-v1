@@ -11,6 +11,11 @@ import random as random_module
 from dotenv import load_dotenv
 from ..extensions import db
 from ..models.db_models import AnalysisResult, Instrument, Plot, PricingResult
+from ..services.simulation_config import (
+    apply_simulation_defaults,
+    get_effective_simulation_settings,
+    simulation_audit_payload,
+)
 from ..utils.lazy_imports import LazyAttribute, LazyImport
 import logging
 
@@ -98,6 +103,7 @@ def _default_autocallable_structured_form_data():
         "structured_num_paths": "10000",
         "structured_num_steps": "252",
         "structured_random_type": "pseudo",
+        "structured_random_seed": "42",
         "structured_memory_coupon": "on",
     }
 
@@ -146,6 +152,7 @@ def _build_autocallable_structured_terms(form_data):
         num_paths=int(form_data.get("structured_num_paths", 10000)),
         num_steps=int(form_data.get("structured_num_steps", 252)),
         random_type=form_data.get("structured_random_type", "sobol"),
+        random_seed=int(form_data.get("structured_random_seed", 42)),
     )
 
 
@@ -177,6 +184,7 @@ def _format_autocallable_structured_results(raw_results, terms):
             "paths": "{:,}".format(terms.num_paths),
             "steps": "{:,}".format(terms.num_steps),
             "random_type": terms.random_type.title(),
+            "random_seed": terms.random_seed,
         },
         "barriers": {
             "coupon": _format_percent(terms.coupon_barrier),
@@ -299,6 +307,7 @@ def _default_barrier_form_data():
         "num_steps": 252,
         "num_paths": 10000,
         "random_type": "sobol",
+        "random_seed": 42,
         "discretization": "euler",
     }
 
@@ -326,6 +335,7 @@ def _build_barrier_form_data_from_instrument(instrument):
         "num_steps": params.get("num_steps", params.get("N", 252)),
         "num_paths": params.get("num_paths", params.get("M", 10000)),
         "random_type": params.get("random_type", "sobol"),
+        "random_seed": params.get("random_seed", 42),
         "discretization": params.get("discretization", "euler"),
     }
 
@@ -351,6 +361,7 @@ def _price_barrier_mc(
     num_paths,
     num_steps,
     random_type,
+    random_seed=None,
 ):
     engine = monte_carlo_module.create_monte_carlo_engine(
         S0=spot_price,
@@ -360,6 +371,7 @@ def _price_barrier_mc(
         num_paths=max(100, int(num_paths)),
         num_steps=max(2, int(num_steps)),
         random_type=random_type,
+        random_seed=random_seed,
     )
     return float(
         engine.price_barrier_option(
@@ -388,6 +400,7 @@ def _barrier_greeks_finite_difference(
     barrier_type = form_data["barrier_type"]
     barrier_level = form_data["barrier"]
     random_type = form_data.get("random_type", "sobol")
+    random_seed = form_data.get("random_seed", 42)
 
     def price_at(spot=None, vol=None, rate=None, time=None):
         return _price_barrier_mc(
@@ -403,6 +416,7 @@ def _barrier_greeks_finite_difference(
             num_paths,
             num_steps,
             random_type,
+            random_seed,
         )
 
     spot_bump = max(spot_price * 0.01, 0.01)
@@ -986,7 +1000,14 @@ def autocallable_options():
     latest_analysis = None
     latest_pricing_result = None
     form_data = {}
+    simulation_settings = get_effective_simulation_settings(current_user)
     structured_form_data = _default_autocallable_structured_form_data()
+    apply_simulation_defaults(
+        structured_form_data,
+        simulation_settings,
+        prefix="structured",
+        seed_key="random_seed",
+    )
     latest_pricing_result_id = None
     latest_analysis_result_id = None
 
@@ -1083,6 +1104,10 @@ def autocallable_options():
                             "num_paths": terms.num_paths,
                             "num_steps": terms.num_steps,
                             "random_type": terms.random_type,
+                            "random_seed": terms.random_seed,
+                            "simulation_configuration": simulation_audit_payload(
+                                simulation_settings
+                            ),
                         },
                     )
                     db.session.add(instrument)
@@ -1097,7 +1122,12 @@ def autocallable_options():
                         vega=None,
                         theta=None,
                         rho=None,
-                        result_json=structured_results,
+                        result_json={
+                            **structured_results,
+                            "simulation_configuration": simulation_audit_payload(
+                                simulation_settings
+                            ),
+                        },
                     )
                     db.session.add(pricing_result)
                     db.session.commit()
@@ -1117,6 +1147,7 @@ def autocallable_options():
                 scenario_results=scenario_results,
                 risk_pl_results=risk_pl_results,
                 md_content=md_content,
+                simulation_settings=simulation_settings,
             )
 
         form_data = {
@@ -1681,7 +1712,15 @@ def asian_options():
         content = readme_file.read()
     md_content = markdown.markdown(content)
 
+    simulation_settings = get_effective_simulation_settings(current_user)
     form_data = _default_asian_form_data()
+    apply_simulation_defaults(
+        form_data,
+        simulation_settings,
+        steps_key=None,
+        random_key=None,
+        seed_key="seed",
+    )
     option_price = None
     delta = None
     gamma = None
@@ -1831,6 +1870,9 @@ def asian_options():
                         "averaging_dates": [d.isoformat() for d in averaging_dates],
                         "num_paths": form_data["num_paths"],
                         "seed": form_data["seed"],
+                        "simulation_configuration": simulation_audit_payload(
+                            simulation_settings
+                        ),
                     },
                 )
                 db.session.add(instrument)
@@ -1853,6 +1895,9 @@ def asian_options():
                         "theta": None,
                         "rho": raw_greeks["rho"],
                         "run_summary": run_summary,
+                        "simulation_configuration": simulation_audit_payload(
+                            simulation_settings
+                        ),
                     },
                 )
                 db.session.add(pricing_result)
@@ -2489,7 +2534,13 @@ def barrier_options():
         content = readme_file.read()
     md_content = markdown.markdown(content)
 
+    simulation_settings = get_effective_simulation_settings(current_user)
     form_data = _default_barrier_form_data()
+    apply_simulation_defaults(
+        form_data,
+        simulation_settings,
+        seed_key="random_seed",
+    )
     option_price = None
     delta = None
     gamma = None
@@ -2628,6 +2679,7 @@ def barrier_options():
                 "num_steps": safe_int(request.form.get("num_steps"), 252),
                 "num_paths": safe_int(request.form.get("num_paths"), 10000),
                 "random_type": request.form.get("random_type", "sobol"),
+                "random_seed": safe_int(request.form.get("random_seed"), 42),
                 "discretization": request.form.get("discretization", "euler"),
             }
 
@@ -2687,6 +2739,7 @@ def barrier_options():
                 form_data["num_paths"],
                 form_data["num_steps"],
                 form_data["random_type"],
+                form_data["random_seed"],
             )
             raw_greeks = _barrier_greeks_finite_difference(
                 form_data,
@@ -2734,7 +2787,11 @@ def barrier_options():
                         "num_steps": form_data["num_steps"],
                         "num_paths": form_data["num_paths"],
                         "random_type": form_data["random_type"],
+                        "random_seed": form_data["random_seed"],
                         "discretization": form_data["discretization"],
+                        "simulation_configuration": simulation_audit_payload(
+                            simulation_settings
+                        ),
                     },
                 )
                 db.session.add(instrument)
@@ -2757,6 +2814,9 @@ def barrier_options():
                         "theta": raw_greeks["theta"],
                         "rho": raw_greeks["rho"],
                         "run_summary": run_summary,
+                        "simulation_configuration": simulation_audit_payload(
+                            simulation_settings
+                        ),
                     },
                 )
                 db.session.add(pricing_result)

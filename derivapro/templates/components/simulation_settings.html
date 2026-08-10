@@ -1,4 +1,4 @@
-{% macro monte_carlo(form_data, prefix="structured", paths_label="Number of Paths", steps_label="Time Steps", show_random_type=True) -%}
+{% macro monte_carlo(form_data, prefix="structured", paths_label="Number of Paths", steps_label="Time Steps", show_random_type=True, show_seed=True) -%}
 <div class="pricing-form-block simulation-settings-block">
     <div class="pricing-form-heading">
         <span aria-hidden="true">🎲</span>
@@ -28,6 +28,14 @@
                 <option value="sobol" {% if form_data.get(prefix ~ '_random_type') == 'sobol' %}selected{% endif %}>Sobol low-discrepancy</option>
             </select>
             <div class="field-hint">Pseudo-random is the faster default; Sobol can be used for convergence review.</div>
+        </div>
+        {% endif %}
+        {% if show_seed %}
+        <div class="form-group">
+            <label for="{{ prefix }}_random_seed">Random Seed</label>
+            <input type="number" min="0" step="1" id="{{ prefix }}_random_seed" name="{{ prefix }}_random_seed"
+                value="{{ form_data.get(prefix ~ '_random_seed', '42') }}" required>
+            <div class="field-hint">Used for repeatable simulations where supported by the pricing engine.</div>
         </div>
         {% endif %}
     </div>

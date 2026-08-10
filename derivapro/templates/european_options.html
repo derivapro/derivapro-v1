@@ -407,6 +407,11 @@
                     <label for="num_steps">Number of Time Steps</label>
                     <input type="number" id="num_steps" name="num_steps" value="{{ form_data.num_steps|default(252) }}" min="50" max="1000" step="1">
                 </div>
+                <div class="form-group">
+                    <label for="random_seed">Random Seed</label>
+                    <input type="number" id="random_seed" name="random_seed" value="{{ form_data.random_seed|default(42) }}" min="0" step="1">
+                    <div class="field-hint">Used for repeatable Monte Carlo comparison runs.</div>
+                </div>
             </div>
         </div>
     </div>
