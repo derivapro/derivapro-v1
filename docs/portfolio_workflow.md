@@ -19,6 +19,7 @@ This is different from a single-product pricing page:
 5. Add saved pricing results to the portfolio or update positions with pricing references.
 6. Export the portfolio JSON as a private local copy.
 7. Import the local JSON later to restore or clone the book.
+8. Delete registered portfolios or stale local JSON copies when they are no longer needed.
 
 ## Position Types
 
@@ -85,6 +86,18 @@ derivapro/static/sample_portfolios/equity_derivatives_portfolio.json
 ```
 
 That file is illustrative only and should not be treated as market data, valuation guidance, or production portfolio content.
+
+## Deletion Behavior
+
+Deleting a registered portfolio removes:
+
+- The portfolio record.
+- The position records registered under that portfolio.
+- The automatic local JSON snapshot for that portfolio, when available.
+
+Deleting a portfolio does not delete saved pricing results, instruments, analysis history, plots, or reports. Those records may be reused elsewhere in the app and should be managed through their own workflows.
+
+The Portfolio landing page also allows users to delete stale local JSON copies independently. This only removes the local file and does not affect registered portfolios unless that JSON is later re-imported.
 
 ## Current Limitations
 

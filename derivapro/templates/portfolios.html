@@ -3,108 +3,138 @@
 {% block content %}
 <div class="page-title compact">
     <h1>Portfolios</h1>
-    <p>Create reusable trading books first, then attach positions, valuation results, market assumptions, and future portfolio-level analytics.</p>
+    <p>Create and manage private trading books before running product-level pricing and portfolio-level risk review.</p>
 </div>
 
-<div class="portfolio-workflow-hero">
-    <div>
-        <span class="section-eyebrow">Portfolio-first workflow</span>
-        <h2>Build the book before pricing individual trades.</h2>
+<div class="portfolio-command-panel">
+    <div class="portfolio-command-copy">
+        <span class="section-eyebrow">Portfolio workspace</span>
+        <h2>Register a book, add positions, then connect valuation outputs.</h2>
         <p>
-            Use portfolios as private local workspaces for desk books, strategy baskets, client portfolios,
-            structured-note inventories, or cross-asset watchlists. Positions can start as unpriced trade
-            templates and be linked to pricing results later.
+            Portfolios support manually entered positions, imported JSON books, and saved pricing results.
+            Use this page as the starting point for desk books, strategy baskets, client books, structured-note inventories, and cross-asset watchlists.
         </p>
-    </div>
-    <div class="portfolio-workflow-steps">
-        <div class="portfolio-step">
-            <strong>1</strong>
-            <span>Create / import portfolio</span>
-        </div>
-        <div class="portfolio-step">
-            <strong>2</strong>
-            <span>Add manual positions</span>
-        </div>
-        <div class="portfolio-step">
-            <strong>3</strong>
-            <span>Price applicable products</span>
-        </div>
-        <div class="portfolio-step">
-            <strong>4</strong>
-            <span>Review book-level exposure</span>
+        <div class="portfolio-workflow-strip" aria-label="Portfolio workflow">
+            <span>Create or import</span>
+            <span>Add positions</span>
+            <span>Link pricing</span>
+            <span>Review exposure</span>
         </div>
     </div>
-</div>
 
-<div class="portfolio-workflow-grid">
-    <div class="portfolio-form-card">
-        <span class="portfolio-card-icon">+</span>
+    <div class="portfolio-command-card">
         <h3>Create Portfolio</h3>
-        <p>Create the trading book first. You will be taken directly to the portfolio workspace where you can add holdings, derivatives, structured notes, or saved pricing results.</p>
-        <form method="post" class="form-grid portfolio-create-form">
+        <form method="post" class="portfolio-create-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="name">Portfolio Name</label>
                 <input type="text" id="name" name="name" placeholder="e.g., Equity Derivatives Book" required>
             </div>
-
             <div class="form-group">
                 <label for="description">Description</label>
-                <input type="text" id="description" name="description" placeholder="Optional desk, strategy, or portfolio purpose">
+                <input type="text" id="description" name="description" placeholder="Optional desk, strategy, or purpose">
             </div>
-
-            <div class="form-group full-width">
-                <button type="submit">Create & Open Portfolio</button>
-            </div>
+            <button type="submit" class="portfolio-submit-button">Create & Open</button>
         </form>
     </div>
+</div>
 
-    <div class="portfolio-form-card">
-        <span class="portfolio-card-icon">JSON</span>
+<div class="portfolio-utility-grid">
+    <div class="portfolio-utility-card">
         <h3>Import Portfolio JSON</h3>
-        <p>Import a DerivaPro portfolio JSON file. User-created local portfolio files are private local artifacts and should not be committed to GitHub.</p>
+        <p>Load a DerivaPro portfolio file from your local machine. Imported portfolios remain private to your local app session.</p>
         <form method="post" action="{{ url_for('portfolios.import_upload') }}" enctype="multipart/form-data" class="portfolio-import-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="portfolio_file">Portfolio JSON File</label>
                 <input type="file" id="portfolio_file" name="portfolio_file" accept="application/json,.json" required>
             </div>
-            <button type="submit">Import Uploaded File</button>
+            <button type="submit" class="portfolio-submit-button secondary">Import JSON</button>
         </form>
-        <p class="inline-muted-text">Sample format: <a href="{{ url_for('static', filename='sample_portfolios/equity_derivatives_portfolio.json') }}" target="_blank" rel="noopener">equity derivatives portfolio JSON</a>.</p>
+        <p class="inline-muted-text">Sample: <a href="{{ url_for('static', filename='sample_portfolios/equity_derivatives_portfolio.json') }}" target="_blank" rel="noopener">equity derivatives portfolio JSON</a>.</p>
+    </div>
+
+    <div class="portfolio-utility-card">
+        <h3>Data Handling</h3>
+        <p>
+            User-created portfolio files are local artifacts. Automatic JSON snapshots are stored under
+            <code>local_data/portfolios/</code> and are ignored by Git.
+        </p>
+        <p class="inline-muted-text">Workflow guide: <code>docs/portfolio_workflow.md</code>.</p>
     </div>
 </div>
 
-<div class="portfolio-capability-strip">
-    <div>
-        <strong>Manual position entry</strong>
-        <span>Cash assets, listed options, OTC derivatives, structured notes, fixed income, credit, FX, and commodities.</span>
+{% if portfolios %}
+<div class="history-table-card portfolio-table-card">
+    <div class="portfolio-table-header">
+        <div>
+            <span class="section-eyebrow">Registered books</span>
+            <h3>Existing Portfolios</h3>
+        </div>
+        <div class="table-actions">
+            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=xlsx" class="btn">Export XLSX</a>
+            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=csv" class="btn">Export CSV</a>
+        </div>
     </div>
-    <div>
-        <strong>Private local persistence</strong>
-        <span>Export/import JSON and automatic local copies under <code>local_data/portfolios/</code>.</span>
-    </div>
-    <div>
-        <strong>Pricing linkage</strong>
-        <span>Attach saved product valuation results when an instrument is ready for model-driven pricing.</span>
-    </div>
-    <div>
-        <strong>Documentation</strong>
-        <span>Workflow guide: <code>docs/portfolio_workflow.md</code>.</span>
+    <div class="history-table-wrap">
+        <table class="results-table history-table portfolios-table portfolio-management-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Positions</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for portfolio in portfolios %}
+                <tr>
+                    <td>
+                        <strong>{{ portfolio.name }}</strong>
+                    </td>
+                    <td>{{ portfolio.description or "N/A" }}</td>
+                    <td>{{ portfolio.positions|length }}</td>
+                    <td>{{ portfolio.created_at }}</td>
+                    <td>
+                        <div class="portfolio-row-actions">
+                            <a href="{{ url_for('portfolios.portfolio_detail', portfolio_id=portfolio.id) }}" class="table-action-link">Open</a>
+                            <a href="{{ url_for('portfolios.export_portfolio_json', portfolio_id=portfolio.id) }}" class="table-action-link secondary">Export</a>
+                            <form method="post" action="{{ url_for('portfolios.delete_portfolio', portfolio_id=portfolio.id) }}" class="inline-form" onsubmit="return confirm('Delete this portfolio and its positions? Saved pricing results will remain.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="table-action-link table-action-delete">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
+{% else %}
+<div class="empty-state-card portfolio-empty-state">
+    <h3>No Portfolios Yet</h3>
+    <p>Create your first portfolio above. The app will open a workspace where you can manually add positions before running any pricing workflow.</p>
+</div>
+{% endif %}
 
 {% if local_copies %}
-<div class="history-table-card portfolio-local-card">
-    <h3 class="portfolio-section-heading">Local Portfolio Copies</h3>
+<div class="history-table-card portfolio-table-card portfolio-local-card">
+    <div class="portfolio-table-header">
+        <div>
+            <span class="section-eyebrow">Local snapshots</span>
+            <h3>Local Portfolio Copies</h3>
+        </div>
+    </div>
     <div class="history-table-wrap">
-        <table class="results-table history-table portfolios-table">
+        <table class="results-table history-table portfolios-table portfolio-management-table">
             <thead>
                 <tr>
                     <th>Local Copy</th>
                     <th>Modified</th>
                     <th>Size KB</th>
-                    <th>Import</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -114,67 +144,24 @@
                     <td>{{ copy.modified_at }}</td>
                     <td>{{ copy.size_kb }}</td>
                     <td>
-                        <form method="post" action="{{ url_for('portfolios.import_local_copy') }}" class="inline-form">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="filename" value="{{ copy.filename }}">
-                            <button type="submit" class="table-action-link">Import</button>
-                        </form>
+                        <div class="portfolio-row-actions">
+                            <form method="post" action="{{ url_for('portfolios.import_local_copy') }}" class="inline-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="filename" value="{{ copy.filename }}">
+                                <button type="submit" class="table-action-link">Import</button>
+                            </form>
+                            <form method="post" action="{{ url_for('portfolios.delete_local_copy') }}" class="inline-form" onsubmit="return confirm('Delete this local JSON copy?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="filename" value="{{ copy.filename }}">
+                                <button type="submit" class="table-action-link table-action-delete">Delete</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
-{% endif %}
-
-{% if portfolios %}
-<div class="history-table-card">
-    <h3 class="portfolio-section-heading">Registered Portfolios</h3>
-    <div class="history-table-wrap">
-        <div class="table-actions">
-            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=xlsx" class="btn">Export XLSX</a>
-            <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=csv" class="btn">Export CSV</a>
-        </div>
-        <table class="results-table history-table portfolios-table">
-            <thead>
-                <tr>
-                    <th>Created At</th>
-                    <th>Name</th>
-                    <th>Description</th>
-                    <th>Positions</th>
-                    <th>Local JSON</th>
-                    <th>View</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for portfolio in portfolios %}
-                <tr>
-                    <td>{{ portfolio.created_at }}</td>
-                    <td>{{ portfolio.name }}</td>
-                    <td>{{ portfolio.description or "" }}</td>
-                    <td>{{ portfolio.positions|length }}</td>
-                    <td>
-                        <a href="{{ url_for('portfolios.export_portfolio_json', portfolio_id=portfolio.id) }}" class="table-action-link">Export</a>
-                    </td>
-                    <td>
-                        <a
-                            href="{{ url_for('portfolios.portfolio_detail', portfolio_id=portfolio.id) }}"
-                            class="table-action-link"
-                        >
-                            Open
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-{% else %}
-<div class="empty-state-card">
-    <h3>No Portfolios Yet</h3>
-    <p>Create your first portfolio above. After creation, the app opens a portfolio workspace where you can manually add positions before running any pricing workflow.</p>
 </div>
 {% endif %}
 {% endblock %}

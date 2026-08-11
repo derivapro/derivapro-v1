@@ -463,6 +463,33 @@ def delete_position(portfolio_id):
     return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio_id))
 
 
+@portfolios_bp.route("/<int:portfolio_id>/delete", methods=["POST"])
+@login_required
+def delete_portfolio(portfolio_id):
+    portfolio = Portfolio.query.filter_by(
+        id=portfolio_id,
+        user_id=current_user.id,
+    ).first_or_404()
+    snapshot_path = portfolio_snapshot_path(portfolio, current_user)
+    portfolio_name = portfolio.name
+
+    Position.query.filter_by(
+        portfolio_id=portfolio.id,
+        user_id=current_user.id,
+    ).delete(synchronize_session=False)
+    db.session.delete(portfolio)
+    db.session.commit()
+
+    if snapshot_path.exists():
+        try:
+            snapshot_path.unlink()
+        except OSError as exc:
+            flash(f"Portfolio deleted, but local JSON copy could not be removed: {exc}", "error")
+
+    flash(f"Portfolio '{portfolio_name}' deleted. Saved pricing results were not deleted.", "success")
+    return redirect(url_for("portfolios.portfolios"))
+
+
 @portfolios_bp.route("/add-position", methods=["POST"])
 @login_required
 def add_position():
@@ -553,6 +580,26 @@ def import_local_copy():
         abort(404)
 
     return _import_portfolio_payload(load_portfolio_snapshot(local_path))
+
+
+@portfolios_bp.route("/delete-local-copy", methods=["POST"])
+@login_required
+def delete_local_copy():
+    filename = Path(request.form.get("filename", "")).name
+    if not filename:
+        flash("Select a local portfolio JSON file to delete.", "error")
+        return redirect(url_for("portfolios.portfolios"))
+
+    local_path = user_portfolio_dir(current_user) / filename
+    if not local_path.exists() or local_path.suffix.lower() != ".json":
+        abort(404)
+
+    try:
+        local_path.unlink()
+        flash(f"Deleted local portfolio copy '{filename}'.", "success")
+    except OSError as exc:
+        flash(f"Local portfolio copy could not be deleted: {exc}", "error")
+    return redirect(url_for("portfolios.portfolios"))
 
 
 @portfolios_bp.route("/import-upload", methods=["POST"])

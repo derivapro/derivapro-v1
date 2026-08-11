@@ -61,6 +61,7 @@ DerivaPro includes a registered-user Portfolio workspace for organizing local tr
 3. Use product-specific pricing pages to value selected positions when needed.
 4. Add saved pricing results to the portfolio or keep positions unpriced until valuation.
 5. Review portfolio-level value, Greeks, asset-class exposure, underlying exposure, and exportable position data.
+6. Export, import, or delete portfolio books and private local JSON snapshots as part of normal workspace maintenance.
 
 Product pages remain the source of detailed model selection and valuation outputs; the Portfolio workspace is the book-construction and aggregation layer. See the portfolio workflow guide at [`docs/portfolio_workflow.md`](docs/portfolio_workflow.md).
 

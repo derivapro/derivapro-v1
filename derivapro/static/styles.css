@@ -3267,6 +3267,8 @@ details summary {
 @media (max-width: 1180px) {
     .workflow-grid,
     .product-workspace-grid,
+    .portfolio-command-panel,
+    .portfolio-utility-grid,
     .portfolio-capability-strip {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -3381,6 +3383,8 @@ details summary {
     }
 
     .portfolio-workflow-hero,
+    .portfolio-command-panel,
+    .portfolio-utility-grid,
     .portfolio-capability-strip {
         grid-template-columns: 1fr;
     }
@@ -3391,6 +3395,18 @@ details summary {
 
     .portfolio-workflow-hero h2 {
         font-size: 26px;
+    }
+
+    .portfolio-command-copy h2 {
+        font-size: 24px;
+    }
+
+    .portfolio-table-header {
+        display: block;
+    }
+
+    .portfolio-table-header .table-actions {
+        margin-top: 12px;
     }
 }
 
@@ -3667,6 +3683,180 @@ details summary {
     vertical-align: middle;
 }
 
+.portfolio-command-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 18px;
+}
+
+.portfolio-command-copy,
+.portfolio-command-card,
+.portfolio-utility-card,
+.portfolio-table-card {
+    border: 1px solid rgba(200, 201, 199, 0.85);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(16, 24, 32, 0.05);
+}
+
+.portfolio-command-copy {
+    padding: 22px 24px;
+}
+
+.portfolio-command-copy h2 {
+    max-width: 860px;
+    margin: 4px 0 10px;
+    color: var(--dp-heading);
+    font-size: 28px;
+    line-height: 1.18;
+}
+
+.portfolio-command-copy p {
+    max-width: 940px;
+    margin: 0;
+    color: var(--dp-text-muted);
+    line-height: 1.6;
+}
+
+.portfolio-command-card,
+.portfolio-utility-card {
+    padding: 20px 22px;
+}
+
+.portfolio-command-card h3,
+.portfolio-utility-card h3 {
+    margin: 0 0 12px;
+    color: var(--dp-heading);
+}
+
+.portfolio-utility-card p {
+    margin: 0 0 14px;
+    color: var(--dp-text-muted);
+    line-height: 1.55;
+}
+
+.portfolio-workflow-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.portfolio-workflow-strip span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: 6px 11px;
+    border: 1px solid rgba(178, 137, 68, 0.24);
+    border-radius: 999px;
+    background: #fffaf1;
+    color: var(--dp-accent);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.portfolio-create-form,
+.portfolio-import-form {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.portfolio-submit-button {
+    min-height: 44px;
+    border: 1px solid var(--dp-heading);
+    border-radius: 8px;
+    background: var(--dp-heading);
+    color: #ffffff;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.portfolio-submit-button.secondary {
+    border-color: rgba(178, 137, 68, 0.42);
+    background: #fffaf1;
+    color: var(--dp-accent);
+}
+
+.portfolio-utility-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.portfolio-table-card {
+    margin-bottom: 18px;
+    overflow: hidden;
+}
+
+.portfolio-table-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: center;
+    padding: 18px 20px 12px;
+    border-bottom: 1px solid rgba(200, 201, 199, 0.7);
+}
+
+.portfolio-table-header h3 {
+    margin: 2px 0 0;
+    color: var(--dp-heading);
+    font-size: 21px;
+}
+
+.portfolio-management-table {
+    margin: 0;
+}
+
+.portfolio-management-table thead th {
+    background: #f6f4ef;
+    color: var(--dp-heading);
+}
+
+.portfolio-management-table tbody tr:hover {
+    background: #fbfaf6;
+}
+
+.portfolio-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.portfolio-row-actions .inline-form {
+    margin: 0;
+}
+
+.table-action-link.secondary {
+    background: #fffaf1;
+    border: 1px solid rgba(178, 137, 68, 0.35);
+    color: var(--dp-accent) !important;
+}
+
+.table-action-link.secondary:hover {
+    background: rgba(178, 137, 68, 0.12);
+    color: var(--dp-accent) !important;
+}
+
+.table-action-delete {
+    background: #fff5f5 !important;
+    border: 1px solid rgba(196, 43, 43, 0.26) !important;
+    color: #b42318 !important;
+}
+
+.table-action-delete:hover {
+    background: #ffe4e4 !important;
+    color: #8f1f17 !important;
+}
+
+.portfolio-empty-state {
+    margin-bottom: 18px;
+}
+
 /* ===== Portfolio Detail Page ===== */
 .detail-summary-item-full {
     grid-column: 1 / -1;
@@ -3785,6 +3975,10 @@ html[data-theme="dark"] .portfolio-workflow-hero,
 html[data-theme="dark"] .portfolio-form-card,
 html[data-theme="dark"] .portfolio-manual-card,
 html[data-theme="dark"] .portfolio-capability-strip > div,
+html[data-theme="dark"] .portfolio-command-copy,
+html[data-theme="dark"] .portfolio-command-card,
+html[data-theme="dark"] .portfolio-utility-card,
+html[data-theme="dark"] .portfolio-table-card,
 html[data-theme="dark"] .history-table-card,
 html[data-theme="dark"] .empty-state-card,
 html[data-theme="dark"] .detail-dashboard-card,
@@ -3819,9 +4013,25 @@ html[data-theme="dark"] .preview-gate-card .landing-button.secondary {
 }
 
 html[data-theme="dark"] .portfolio-card-icon,
-html[data-theme="dark"] .portfolio-step strong {
+html[data-theme="dark"] .portfolio-step strong,
+html[data-theme="dark"] .portfolio-workflow-strip span,
+html[data-theme="dark"] .portfolio-submit-button.secondary,
+html[data-theme="dark"] .table-action-link.secondary {
     background: rgba(178, 137, 68, 0.14);
     border-color: rgba(178, 137, 68, 0.32);
+}
+
+html[data-theme="dark"] .portfolio-management-table thead th {
+    background: var(--dp-surface-muted);
+    color: var(--dp-text);
+}
+
+html[data-theme="dark"] .portfolio-management-table tbody tr:hover {
+    background: var(--dp-surface-muted);
+}
+
+html[data-theme="dark"] .portfolio-table-header {
+    border-color: var(--dp-border);
 }
 
 html[data-theme="dark"] .market-reference-header {
