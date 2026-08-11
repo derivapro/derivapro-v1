@@ -3,13 +3,14 @@
 {% block content %}
 <div class="page-title compact">
     <h1>Portfolios</h1>
-    <p>Create local portfolio books, import/export private JSON copies, and organize saved pricing results for portfolio-level valuation and risk review.</p>
+    <p>Create local portfolio books, add manual or priced positions, import/export private JSON copies, and prepare portfolio-level valuation and risk review.</p>
+    <p class="inline-muted-text">Workflow guide in repo: <code>docs/portfolio_workflow.md</code>.</p>
 </div>
 
 <div class="portfolio-workflow-grid">
     <div class="portfolio-form-card">
         <h3>Create Portfolio</h3>
-        <p>Use this as the portfolio shell. Add positions from saved pricing results after running product-level pricers.</p>
+        <p>Create the trading book first. Open the portfolio to add unpriced holdings, derivatives, structured notes, or saved pricing results.</p>
         <form method="post" class="form-grid portfolio-create-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
@@ -121,7 +122,7 @@
 {% else %}
 <div class="empty-state-card">
     <h3>No Portfolios Yet</h3>
-    <p>Create your first portfolio to start organizing saved pricing results into reusable positions.</p>
+    <p>Create your first portfolio to start building a local book of manual positions, saved pricing results, and future portfolio-level analytics.</p>
 </div>
 {% endif %}
 {% endblock %}

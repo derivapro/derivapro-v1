@@ -9,6 +9,7 @@
   "positions": [
     {
       "position_label": "AAPL European Call",
+      "trade_id": "SAMPLE-EQOPT-001",
       "side": "long",
       "quantity": 10.0,
       "notional": null,
@@ -16,6 +17,7 @@
       "asset_class": "Equity Derivatives",
       "product_category": "european_option",
       "underlying": "AAPL",
+      "valuation_status": "priced",
       "notes": "Sample imported position. Replace with user-run saved pricing result for production analysis.",
       "instrument": {
         "product_type": "european_option",
@@ -47,6 +49,7 @@
     },
     {
       "position_label": "MSFT Barrier Put",
+      "trade_id": "SAMPLE-BAR-002",
       "side": "short",
       "quantity": 5.0,
       "notional": null,
@@ -54,6 +57,7 @@
       "asset_class": "Equity Derivatives",
       "product_category": "barrier_option",
       "underlying": "MSFT",
+      "valuation_status": "priced",
       "notes": "Sample short option position for demonstrating signed portfolio aggregation.",
       "instrument": {
         "product_type": "barrier_option",
@@ -83,6 +87,37 @@
         },
         "created_at": "2026-08-10T00:00:00"
       },
+      "added_at": "2026-08-10T00:00:00"
+    },
+    {
+      "position_label": "SPX Phoenix Note Template",
+      "trade_id": "SAMPLE-SP-003",
+      "side": "long",
+      "quantity": 1.0,
+      "notional": 1000000.0,
+      "currency": "USD",
+      "asset_class": "Structured Products",
+      "product_category": "Autocallable / Phoenix Note",
+      "underlying": "SPX",
+      "valuation_status": "unpriced",
+      "notes": "Sample unpriced portfolio position. Use as a template for portfolio construction before valuation.",
+      "instrument": {
+        "product_type": "autocallable_phoenix_note",
+        "ticker": "SPX",
+        "model_name": "manual_autocallable_phoenix_note",
+        "params_json": {
+          "manual_portfolio_entry": true,
+          "basket_type": "single_underlying",
+          "notional": 1000000.0,
+          "maturity": "2028-08-10",
+          "coupon_barrier": 0.7,
+          "autocall_barrier": 1.0,
+          "knock_in_barrier": 0.6,
+          "memory_coupon": true,
+          "observation_frequency": "quarterly"
+        }
+      },
+      "pricing_result": null,
       "added_at": "2026-08-10T00:00:00"
     }
   ],

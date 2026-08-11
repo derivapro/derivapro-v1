@@ -28,6 +28,54 @@ from ..services.portfolio_store import (
 portfolios_bp = Blueprint("portfolios", __name__)
 
 
+ASSET_CLASS_CHOICES = [
+    "Equity",
+    "Equity Derivatives",
+    "Structured Products",
+    "Fixed Income",
+    "Rates",
+    "Credit",
+    "FX",
+    "Commodities",
+    "Fund / ETF",
+    "Other",
+]
+
+
+PRODUCT_CATEGORY_CHOICES = [
+    "Cash Equity",
+    "ETF / Fund",
+    "European Option",
+    "American Option",
+    "Barrier Option",
+    "Asian Option",
+    "Autocallable / Phoenix Note",
+    "Barrier Reverse Convertible",
+    "Principal-Protected Note",
+    "Enhanced / Buffered Note",
+    "Contingent Income Note",
+    "Credit-Linked Note",
+    "Bond",
+    "Swap",
+    "Swaption",
+    "Forward",
+    "Future",
+    "Credit Default Swap",
+    "FX Forward",
+    "FX Option",
+    "Commodity Derivative",
+    "Other",
+]
+
+
+VALUATION_STATUS_CHOICES = [
+    ("unpriced", "Unpriced"),
+    ("ready_for_pricing", "Ready for Pricing"),
+    ("priced", "Priced"),
+    ("external", "External / Manual Value"),
+]
+
+
 def _position_sign(position: Position) -> float:
     return -1.0 if position.side == "short" else 1.0
 
@@ -43,6 +91,27 @@ def _optional_float(value):
     if value in {None, ""}:
         return None
     return float(value)
+
+
+def _parse_terms_json(raw_terms: str) -> dict:
+    raw_terms = (raw_terms or "").strip()
+    if not raw_terms:
+        return {}
+    payload = json.loads(raw_terms)
+    if not isinstance(payload, dict):
+        raise ValueError("Position terms JSON must be an object.")
+    return payload
+
+
+def _normalize_product_type(product_category: str) -> str:
+    normalized = (product_category or "Other").strip().lower()
+    normalized = normalized.replace("/", " ").replace("-", " ")
+    normalized = "_".join(normalized.split())
+    return normalized or "manual_position"
+
+
+def _manual_model_name(product_category: str) -> str:
+    return f"manual_{_normalize_product_type(product_category)}"
 
 
 def _portfolio_snapshot_or_none(portfolio: Portfolio):
@@ -159,16 +228,12 @@ def portfolio_detail(portfolio_id):
         "long_notional": 0.0,
         "short_notional": 0.0,
         "priced_position_count": 0,
+        "unpriced_position_count": 0,
     }
     asset_class_summary = {}
     underlying_summary = {}
 
     for position in positions:
-        pricing_result = position.pricing_result
-        if not pricing_result:
-            continue
-
-        multiplier = _position_multiplier(position)
         absolute_notional = abs(
             position.notional if position.notional is not None else position.quantity
         )
@@ -176,8 +241,6 @@ def portfolio_detail(portfolio_id):
             portfolio_metrics["short_notional"] += absolute_notional
         else:
             portfolio_metrics["long_notional"] += absolute_notional
-        portfolio_metrics["priced_position_count"] += 1
-        portfolio_metrics["total_market_value"] += (pricing_result.price or 0.0) * multiplier
 
         asset_class = (
             position.asset_class
@@ -186,13 +249,13 @@ def portfolio_detail(portfolio_id):
             )
         )
         underlying = position.underlying or infer_underlying(position.instrument) or "Unspecified"
-
         by_class = asset_class_summary.setdefault(
             asset_class,
             {
                 "name": asset_class,
                 "market_value": 0.0,
                 "position_count": 0,
+                "priced_count": 0,
                 **{field: 0.0 for field in greek_fields},
             },
         )
@@ -200,10 +263,20 @@ def portfolio_detail(portfolio_id):
             underlying,
             {"name": underlying, "market_value": 0.0, "position_count": 0},
         )
-        by_class["market_value"] += (pricing_result.price or 0.0) * multiplier
         by_class["position_count"] += 1
-        by_underlying["market_value"] += (pricing_result.price or 0.0) * multiplier
         by_underlying["position_count"] += 1
+
+        pricing_result = position.pricing_result
+        if not pricing_result:
+            portfolio_metrics["unpriced_position_count"] += 1
+            continue
+
+        multiplier = _position_multiplier(position)
+        portfolio_metrics["priced_position_count"] += 1
+        portfolio_metrics["total_market_value"] += (pricing_result.price or 0.0) * multiplier
+        by_class["market_value"] += (pricing_result.price or 0.0) * multiplier
+        by_class["priced_count"] += 1
+        by_underlying["market_value"] += (pricing_result.price or 0.0) * multiplier
 
         for field in greek_fields:
             value = getattr(pricing_result, field) or 0.0
@@ -225,6 +298,9 @@ def portfolio_detail(portfolio_id):
         max_greek=max_greek,
         local_snapshot_path=local_snapshot_path,
         local_snapshot_exists=local_snapshot_path.exists(),
+        asset_class_choices=ASSET_CLASS_CHOICES,
+        product_category_choices=PRODUCT_CATEGORY_CHOICES,
+        valuation_status_choices=VALUATION_STATUS_CHOICES,
     )
 
 
@@ -236,9 +312,12 @@ def update_position(portfolio_id):
     notional = _optional_float(request.form.get("notional"))
     side = request.form.get("side", "long")
     position_label = request.form.get("position_label", "").strip()
+    trade_id = request.form.get("trade_id", "").strip()
     currency = request.form.get("currency", "USD").strip().upper() or "USD"
     asset_class = request.form.get("asset_class", "").strip()
+    product_category = request.form.get("product_category", "").strip()
     underlying = request.form.get("underlying", "").strip()
+    valuation_status = request.form.get("valuation_status", "unpriced")
     notes = request.form.get("notes", "").strip()
 
     position = Position.query.filter_by(
@@ -258,15 +337,104 @@ def update_position(portfolio_id):
     position.notional = notional
     position.side = "short" if side == "short" else "long"
     position.position_label = position_label or None
+    position.trade_id = trade_id or None
     position.currency = currency
     position.asset_class = asset_class or position.asset_class
+    position.product_category = product_category or position.product_category
     position.underlying = underlying or None
+    position.valuation_status = (
+        valuation_status
+        if valuation_status in {choice[0] for choice in VALUATION_STATUS_CHOICES}
+        else "unpriced"
+    )
     position.notes = notes or None
 
     db.session.commit()
     _portfolio_snapshot_or_none(position.portfolio)
     flash("Position updated successfully.", "success")
     return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio_id))
+
+
+@portfolios_bp.route("/<int:portfolio_id>/add-manual-position", methods=["POST"])
+@login_required
+def add_manual_position(portfolio_id):
+    portfolio = Portfolio.query.filter_by(
+        id=portfolio_id,
+        user_id=current_user.id,
+    ).first_or_404()
+
+    position_label = request.form.get("position_label", "").strip()
+    trade_id = request.form.get("trade_id", "").strip()
+    asset_class = request.form.get("asset_class", "Other").strip() or "Other"
+    product_category = request.form.get("product_category", "Other").strip() or "Other"
+    underlying = request.form.get("underlying", "").strip()
+    ticker = request.form.get("ticker", "").strip().upper()
+    side = request.form.get("side", "long")
+    quantity = request.form.get("quantity", type=float)
+    notional = _optional_float(request.form.get("notional"))
+    currency = request.form.get("currency", "USD").strip().upper() or "USD"
+    valuation_status = request.form.get("valuation_status", "unpriced")
+    notes = request.form.get("notes", "").strip()
+
+    if quantity is None:
+        quantity = 1.0
+    if valuation_status not in {choice[0] for choice in VALUATION_STATUS_CHOICES}:
+        valuation_status = "unpriced"
+
+    try:
+        terms = _parse_terms_json(request.form.get("terms_json", ""))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio.id))
+    except json.JSONDecodeError as exc:
+        flash(f"Position terms JSON is invalid: {exc.msg}", "error")
+        return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio.id))
+
+    product_type = _normalize_product_type(product_category)
+    terms.update(
+        {
+            "manual_portfolio_entry": True,
+            "asset_class": asset_class,
+            "product_category": product_category,
+            "underlying": underlying or ticker or None,
+            "currency": currency,
+        }
+    )
+    instrument = Instrument(
+        user_id=current_user.id,
+        product_type=product_type,
+        ticker=ticker or underlying or None,
+        model_name=_manual_model_name(product_category),
+        start_date=None,
+        end_date=None,
+        params_json=terms,
+    )
+    db.session.add(instrument)
+    db.session.flush()
+
+    position = Position(
+        portfolio_id=portfolio.id,
+        user_id=current_user.id,
+        instrument_id=instrument.id,
+        pricing_result_id=None,
+        quantity=quantity,
+        notional=notional,
+        side="short" if side == "short" else "long",
+        position_label=position_label or None,
+        trade_id=trade_id or None,
+        currency=currency,
+        asset_class=asset_class,
+        product_category=product_category,
+        underlying=underlying or ticker or None,
+        valuation_status=valuation_status,
+        notes=notes or None,
+    )
+    db.session.add(position)
+    db.session.commit()
+    _portfolio_snapshot_or_none(portfolio)
+
+    flash("Manual portfolio position added successfully.", "success")
+    return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio.id))
 
 
 @portfolios_bp.route("/<int:portfolio_id>/delete-position", methods=["POST"])
@@ -304,6 +472,7 @@ def add_position():
     notional = _optional_float(request.form.get("notional"))
     side = request.form.get("side", "long")
     position_label = request.form.get("position_label", "").strip()
+    trade_id = request.form.get("trade_id", "").strip()
     currency = request.form.get("currency", "USD").strip().upper() or "USD"
     notes = request.form.get("notes", "").strip()
 
@@ -340,10 +509,12 @@ def add_position():
         notional=notional,
         side="short" if side == "short" else "long",
         position_label=position_label or None,
+        trade_id=trade_id or None,
         currency=currency,
         asset_class=defaults["asset_class"],
         product_category=defaults["product_category"],
         underlying=defaults["underlying"],
+        valuation_status="priced",
         notes=notes or None,
     )
     db.session.add(position)
@@ -428,11 +599,14 @@ def _import_portfolio_payload(payload):
             notional=_optional_float(position_payload.get("notional")),
             side="short" if position_payload.get("side") == "short" else "long",
             position_label=position_payload.get("position_label"),
+            trade_id=position_payload.get("trade_id"),
             currency=(position_payload.get("currency") or "USD").upper(),
             asset_class=position_payload.get("asset_class")
             or classify_asset_class(product_type),
             product_category=position_payload.get("product_category") or product_type,
             underlying=position_payload.get("underlying") or infer_underlying(instrument),
+            valuation_status=position_payload.get("valuation_status")
+            or ("priced" if pricing_result else "unpriced"),
             notes=position_payload.get("notes"),
         )
         db.session.add(position)

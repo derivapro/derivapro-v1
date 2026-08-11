@@ -3308,8 +3308,14 @@ details summary {
     .run-summary-grid,
     .configuration-layout,
     .configuration-toggle-grid,
-    .portfolio-workflow-grid {
+    .portfolio-workflow-grid,
+    .portfolio-manual-form {
         grid-template-columns: 1fr;
+    }
+
+    .portfolio-terms-group,
+    .portfolio-notes-group {
+        grid-column: 1;
     }
 
     .configuration-side-panel {
@@ -3470,11 +3476,53 @@ details summary {
     gap: 12px;
 }
 
+.portfolio-import-form button,
+.portfolio-manual-actions .btn-primary {
+    width: 100%;
+    min-height: 42px;
+}
+
 .portfolio-action-row {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     margin: 0 0 18px;
+}
+
+.portfolio-manual-card {
+    margin-bottom: 22px;
+    padding: 20px 22px;
+    border: 1px solid rgba(200, 201, 199, 0.85);
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(16, 24, 32, 0.05);
+}
+
+.portfolio-manual-header h3 {
+    margin: 0 0 8px;
+    color: var(--dp-heading);
+}
+
+.portfolio-manual-header p {
+    max-width: 920px;
+    margin: 0 0 16px;
+    color: var(--dp-text-muted);
+    line-height: 1.55;
+}
+
+.portfolio-manual-form {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.portfolio-terms-group,
+.portfolio-notes-group {
+    grid-column: span 2;
+}
+
+.portfolio-manual-actions {
+    grid-column: 1 / -1;
 }
 
 .portfolio-local-card,
@@ -3602,6 +3650,7 @@ html[data-theme="dark"] .preview-gate-card,
 html[data-theme="dark"] .legal-card,
 html[data-theme="dark"] .home-content-card,
 html[data-theme="dark"] .portfolio-form-card,
+html[data-theme="dark"] .portfolio-manual-card,
 html[data-theme="dark"] .history-table-card,
 html[data-theme="dark"] .empty-state-card,
 html[data-theme="dark"] .detail-dashboard-card,

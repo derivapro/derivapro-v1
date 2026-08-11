@@ -44,6 +44,89 @@
     <a href="{{ url_for('saved_results.saved_results') }}" class="btn">Add From Saved Results</a>
 </div>
 
+<div class="portfolio-manual-card">
+    <div class="portfolio-manual-header">
+        <div>
+            <h3>Add Manual / Unpriced Position</h3>
+            <p>Build the portfolio first. Add holdings or trade templates here, then price or link results later as product workflows mature.</p>
+        </div>
+    </div>
+    <form method="post" action="{{ url_for('portfolios.add_manual_position', portfolio_id=portfolio.id) }}" class="portfolio-manual-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="position_label">Position Label</label>
+            <input type="text" id="position_label" name="position_label" placeholder="e.g., AAPL 6M Call Spread">
+        </div>
+        <div class="form-group">
+            <label for="trade_id">Desk Trade ID</label>
+            <input type="text" id="trade_id" name="trade_id" placeholder="Optional internal ID">
+        </div>
+        <div class="form-group">
+            <label for="asset_class">Asset Class</label>
+            <select id="asset_class" name="asset_class">
+                {% for choice in asset_class_choices %}
+                <option value="{{ choice }}">{{ choice }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="product_category">Product Type</label>
+            <select id="product_category" name="product_category">
+                {% for choice in product_category_choices %}
+                <option value="{{ choice }}">{{ choice }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="underlying">Underlying / Reference</label>
+            <input type="text" id="underlying" name="underlying" placeholder="e.g., AAPL, SPX, SOFR, CDX.IG">
+        </div>
+        <div class="form-group">
+            <label for="ticker">Ticker</label>
+            <input type="text" id="ticker" name="ticker" placeholder="Optional market ticker">
+        </div>
+        <div class="form-group">
+            <label for="side">Side</label>
+            <select id="side" name="side">
+                <option value="long">Long</option>
+                <option value="short">Short</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="quantity">Quantity</label>
+            <input type="number" id="quantity" name="quantity" step="0.01" value="1.0">
+        </div>
+        <div class="form-group">
+            <label for="notional">Notional</label>
+            <input type="number" id="notional" name="notional" step="0.01" placeholder="Optional">
+        </div>
+        <div class="form-group">
+            <label for="currency">Currency</label>
+            <input type="text" id="currency" name="currency" value="USD">
+        </div>
+        <div class="form-group">
+            <label for="valuation_status">Valuation Status</label>
+            <select id="valuation_status" name="valuation_status">
+                {% for value, label in valuation_status_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group portfolio-terms-group">
+            <label for="terms_json">Trade Terms JSON</label>
+            <textarea id="terms_json" name="terms_json" rows="7" placeholder='{"strike": 100, "maturity": "2027-06-30", "coupon_rate": 0.08}'></textarea>
+            <div class="field-hint">Optional flexible terms for product-specific pricing later. Must be a JSON object if provided.</div>
+        </div>
+        <div class="form-group portfolio-notes-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="7" placeholder="Desk notes, data source, model assumptions, or booking comments"></textarea>
+        </div>
+        <div class="form-group portfolio-manual-actions">
+            <button type="submit" class="btn-primary">Add Position to Portfolio</button>
+        </div>
+    </form>
+</div>
+
 <div class="result-kpi-grid portfolio-kpi-grid">
     <div class="pricing-summary-card">
         <span>Positions</span>
@@ -52,7 +135,7 @@
     </div>
     <div class="pricing-summary-card">
         <span>Priced Positions</span>
-        <strong>{{ portfolio_metrics.priced_position_count }}</strong>
+        <strong>{{ portfolio_metrics.priced_position_count }} / {{ portfolio_metrics.unpriced_position_count }}</strong>
         <small>Linked to pricing result</small>
     </div>
     <div class="pricing-summary-card">
@@ -112,6 +195,7 @@
                 <tr>
                     <th>Asset Class</th>
                     <th>Positions</th>
+                    <th>Priced</th>
                     <th>Market Value</th>
                     <th>Delta</th>
                     <th>Gamma</th>
@@ -125,6 +209,7 @@
                 <tr>
                     <td>{{ data.name }}</td>
                     <td>{{ data.position_count }}</td>
+                    <td>{{ data.priced_count }}</td>
                     <td>{{ "${:,.2f}".format(data.market_value) }}</td>
                     <td>{{ "%.2f"|format(data.delta) }}</td>
                     <td>{{ "%.2f"|format(data.gamma) }}</td>
@@ -176,10 +261,13 @@
                 <tr>
                     <th>Added At</th>
                     <th>Product Type</th>
+                    <th>Product Category</th>
                     <th>Asset Class</th>
+                    <th>Trade ID</th>
                     <th>Ticker</th>
                     <th>Underlying</th>
                     <th>Model</th>
+                    <th>Status</th>
                     <th>Price</th>
                     <th>Side</th>
                     <th>Label</th>
@@ -196,10 +284,13 @@
                 <tr>
                     <td>{{ position.created_at }}</td>
                     <td>{{ position.instrument.product_type if position.instrument else "" }}</td>
+                    <td>{{ position.product_category or "" }}</td>
                     <td>{{ position.asset_class or "" }}</td>
+                    <td>{{ position.trade_id or "" }}</td>
                     <td>{{ position.instrument.ticker if position.instrument else "" }}</td>
                     <td>{{ position.underlying or "" }}</td>
                     <td>{{ position.instrument.model_name if position.instrument else "" }}</td>
+                    <td>{{ position.valuation_status or "unpriced" }}</td>
                     <td>
                         {{ "%.4f"|format(position.pricing_result.price) if position.pricing_result and position.pricing_result.price is not none else "" }}
                     </td>
@@ -214,6 +305,7 @@
                     </td>
                     <td>
                             <input type="text" name="position_label" value="{{ position.position_label or '' }}" class="inline-input">
+                            <input type="text" name="trade_id" value="{{ position.trade_id or '' }}" class="inline-input" placeholder="Trade ID">
                     </td>
                     <td>
                             <input type="number" step="0.01" name="quantity" value="{{ position.quantity or 1.0 }}" class="inline-input">
@@ -227,6 +319,12 @@
                     <td>
                             <input type="text" name="underlying" value="{{ position.underlying or '' }}" class="inline-input" placeholder="Underlying">
                             <input type="hidden" name="asset_class" value="{{ position.asset_class or '' }}">
+                            <input type="hidden" name="product_category" value="{{ position.product_category or '' }}">
+                            <select name="valuation_status" class="inline-input">
+                                {% for value, label in valuation_status_choices %}
+                                <option value="{{ value }}" {% if position.valuation_status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
                             <input type="text" name="notes" value="{{ position.notes or '' }}" class="inline-input" placeholder="Notes">
                     </td>
                     <td>
@@ -249,7 +347,7 @@
 {% else %}
 <div class="empty-state-card">
     <h3>No Positions Yet</h3>
-    <p>This portfolio does not contain any saved positions yet. Add a saved result to this portfolio to begin tracking holdings.</p>
+    <p>This portfolio does not contain any positions yet. Add a manual/unpriced position above or add a saved pricing result when available.</p>
 </div>
 {% endif %}
 {% endblock %}

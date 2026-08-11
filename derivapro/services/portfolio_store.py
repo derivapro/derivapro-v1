@@ -102,6 +102,7 @@ def serialize_portfolio(portfolio: Portfolio) -> dict[str, Any]:
         positions.append(
             {
                 "position_label": position.position_label,
+                "trade_id": position.trade_id,
                 "side": position.side,
                 "quantity": position.quantity,
                 "notional": position.notional,
@@ -109,6 +110,7 @@ def serialize_portfolio(portfolio: Portfolio) -> dict[str, Any]:
                 "asset_class": position.asset_class,
                 "product_category": position.product_category,
                 "underlying": position.underlying,
+                "valuation_status": position.valuation_status,
                 "notes": position.notes,
                 "instrument": {
                     "product_type": instrument.product_type if instrument else None,

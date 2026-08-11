@@ -54,14 +54,15 @@ The full Flask application remains the source for production analytics, market d
 
 ## 💼 Portfolio Workspace
 
-DerivaPro includes a registered-user Portfolio workspace for organizing saved pricing results into local portfolio books. The intended workflow is:
+DerivaPro includes a registered-user Portfolio workspace for organizing local trading books. The intended workflow is:
 
-1. Price an instrument in its product-specific pricing page.
-2. Save the pricing result.
-3. Add the saved result to a portfolio with side, quantity, notional, currency, label, and notes.
-4. Review portfolio-level value, Greeks, asset-class exposure, underlying exposure, and exportable position data.
+1. Create a portfolio.
+2. Add manual or imported positions across asset classes.
+3. Use product-specific pricing pages to value selected positions when needed.
+4. Add saved pricing results to the portfolio or keep positions unpriced until valuation.
+5. Review portfolio-level value, Greeks, asset-class exposure, underlying exposure, and exportable position data.
 
-Portfolio construction is intentionally linked to product pricing rather than replacing it. Product pages remain the source of instrument terms, model selection, and valuation outputs; the Portfolio workspace aggregates those saved results into book-level views.
+Product pages remain the source of detailed model selection and valuation outputs; the Portfolio workspace is the book-construction and aggregation layer. See the portfolio workflow guide at [`docs/portfolio_workflow.md`](docs/portfolio_workflow.md).
 
 User-created portfolio JSON copies are written under `local_data/portfolios/`, which is ignored by Git and should never be committed to the public repository. A public sample format is available at [`derivapro/static/sample_portfolios/equity_derivatives_portfolio.json`](derivapro/static/sample_portfolios/equity_derivatives_portfolio.json).
 
