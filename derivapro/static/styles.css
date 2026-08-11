@@ -3266,7 +3266,8 @@ details summary {
 
 @media (max-width: 1180px) {
     .workflow-grid,
-    .product-workspace-grid {
+    .product-workspace-grid,
+    .portfolio-capability-strip {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -3378,6 +3379,19 @@ details summary {
     .market-reference-actions .btn-secondary {
         flex: 1 1 100%;
     }
+
+    .portfolio-workflow-hero,
+    .portfolio-capability-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .portfolio-workflow-hero {
+        padding: 20px;
+    }
+
+    .portfolio-workflow-hero h2 {
+        font-size: 26px;
+    }
 }
 
 .home-hero {
@@ -3439,13 +3453,94 @@ details summary {
 }
 
 /* ===== Portfolios Page ===== */
+.portfolio-workflow-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+    gap: 24px;
+    align-items: center;
+    margin-bottom: 22px;
+    padding: 24px 26px;
+    border: 1px solid rgba(200, 201, 199, 0.85);
+    border-radius: 12px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(247, 243, 235, 0.92)),
+        #ffffff;
+    box-shadow: 0 10px 26px rgba(16, 24, 32, 0.06);
+}
+
+.portfolio-workflow-hero h2 {
+    max-width: 780px;
+    margin: 4px 0 10px;
+    color: var(--dp-heading);
+    font-size: 30px;
+    line-height: 1.15;
+}
+
+.portfolio-workflow-hero p {
+    max-width: 860px;
+    margin: 0;
+    color: var(--dp-text-muted);
+    line-height: 1.65;
+}
+
+.portfolio-workflow-steps {
+    display: grid;
+    gap: 10px;
+}
+
+.portfolio-step {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid rgba(178, 137, 68, 0.24);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.portfolio-step strong {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(148, 95, 25, 0.12);
+    color: var(--dp-accent);
+    font-size: 14px;
+}
+
+.portfolio-step span {
+    color: var(--dp-heading);
+    font-weight: 700;
+}
+
 .portfolio-form-card {
+    position: relative;
     margin-bottom: 22px;
     padding: 20px 22px;
     border: 1px solid rgba(200, 201, 199, 0.85);
     border-radius: 12px;
     background: #ffffff;
     box-shadow: 0 6px 18px rgba(16, 24, 32, 0.05);
+}
+
+.portfolio-card-icon {
+    display: inline-flex;
+    min-width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    padding: 0 8px;
+    border: 1px solid rgba(178, 137, 68, 0.28);
+    border-radius: 10px;
+    background: #fffaf1;
+    color: var(--dp-accent);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
 }
 
 .portfolio-workflow-grid {
@@ -3469,6 +3564,10 @@ details summary {
 .portfolio-create-form {
     margin: 0;
     max-width: 100%;
+}
+
+.portfolio-create-form button {
+    min-height: 44px;
 }
 
 .portfolio-import-form {
@@ -3529,6 +3628,39 @@ details summary {
 .portfolio-kpi-grid,
 .asset-class-summary-card {
     margin-bottom: 20px;
+}
+
+.portfolio-capability-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.portfolio-capability-strip > div {
+    padding: 16px;
+    border: 1px solid rgba(200, 201, 199, 0.85);
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.portfolio-capability-strip strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--dp-heading);
+}
+
+.portfolio-capability-strip span {
+    display: block;
+    color: var(--dp-text-muted);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.portfolio-section-heading {
+    margin: 0 0 14px;
+    color: var(--dp-heading);
+    font-size: 20px;
 }
 
 .portfolios-table td {
@@ -3649,8 +3781,10 @@ html[data-theme="dark"] .product-section-card,
 html[data-theme="dark"] .preview-gate-card,
 html[data-theme="dark"] .legal-card,
 html[data-theme="dark"] .home-content-card,
+html[data-theme="dark"] .portfolio-workflow-hero,
 html[data-theme="dark"] .portfolio-form-card,
 html[data-theme="dark"] .portfolio-manual-card,
+html[data-theme="dark"] .portfolio-capability-strip > div,
 html[data-theme="dark"] .history-table-card,
 html[data-theme="dark"] .empty-state-card,
 html[data-theme="dark"] .detail-dashboard-card,
@@ -3676,11 +3810,18 @@ html[data-theme="dark"] .analysis-card,
 html[data-theme="dark"] .empty-state-panel,
 html[data-theme="dark"] .analysis-availability-card,
 html[data-theme="dark"] .configuration-toggle,
+html[data-theme="dark"] .portfolio-step,
 html[data-theme="dark"] .greek-metric-grid div,
 html[data-theme="dark"] .landing-button.secondary,
 html[data-theme="dark"] .preview-gate-card .landing-button.secondary {
     background: var(--dp-surface-muted);
     border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .portfolio-card-icon,
+html[data-theme="dark"] .portfolio-step strong {
+    background: rgba(178, 137, 68, 0.14);
+    border-color: rgba(178, 137, 68, 0.32);
 }
 
 html[data-theme="dark"] .market-reference-header {

@@ -189,8 +189,8 @@ def portfolios():
         db.session.commit()
         _portfolio_snapshot_or_none(portfolio)
 
-        flash("Portfolio created successfully.", "success")
-        return redirect(url_for("portfolios.portfolios"))
+        flash("Portfolio created. Add positions to build the book before valuation.", "success")
+        return redirect(url_for("portfolios.portfolio_detail", portfolio_id=portfolio.id))
 
     portfolios_list = (
         Portfolio.query

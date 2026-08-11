@@ -3,33 +3,64 @@
 {% block content %}
 <div class="page-title compact">
     <h1>Portfolios</h1>
-    <p>Create local portfolio books, add manual or priced positions, import/export private JSON copies, and prepare portfolio-level valuation and risk review.</p>
-    <p class="inline-muted-text">Workflow guide in repo: <code>docs/portfolio_workflow.md</code>.</p>
+    <p>Create reusable trading books first, then attach positions, valuation results, market assumptions, and future portfolio-level analytics.</p>
+</div>
+
+<div class="portfolio-workflow-hero">
+    <div>
+        <span class="section-eyebrow">Portfolio-first workflow</span>
+        <h2>Build the book before pricing individual trades.</h2>
+        <p>
+            Use portfolios as private local workspaces for desk books, strategy baskets, client portfolios,
+            structured-note inventories, or cross-asset watchlists. Positions can start as unpriced trade
+            templates and be linked to pricing results later.
+        </p>
+    </div>
+    <div class="portfolio-workflow-steps">
+        <div class="portfolio-step">
+            <strong>1</strong>
+            <span>Create / import portfolio</span>
+        </div>
+        <div class="portfolio-step">
+            <strong>2</strong>
+            <span>Add manual positions</span>
+        </div>
+        <div class="portfolio-step">
+            <strong>3</strong>
+            <span>Price applicable products</span>
+        </div>
+        <div class="portfolio-step">
+            <strong>4</strong>
+            <span>Review book-level exposure</span>
+        </div>
+    </div>
 </div>
 
 <div class="portfolio-workflow-grid">
     <div class="portfolio-form-card">
+        <span class="portfolio-card-icon">+</span>
         <h3>Create Portfolio</h3>
-        <p>Create the trading book first. Open the portfolio to add unpriced holdings, derivatives, structured notes, or saved pricing results.</p>
+        <p>Create the trading book first. You will be taken directly to the portfolio workspace where you can add holdings, derivatives, structured notes, or saved pricing results.</p>
         <form method="post" class="form-grid portfolio-create-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="name">Portfolio Name</label>
-                <input type="text" id="name" name="name" required>
+                <input type="text" id="name" name="name" placeholder="e.g., Equity Derivatives Book" required>
             </div>
 
             <div class="form-group">
                 <label for="description">Description</label>
-                <input type="text" id="description" name="description">
+                <input type="text" id="description" name="description" placeholder="Optional desk, strategy, or portfolio purpose">
             </div>
 
             <div class="form-group full-width">
-                <button type="submit">Create Portfolio</button>
+                <button type="submit">Create & Open Portfolio</button>
             </div>
         </form>
     </div>
 
     <div class="portfolio-form-card">
+        <span class="portfolio-card-icon">JSON</span>
         <h3>Import Portfolio JSON</h3>
         <p>Import a DerivaPro portfolio JSON file. User-created local portfolio files are private local artifacts and should not be committed to GitHub.</p>
         <form method="post" action="{{ url_for('portfolios.import_upload') }}" enctype="multipart/form-data" class="portfolio-import-form">
@@ -44,8 +75,28 @@
     </div>
 </div>
 
+<div class="portfolio-capability-strip">
+    <div>
+        <strong>Manual position entry</strong>
+        <span>Cash assets, listed options, OTC derivatives, structured notes, fixed income, credit, FX, and commodities.</span>
+    </div>
+    <div>
+        <strong>Private local persistence</strong>
+        <span>Export/import JSON and automatic local copies under <code>local_data/portfolios/</code>.</span>
+    </div>
+    <div>
+        <strong>Pricing linkage</strong>
+        <span>Attach saved product valuation results when an instrument is ready for model-driven pricing.</span>
+    </div>
+    <div>
+        <strong>Documentation</strong>
+        <span>Workflow guide: <code>docs/portfolio_workflow.md</code>.</span>
+    </div>
+</div>
+
 {% if local_copies %}
 <div class="history-table-card portfolio-local-card">
+    <h3 class="portfolio-section-heading">Local Portfolio Copies</h3>
     <div class="history-table-wrap">
         <table class="results-table history-table portfolios-table">
             <thead>
@@ -79,6 +130,7 @@
 
 {% if portfolios %}
 <div class="history-table-card">
+    <h3 class="portfolio-section-heading">Registered Portfolios</h3>
     <div class="history-table-wrap">
         <div class="table-actions">
             <a href="{{ url_for('exports.export') }}?type=portfolios_list&format=xlsx" class="btn">Export XLSX</a>
@@ -122,7 +174,7 @@
 {% else %}
 <div class="empty-state-card">
     <h3>No Portfolios Yet</h3>
-    <p>Create your first portfolio to start building a local book of manual positions, saved pricing results, and future portfolio-level analytics.</p>
+    <p>Create your first portfolio above. After creation, the app opens a portfolio workspace where you can manually add positions before running any pricing workflow.</p>
 </div>
 {% endif %}
 {% endblock %}
