@@ -8,6 +8,13 @@ from ..utils.export_utils import dicts_to_xlsx_bytes, dicts_to_csv_bytes
 exports_bp = Blueprint("exports", __name__)
 
 
+def _signed_position_multiplier(position):
+    multiplier = position.notional if position.notional is not None else position.quantity
+    if multiplier is None:
+        multiplier = 1.0
+    return float(multiplier) * (-1.0 if position.side == "short" else 1.0)
+
+
 @exports_bp.route("/export")
 @login_required
 def export():
@@ -55,10 +62,19 @@ def export():
                 "added_at": p.created_at,
                 "product_type": p.instrument.product_type if p.instrument else "",
                 "ticker": p.instrument.ticker if p.instrument else "",
+                "underlying": p.underlying,
+                "asset_class": p.asset_class,
+                "product_category": p.product_category,
                 "model": p.instrument.model_name if p.instrument else "",
                 "price": p.pricing_result.price if p.pricing_result else None,
+                "side": p.side,
+                "position_label": p.position_label,
                 "quantity": p.quantity,
                 "notional": p.notional,
+                "currency": p.currency,
+                "market_value": (p.pricing_result.price if p.pricing_result else 0.0)
+                * _signed_position_multiplier(p),
+                "notes": p.notes,
             })
         filename = f"portfolio_{portfolio.id}_positions"
 
@@ -105,12 +121,21 @@ def export():
             if not pr:
                 continue
             multiplier = p.notional if p.notional is not None else p.quantity
-            if multiplier is None:
-                multiplier = 1.0
+            multiplier = _signed_position_multiplier(p)
             asset_class = (
-                p.instrument.product_type
-                if p.instrument and p.instrument.product_type
-                else "Unknown"
+                p.asset_class
+                or (
+                    p.instrument.product_type
+                    if p.instrument and p.instrument.product_type
+                    else "Unknown"
+                )
+            )
+            asset_class_summary[asset_class]["market_value"] = (
+                asset_class_summary[asset_class].get("market_value", 0.0)
+                + (pr.price or 0.0) * multiplier
+            )
+            asset_class_summary[asset_class]["position_count"] = (
+                asset_class_summary[asset_class].get("position_count", 0) + 1
             )
             for f in greek_fields:
                 val = getattr(pr, f) or 0.0

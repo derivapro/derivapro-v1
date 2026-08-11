@@ -52,6 +52,21 @@ The full Flask application remains the source for production analytics, market d
 
 ---
 
+## 💼 Portfolio Workspace
+
+DerivaPro includes a registered-user Portfolio workspace for organizing saved pricing results into local portfolio books. The intended workflow is:
+
+1. Price an instrument in its product-specific pricing page.
+2. Save the pricing result.
+3. Add the saved result to a portfolio with side, quantity, notional, currency, label, and notes.
+4. Review portfolio-level value, Greeks, asset-class exposure, underlying exposure, and exportable position data.
+
+Portfolio construction is intentionally linked to product pricing rather than replacing it. Product pages remain the source of instrument terms, model selection, and valuation outputs; the Portfolio workspace aggregates those saved results into book-level views.
+
+User-created portfolio JSON copies are written under `local_data/portfolios/`, which is ignored by Git and should never be committed to the public repository. A public sample format is available at [`derivapro/static/sample_portfolios/equity_derivatives_portfolio.json`](derivapro/static/sample_portfolios/equity_derivatives_portfolio.json).
+
+---
+
 ## 🎯 Platform Vision
 
 DerivaPro is being developed toward a full browser-launched platform where users can:
@@ -118,7 +133,7 @@ These notes are intended to support transparency, model review, implementation c
 | Prepayment modeling workflow | 🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries. |
 | Report generation | 🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned. |
 | Structured product payoff coverage | 🟡 In progress | First-wave structured product pages now cover autocallables, reverse convertibles, principal-protected notes, enhanced/buffered notes, contingent income notes, and credit-linked notes. Barrier Reverse Convertible now includes configurable user-triggered analysis. Broader payoff-builder components remain a roadmap item. |
-| Portfolio-level risk | 🔵 Planned | Current workflows are mostly instrument-level; portfolio aggregation is the next major product step. |
+| Portfolio-level risk | 🟡 In progress | Portfolio books now support saved-result positions, local private JSON copies, import/export, and first-pass aggregation. Portfolio repricing and stress testing remain planned. |
 | Database persistence and user identity | 🔵 Planned | Current state is mostly session/file based. |
 | Automated tests and CI | 🔵 Planned | Pricing regression tests and route tests are needed before production use. |
 

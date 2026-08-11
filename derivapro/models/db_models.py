@@ -263,6 +263,13 @@ class Position(db.Model):
 
     quantity = db.Column(db.Float, nullable=False, default=1.0)
     notional = db.Column(db.Float, nullable=True)
+    side = db.Column(db.String(10), nullable=False, default="long")
+    position_label = db.Column(db.String(150), nullable=True)
+    currency = db.Column(db.String(10), nullable=False, default="USD")
+    asset_class = db.Column(db.String(100), nullable=True)
+    product_category = db.Column(db.String(100), nullable=True)
+    underlying = db.Column(db.String(100), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

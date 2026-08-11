@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-title compact">
     <h1>Portfolio: {{ portfolio.name }}</h1>
-    <p>Review saved positions, pricing references, and portfolio-level holdings for this collection.</p>
+    <p>Review saved positions, pricing references, local JSON copy status, and portfolio-level valuation/risk aggregation.</p>
 </div>
 
 <div class="detail-back-row">
@@ -26,6 +26,44 @@
             <span>Description</span>
             <strong>{{ portfolio.description or "N/A" }}</strong>
         </div>
+        <div class="detail-summary-item detail-summary-item-full">
+            <span>Private Local JSON Copy</span>
+            <strong>
+                {% if local_snapshot_exists %}
+                {{ local_snapshot_path }}
+                {% else %}
+                Not written yet. Export or modify this portfolio to create a local copy.
+                {% endif %}
+            </strong>
+        </div>
+    </div>
+</div>
+
+<div class="portfolio-action-row">
+    <a href="{{ url_for('portfolios.export_portfolio_json', portfolio_id=portfolio.id) }}" class="btn">Export Local JSON</a>
+    <a href="{{ url_for('saved_results.saved_results') }}" class="btn">Add From Saved Results</a>
+</div>
+
+<div class="result-kpi-grid portfolio-kpi-grid">
+    <div class="pricing-summary-card">
+        <span>Positions</span>
+        <strong>{{ portfolio_metrics.position_count }}</strong>
+        <small>Registered holdings</small>
+    </div>
+    <div class="pricing-summary-card">
+        <span>Priced Positions</span>
+        <strong>{{ portfolio_metrics.priced_position_count }}</strong>
+        <small>Linked to pricing result</small>
+    </div>
+    <div class="pricing-summary-card">
+        <span>Total Market Value</span>
+        <strong>{{ "${:,.2f}".format(portfolio_metrics.total_market_value) }}</strong>
+        <small>Signed, using stored result price</small>
+    </div>
+    <div class="pricing-summary-card">
+        <span>Long / Short Notional</span>
+        <strong>{{ "{:,.2f}".format(portfolio_metrics.long_notional) }} / {{ "{:,.2f}".format(portfolio_metrics.short_notional) }}</strong>
+        <small>Current position metadata</small>
     </div>
 </div>
 
@@ -63,7 +101,7 @@
 </div>
 
 <div class="asset-class-summary-card">
-    <h3>Greeks by Asset Class</h3>
+    <h3>Exposure by Asset Class</h3>
     <div class="table-actions">
         <a href="{{ url_for('exports.export') }}?type=portfolio_summary&portfolio_id={{ portfolio.id }}&format=xlsx" class="btn">Export Summary XLSX</a>
         <a href="{{ url_for('exports.export') }}?type=portfolio_summary&portfolio_id={{ portfolio.id }}&format=csv" class="btn">Export Summary CSV</a>
@@ -73,6 +111,8 @@
             <thead>
                 <tr>
                     <th>Asset Class</th>
+                    <th>Positions</th>
+                    <th>Market Value</th>
                     <th>Delta</th>
                     <th>Gamma</th>
                     <th>Vega</th>
@@ -84,6 +124,8 @@
                 {% for asset_class, data in asset_class_summary.items() %}
                 <tr>
                     <td>{{ data.name }}</td>
+                    <td>{{ data.position_count }}</td>
+                    <td>{{ "${:,.2f}".format(data.market_value) }}</td>
                     <td>{{ "%.2f"|format(data.delta) }}</td>
                     <td>{{ "%.2f"|format(data.gamma) }}</td>
                     <td>{{ "%.2f"|format(data.vega) }}</td>
@@ -95,6 +137,32 @@
         </table>
     </div>
 </div>
+
+{% if underlying_summary %}
+<div class="asset-class-summary-card">
+    <h3>Exposure by Underlying</h3>
+    <div class="history-table-wrap">
+        <table class="results-table history-table portfolio-summary-table">
+            <thead>
+                <tr>
+                    <th>Underlying</th>
+                    <th>Positions</th>
+                    <th>Market Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for underlying, data in underlying_summary.items() %}
+                <tr>
+                    <td>{{ data.name }}</td>
+                    <td>{{ data.position_count }}</td>
+                    <td>{{ "${:,.2f}".format(data.market_value) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 {% if positions %}
 <div class="history-table-card">
@@ -108,11 +176,17 @@
                 <tr>
                     <th>Added At</th>
                     <th>Product Type</th>
+                    <th>Asset Class</th>
                     <th>Ticker</th>
+                    <th>Underlying</th>
                     <th>Model</th>
                     <th>Price</th>
+                    <th>Side</th>
+                    <th>Label</th>
                     <th>Quantity</th>
                     <th>Notional</th>
+                    <th>Currency</th>
+                    <th>Notes</th>
                     <th>Edit</th>
                     <th>Delete</th>
                 </tr>
@@ -122,7 +196,9 @@
                 <tr>
                     <td>{{ position.created_at }}</td>
                     <td>{{ position.instrument.product_type if position.instrument else "" }}</td>
+                    <td>{{ position.asset_class or "" }}</td>
                     <td>{{ position.instrument.ticker if position.instrument else "" }}</td>
+                    <td>{{ position.underlying or "" }}</td>
                     <td>{{ position.instrument.model_name if position.instrument else "" }}</td>
                     <td>
                         {{ "%.4f"|format(position.pricing_result.price) if position.pricing_result and position.pricing_result.price is not none else "" }}
@@ -131,10 +207,27 @@
                         <form method="post" action="{{ url_for('portfolios.update_position', portfolio_id=portfolio.id) }}" class="inline-form">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="position_id" value="{{ position.id }}">
+                            <select name="side" class="inline-input">
+                                <option value="long" {% if position.side != 'short' %}selected{% endif %}>Long</option>
+                                <option value="short" {% if position.side == 'short' %}selected{% endif %}>Short</option>
+                            </select>
+                    </td>
+                    <td>
+                            <input type="text" name="position_label" value="{{ position.position_label or '' }}" class="inline-input">
+                    </td>
+                    <td>
                             <input type="number" step="0.01" name="quantity" value="{{ position.quantity or 1.0 }}" class="inline-input">
                     </td>
                     <td>
                             <input type="number" step="0.01" name="notional" value="{{ position.notional or '' }}" class="inline-input">
+                    </td>
+                    <td>
+                            <input type="text" name="currency" value="{{ position.currency or 'USD' }}" class="inline-input">
+                    </td>
+                    <td>
+                            <input type="text" name="underlying" value="{{ position.underlying or '' }}" class="inline-input" placeholder="Underlying">
+                            <input type="hidden" name="asset_class" value="{{ position.asset_class or '' }}">
+                            <input type="text" name="notes" value="{{ position.notes or '' }}" class="inline-input" placeholder="Notes">
                     </td>
                     <td>
                             <button type="submit" class="table-action-link">Save</button>

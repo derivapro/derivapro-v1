@@ -3307,7 +3307,8 @@ details summary {
     .available-analysis-grid,
     .run-summary-grid,
     .configuration-layout,
-    .configuration-toggle-grid {
+    .configuration-toggle-grid,
+    .portfolio-workflow-grid {
         grid-template-columns: 1fr;
     }
 
@@ -3441,14 +3442,45 @@ details summary {
     box-shadow: 0 6px 18px rgba(16, 24, 32, 0.05);
 }
 
+.portfolio-workflow-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    margin-bottom: 22px;
+}
+
 .portfolio-form-card h3 {
     margin: 0 0 14px;
     color: var(--dp-dark-blue);
 }
 
+.portfolio-form-card p {
+    margin: 0 0 14px;
+    color: var(--dp-text-muted);
+    line-height: 1.55;
+}
+
 .portfolio-create-form {
     margin: 0;
     max-width: 100%;
+}
+
+.portfolio-import-form {
+    display: grid;
+    gap: 12px;
+}
+
+.portfolio-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 18px;
+}
+
+.portfolio-local-card,
+.portfolio-kpi-grid,
+.asset-class-summary-card {
+    margin-bottom: 20px;
 }
 
 .portfolios-table td {
@@ -3568,7 +3600,12 @@ html[data-theme="dark"] .product-page-header,
 html[data-theme="dark"] .product-section-card,
 html[data-theme="dark"] .preview-gate-card,
 html[data-theme="dark"] .legal-card,
-html[data-theme="dark"] .home-content-card {
+html[data-theme="dark"] .home-content-card,
+html[data-theme="dark"] .portfolio-form-card,
+html[data-theme="dark"] .history-table-card,
+html[data-theme="dark"] .empty-state-card,
+html[data-theme="dark"] .detail-dashboard-card,
+html[data-theme="dark"] .asset-class-summary-card {
     background: var(--dp-surface);
     color: var(--dp-text);
     border-color: var(--dp-border);

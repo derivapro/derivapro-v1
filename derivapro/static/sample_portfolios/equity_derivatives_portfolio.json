@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "exported_at": "2026-08-10T00:00:00Z",
+  "portfolio": {
+    "name": "Sample Equity Derivatives Portfolio",
+    "description": "Illustrative sample only. Uses simplified placeholder positions for import-format demonstration.",
+    "created_at": "2026-08-10T00:00:00"
+  },
+  "positions": [
+    {
+      "position_label": "AAPL European Call",
+      "side": "long",
+      "quantity": 10.0,
+      "notional": null,
+      "currency": "USD",
+      "asset_class": "Equity Derivatives",
+      "product_category": "european_option",
+      "underlying": "AAPL",
+      "notes": "Sample imported position. Replace with user-run saved pricing result for production analysis.",
+      "instrument": {
+        "product_type": "european_option",
+        "ticker": "AAPL",
+        "model_name": "black_scholes",
+        "params_json": {
+          "option_type": "call",
+          "spot_price": 200.0,
+          "strike_price": 210.0,
+          "maturity": 0.5,
+          "risk_free_rate": 0.045,
+          "volatility": 0.25
+        }
+      },
+      "pricing_result": {
+        "price": 12.35,
+        "delta": 0.52,
+        "gamma": 0.018,
+        "vega": 0.41,
+        "theta": -0.035,
+        "rho": 0.22,
+        "result_json": {
+          "sample": true,
+          "source": "DerivaPro public sample portfolio"
+        },
+        "created_at": "2026-08-10T00:00:00"
+      },
+      "added_at": "2026-08-10T00:00:00"
+    },
+    {
+      "position_label": "MSFT Barrier Put",
+      "side": "short",
+      "quantity": 5.0,
+      "notional": null,
+      "currency": "USD",
+      "asset_class": "Equity Derivatives",
+      "product_category": "barrier_option",
+      "underlying": "MSFT",
+      "notes": "Sample short option position for demonstrating signed portfolio aggregation.",
+      "instrument": {
+        "product_type": "barrier_option",
+        "ticker": "MSFT",
+        "model_name": "monte_carlo",
+        "params_json": {
+          "option_type": "put",
+          "barrier_type": "down-and-out",
+          "spot_price": 420.0,
+          "strike_price": 400.0,
+          "barrier": 320.0,
+          "maturity": 1.0,
+          "risk_free_rate": 0.045,
+          "volatility": 0.28
+        }
+      },
+      "pricing_result": {
+        "price": 18.9,
+        "delta": -0.31,
+        "gamma": 0.012,
+        "vega": 0.58,
+        "theta": -0.041,
+        "rho": -0.18,
+        "result_json": {
+          "sample": true,
+          "source": "DerivaPro public sample portfolio"
+        },
+        "created_at": "2026-08-10T00:00:00"
+      },
+      "added_at": "2026-08-10T00:00:00"
+    }
+  ],
+  "notice": "Public sample only. User-generated portfolio JSON files should live under local_data/portfolios/ and remain outside source control."
+}

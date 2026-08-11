@@ -3,28 +3,78 @@
 {% block content %}
 <div class="page-title compact">
     <h1>Portfolios</h1>
-    <p>Create and manage named collections of saved positions for ongoing analysis and reporting workflows.</p>
+    <p>Create local portfolio books, import/export private JSON copies, and organize saved pricing results for portfolio-level valuation and risk review.</p>
 </div>
 
-<div class="portfolio-form-card">
-    <h3>Create Portfolio</h3>
-    <form method="post" class="form-grid portfolio-create-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-group">
-            <label for="name">Portfolio Name</label>
-            <input type="text" id="name" name="name" required>
-        </div>
+<div class="portfolio-workflow-grid">
+    <div class="portfolio-form-card">
+        <h3>Create Portfolio</h3>
+        <p>Use this as the portfolio shell. Add positions from saved pricing results after running product-level pricers.</p>
+        <form method="post" class="form-grid portfolio-create-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="name">Portfolio Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
 
-        <div class="form-group">
-            <label for="description">Description</label>
-            <input type="text" id="description" name="description">
-        </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <input type="text" id="description" name="description">
+            </div>
 
-        <div class="form-group full-width">
-            <button type="submit">Create Portfolio</button>
-        </div>
-    </form>
+            <div class="form-group full-width">
+                <button type="submit">Create Portfolio</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="portfolio-form-card">
+        <h3>Import Portfolio JSON</h3>
+        <p>Import a DerivaPro portfolio JSON file. User-created local portfolio files are private local artifacts and should not be committed to GitHub.</p>
+        <form method="post" action="{{ url_for('portfolios.import_upload') }}" enctype="multipart/form-data" class="portfolio-import-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="portfolio_file">Portfolio JSON File</label>
+                <input type="file" id="portfolio_file" name="portfolio_file" accept="application/json,.json" required>
+            </div>
+            <button type="submit">Import Uploaded File</button>
+        </form>
+        <p class="inline-muted-text">Sample format: <a href="{{ url_for('static', filename='sample_portfolios/equity_derivatives_portfolio.json') }}" target="_blank" rel="noopener">equity derivatives portfolio JSON</a>.</p>
+    </div>
 </div>
+
+{% if local_copies %}
+<div class="history-table-card portfolio-local-card">
+    <div class="history-table-wrap">
+        <table class="results-table history-table portfolios-table">
+            <thead>
+                <tr>
+                    <th>Local Copy</th>
+                    <th>Modified</th>
+                    <th>Size KB</th>
+                    <th>Import</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for copy in local_copies %}
+                <tr>
+                    <td><code>{{ copy.filename }}</code></td>
+                    <td>{{ copy.modified_at }}</td>
+                    <td>{{ copy.size_kb }}</td>
+                    <td>
+                        <form method="post" action="{{ url_for('portfolios.import_local_copy') }}" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="filename" value="{{ copy.filename }}">
+                            <button type="submit" class="table-action-link">Import</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 {% if portfolios %}
 <div class="history-table-card">
@@ -39,6 +89,8 @@
                     <th>Created At</th>
                     <th>Name</th>
                     <th>Description</th>
+                    <th>Positions</th>
+                    <th>Local JSON</th>
                     <th>View</th>
                 </tr>
             </thead>
@@ -48,6 +100,10 @@
                     <td>{{ portfolio.created_at }}</td>
                     <td>{{ portfolio.name }}</td>
                     <td>{{ portfolio.description or "" }}</td>
+                    <td>{{ portfolio.positions|length }}</td>
+                    <td>
+                        <a href="{{ url_for('portfolios.export_portfolio_json', portfolio_id=portfolio.id) }}" class="table-action-link">Export</a>
+                    </td>
                     <td>
                         <a
                             href="{{ url_for('portfolios.portfolio_detail', portfolio_id=portfolio.id) }}"

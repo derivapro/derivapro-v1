@@ -63,10 +63,21 @@
                                 {% endfor %}
                             </select>
 
+                            <input type="text" name="position_label" placeholder="Position label">
+
+                            <select name="side" required>
+                                <option value="long">Long</option>
+                                <option value="short">Short</option>
+                            </select>
+
                             <input type="number" step="0.01" name="quantity" value="1.0" placeholder="Quantity"
                                 required>
 
                             <input type="number" step="0.01" name="notional" placeholder="Notional">
+
+                            <input type="text" name="currency" value="USD" placeholder="Currency">
+
+                            <input type="text" name="notes" placeholder="Position notes">
 
                             <button type="submit" class="portfolio-inline-button">Add</button>
                         </form>
