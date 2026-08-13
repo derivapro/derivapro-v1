@@ -144,10 +144,15 @@
                             <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}" class="nav-link">Fixed Amortizing Bonds</a></li>
                             <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}" class="nav-link">Floating Rate Bonds</a></li>
                             <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}" class="nav-link">Floating Amortizing Bonds</a></li>
+                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="nav-link">Rates / FI Extensions</a></li>
+                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='fra') }}" class="nav-link">Forward Rate Agreements</a></li>
+                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='cap-floor') }}" class="nav-link">Caps / Floors</a></li>
+                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-putable-bond') }}" class="nav-link">Callable / Putable Bonds</a></li>
                             {% else %}
                             <li><span class="nav-link nav-link-locked">Bond Analytics</span></li>
                             <li><span class="nav-link nav-link-locked">Fixed / Floating Bonds</span></li>
                             <li><span class="nav-link nav-link-locked">Amortizing Bonds</span></li>
+                            <li><span class="nav-link nav-link-locked">Rates / FI Extensions</span></li>
                             {% endif %}
                         </ul>
                     </details>

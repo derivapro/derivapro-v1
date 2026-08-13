@@ -1,12 +1,23 @@
 from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
-from flask import Blueprint, render_template, request, json
+from flask import Blueprint, abort, render_template, request, json
 import QuantLib as ql
 import os
 import markdown
 from dotenv import load_dotenv
 import logging
+from copy import deepcopy
 
 from ..utils.lazy_imports import LazyAttribute
+from ..models.rates_fixed_income import (
+    CallableBondTerms,
+    CapFloorTerms,
+    FraTerms,
+    parse_curve,
+    parse_date,
+    price_callable_putable_bond,
+    price_cap_floor,
+    price_fra,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +30,140 @@ load_dotenv()
 
 # Get the values from the environment variables
 model = os.getenv("LLM_MODEL", os.getenv("Model"))
+
+
+FIXED_INCOME_EXTENSION_CONFIGS = {
+    "fra": {
+        "title": "Forward Rate Agreement",
+        "subtitle": "Price OTC forward-rate exposure using discount and forward curves.",
+        "asset_class": "Fixed Income / Rates",
+        "methodology_doc": "forward_rate_agreement",
+        "description_title": "Single-period interest-rate forward contract with curve-based PV.",
+        "description_body": (
+            "A forward rate agreement locks a fixed rate for a future accrual period. "
+            "The workflow projects the forward rate from the supplied forward curve, compares it with the contract rate, "
+            "and discounts the payoff using the supplied discount curve."
+        ),
+        "chips": ["Forward curve", "Discount curve", "Day count", "Scenario shocks"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "start_date", "label": "FRA Start Date", "type": "date", "value": "2027-02-13"},
+            {"name": "end_date", "label": "FRA End Date", "type": "date", "value": "2027-08-13"},
+            {"name": "notional", "label": "Notional", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "strike_rate", "label": "Contract Rate", "type": "number", "step": "0.0001", "value": "0.0425"},
+            {
+                "name": "position",
+                "label": "Position",
+                "type": "select",
+                "value": "pay_fixed",
+                "options": [("pay_fixed", "Pay Fixed / Receive Floating"), ("receive_fixed", "Receive Fixed / Pay Floating")],
+            },
+            {
+                "name": "day_count",
+                "label": "Accrual Day Count",
+                "type": "select",
+                "value": "ACT/360",
+                "options": [("ACT/360", "ACT/360"), ("ACT/365", "ACT/365"), ("30/360", "30/360")],
+            },
+            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "cap-floor": {
+        "title": "Interest Rate Cap / Floor",
+        "subtitle": "Value caplet or floorlet strips using Black-style rate optionality.",
+        "asset_class": "Fixed Income / Rates",
+        "methodology_doc": "cap_floor",
+        "description_title": "A portfolio of rate options on forward reset periods.",
+        "description_body": (
+            "Caps and floors are strips of caplets or floorlets that reference forward rates over scheduled reset periods. "
+            "This first-wave workflow values the strip with a Black rate-option approximation, supplied forward/discount curves, "
+            "and user-entered volatility."
+        ),
+        "chips": ["Caps", "Floors", "Black caplets", "Rate/vol scenarios"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "start_date", "label": "Start Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2029-08-13"},
+            {"name": "notional", "label": "Notional", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "strike_rate", "label": "Strike Rate", "type": "number", "step": "0.0001", "value": "0.0450"},
+            {"name": "volatility", "label": "Forward Rate Volatility", "type": "number", "step": "0.001", "value": "0.25"},
+            {
+                "name": "option_type",
+                "label": "Product Type",
+                "type": "select",
+                "value": "cap",
+                "options": [("cap", "Cap"), ("floor", "Floor")],
+            },
+            {
+                "name": "payments_per_year",
+                "label": "Payments / Year",
+                "type": "select",
+                "value": "4",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Accrual Day Count",
+                "type": "select",
+                "value": "ACT/360",
+                "options": [("ACT/360", "ACT/360"), ("ACT/365", "ACT/365"), ("30/360", "30/360")],
+            },
+            {"name": "scenario_rate_shock_bp", "label": "Rate Shock (bp)", "type": "number", "step": "1", "value": "25"},
+            {"name": "scenario_vol_shock", "label": "Vol Shock", "type": "number", "step": "0.001", "value": "0.05"},
+        ],
+    },
+    "callable-putable-bond": {
+        "title": "Callable / Putable Bond",
+        "subtitle": "Evaluate fixed-rate bonds with embedded issuer call or investor put rights.",
+        "asset_class": "Fixed Income",
+        "methodology_doc": "callable_putable_bond",
+        "description_title": "Fixed-rate bond plus embedded interest-rate optionality.",
+        "description_body": (
+            "Callable and putable bonds extend the existing fixed-rate bond workflow by adding exercise optionality. "
+            "This page compares straight-bond PV with an option-adjusted value from a transparent short-rate lattice approximation."
+        ),
+        "chips": ["Callable bonds", "Putable bonds", "Short-rate lattice", "Effective duration"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2031-08-13"},
+            {"name": "notional", "label": "Face Value", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "coupon_rate", "label": "Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0550"},
+            {
+                "name": "payments_per_year",
+                "label": "Coupon Frequency",
+                "type": "select",
+                "value": "2",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "option_type",
+                "label": "Embedded Option",
+                "type": "select",
+                "value": "callable",
+                "options": [("callable", "Callable"), ("putable", "Putable")],
+            },
+            {"name": "call_or_put_price", "label": "Exercise Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00"},
+            {"name": "first_exercise_year", "label": "First Exercise Year", "type": "number", "step": "0.25", "value": "2.0"},
+            {"name": "short_rate_volatility", "label": "Short-Rate Volatility", "type": "number", "step": "0.001", "value": "0.015"},
+            {
+                "name": "day_count",
+                "label": "Coupon Day Count",
+                "type": "select",
+                "value": "30/360",
+                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+            },
+            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+}
+
+
+CURVE_FIELD_DEFAULTS = {
+    "discount_curve_tenors": "0.25,0.5,1,2,3,5,7,10",
+    "discount_curve_rates": "0.0400,0.0410,0.0420,0.0430,0.0440,0.0450,0.0460,0.0470",
+    "forward_curve_tenors": "0.25,0.5,1,2,3,5,7,10",
+    "forward_curve_rates": "0.0410,0.0420,0.0430,0.0440,0.0450,0.0460,0.0470,0.0480",
+}
 
 
 def ask_gpt(question):
@@ -43,6 +188,94 @@ def ask_gpt(question):
         else:
             logger.error("Unexpected error in LLM provider call")
             return f"An error occurred while generating the assessment. Please try again. Error details: {error_msg}"
+
+
+def _default_form_data(config):
+    data = {field["name"]: field["value"] for field in config["fields"]}
+    data.update(CURVE_FIELD_DEFAULTS)
+    return data
+
+
+def _extension_form_data(config):
+    data = _default_form_data(config)
+    if request.method == "POST":
+        for key in data:
+            data[key] = request.form.get(key, data[key])
+    return data
+
+
+def _float_value(data, key):
+    return float(data[key])
+
+
+def _int_value(data, key):
+    return int(float(data[key]))
+
+
+def _price_fixed_income_extension(product_slug, form_data):
+    discount_curve = parse_curve(
+        form_data["discount_curve_tenors"],
+        form_data["discount_curve_rates"],
+    )
+    forward_curve = parse_curve(
+        form_data["forward_curve_tenors"],
+        form_data["forward_curve_rates"],
+    )
+
+    if product_slug == "fra":
+        return price_fra(
+            FraTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                start_date=parse_date(form_data["start_date"]),
+                end_date=parse_date(form_data["end_date"]),
+                notional=_float_value(form_data, "notional"),
+                strike_rate=_float_value(form_data, "strike_rate"),
+                position=form_data["position"],
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                forward_curve=forward_curve,
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+            )
+        )
+
+    if product_slug == "cap-floor":
+        return price_cap_floor(
+            CapFloorTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                start_date=parse_date(form_data["start_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                strike_rate=_float_value(form_data, "strike_rate"),
+                option_type=form_data["option_type"],
+                volatility=_float_value(form_data, "volatility"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                forward_curve=forward_curve,
+                scenario_rate_shock_bp=_float_value(form_data, "scenario_rate_shock_bp"),
+                scenario_vol_shock=_float_value(form_data, "scenario_vol_shock"),
+            )
+        )
+
+    if product_slug == "callable-putable-bond":
+        return price_callable_putable_bond(
+            CallableBondTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                coupon_rate=_float_value(form_data, "coupon_rate"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                option_type=form_data["option_type"],
+                call_or_put_price=_float_value(form_data, "call_or_put_price"),
+                first_exercise_year=_float_value(form_data, "first_exercise_year"),
+                short_rate_volatility=_float_value(form_data, "short_rate_volatility"),
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+            )
+        )
+
+    raise ValueError("Unsupported fixed-income extension product.")
 
 
 # Route to initialize bond classes with common parameters
@@ -675,4 +908,82 @@ def nc_floating_amort_bonds():
         flam_bond_results=flam_bond_results,
         md_content=md_content,
         gpt_assessment=gpt_assessment,
+    )
+
+
+@nc_bonds_bp.route("/rates-fixed-income", methods=["GET"])
+def rates_fixed_income_home():
+    return render_template(
+        "fixed_income_extensions_home.html",
+        products=FIXED_INCOME_EXTENSION_CONFIGS,
+    )
+
+
+@nc_bonds_bp.route("/rates-fixed-income/<product_slug>", methods=["GET", "POST"])
+def rates_fixed_income_product(product_slug):
+    config = FIXED_INCOME_EXTENSION_CONFIGS.get(product_slug)
+    if not config:
+        abort(404)
+
+    form_data = _extension_form_data(config)
+    results = None
+    pricing_error = None
+
+    if request.method == "POST":
+        try:
+            results = _price_fixed_income_extension(product_slug, form_data)
+        except Exception as exc:
+            pricing_error = str(exc)
+
+    field_sections = [
+        {"title": "Trade Terms", "fields": deepcopy(config["fields"])},
+        {
+            "title": "Curve Assumptions",
+            "fields": [
+                {
+                    "name": "discount_curve_tenors",
+                    "label": "Discount Curve Tenors (Years)",
+                    "type": "text",
+                    "value": form_data["discount_curve_tenors"],
+                    "hint": "Comma-separated year tenors.",
+                },
+                {
+                    "name": "discount_curve_rates",
+                    "label": "Discount Curve Zero Rates",
+                    "type": "text",
+                    "value": form_data["discount_curve_rates"],
+                    "hint": "Comma-separated continuously compounded zero rates.",
+                },
+                {
+                    "name": "forward_curve_tenors",
+                    "label": "Forward Curve Tenors (Years)",
+                    "type": "text",
+                    "value": form_data["forward_curve_tenors"],
+                    "hint": "Used for FRA and cap/floor projected rates.",
+                },
+                {
+                    "name": "forward_curve_rates",
+                    "label": "Forward Curve Zero Rates",
+                    "type": "text",
+                    "value": form_data["forward_curve_rates"],
+                    "hint": "Used for FRA and cap/floor projected rates.",
+                },
+            ],
+        },
+    ]
+
+    for section in field_sections:
+        for field in section["fields"]:
+            field["value"] = form_data.get(field["name"], field.get("value", ""))
+            field.setdefault("hint", "")
+            field.setdefault("step", "any")
+
+    return render_template(
+        "fixed_income_extension_product.html",
+        config=config,
+        product_slug=product_slug,
+        field_sections=field_sections,
+        form_data=form_data,
+        results=results,
+        pricing_error=pricing_error,
     )

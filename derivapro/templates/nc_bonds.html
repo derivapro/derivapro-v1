@@ -1,6 +1,72 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | Fixed Income{% endblock %}
 
 {% block content %}
-<h2>NonCallable Bonds</h2>
-<p>This is a placeholder for NonCallable Bonds.</p>
+{{ product.header(
+    "Fixed Income",
+    "Bond cash-flow analytics and first-wave rates / fixed-income extension products.",
+    "Fixed Income",
+    "Registered Workspace"
+) }}
+
+{{ product.description(
+    "Existing bond workflows plus new rates and optionality extensions.",
+    "Use this workspace to access current non-callable bond analytics and the new extension products. The bond pages retain the existing fixed/floating and amortizing workflows, while the extension pages introduce FRAs, caps/floors, and callable/putable bonds using the newer product-standard layout.",
+    ["Fixed bonds", "Floating bonds", "Amortizing bonds", "FRAs", "Caps / floors", "Callable / putable bonds"],
+    "Legacy bond pages should be standardized in a future UI pass; the new extension pages already follow the agreed product-page pattern."
+) }}
+
+{% call product.section("Bond Workflows", "Current fixed-income cash-flow valuation pages.") %}
+<div class="product-workspace-grid">
+    <article class="product-workspace-card">
+        <span>Non-callable</span>
+        <h3>Fixed Rate Bonds</h3>
+        <p>Value fixed coupon bullet bonds using curve, schedule, day-count, and shock assumptions.</p>
+        <a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}">Open workflow</a>
+    </article>
+    <article class="product-workspace-card">
+        <span>Non-callable</span>
+        <h3>Fixed Amortizing Bonds</h3>
+        <p>Analyze fixed coupon bonds with principal amortization and declining balance exposure.</p>
+        <a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}">Open workflow</a>
+    </article>
+    <article class="product-workspace-card">
+        <span>Non-callable</span>
+        <h3>Floating Rate Bonds</h3>
+        <p>Price floating-rate bonds with index and discount curve assumptions.</p>
+        <a href="{{ url_for('nc_bonds.nc_floating_bonds') }}">Open workflow</a>
+    </article>
+    <article class="product-workspace-card">
+        <span>Non-callable</span>
+        <h3>Floating Amortizing Bonds</h3>
+        <p>Review floating-rate amortizing structures with changing balance and rate reset behavior.</p>
+        <a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}">Open workflow</a>
+    </article>
+</div>
+{% endcall %}
+
+{% call product.section("Rates / Fixed-Income Extensions", "New first-wave pages added under the existing Fixed Income section.") %}
+<div class="product-workspace-grid">
+    <article class="product-workspace-card">
+        <span>Rates</span>
+        <h3>Forward Rate Agreement</h3>
+        <p>Project forward rates from a curve, compare against the contract rate, and discount the payoff.</p>
+        <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='fra') }}">Open FRA</a>
+    </article>
+    <article class="product-workspace-card">
+        <span>Rates Optionality</span>
+        <h3>Caps / Floors</h3>
+        <p>Value caplet and floorlet strips using forward rates, discount factors, and volatility assumptions.</p>
+        <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='cap-floor') }}">Open caps / floors</a>
+    </article>
+    <article class="product-workspace-card">
+        <span>Bond Optionality</span>
+        <h3>Callable / Putable Bonds</h3>
+        <p>Compare straight-bond PV with option-adjusted value from a short-rate lattice approximation.</p>
+        <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-putable-bond') }}">Open callable / putable</a>
+    </article>
+</div>
+{% endcall %}
 {% endblock %}

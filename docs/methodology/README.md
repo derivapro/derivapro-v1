@@ -14,3 +14,6 @@ This folder contains product-level methodology notes for DerivaPro pricing and a
 | Enhanced participation / buffered note | [Enhanced Participation Note Methodology](enhanced_participation_note.md) |
 | Digital coupon / contingent income note | [Contingent Income Note Methodology](contingent_income_note.md) |
 | Credit-linked note | [Credit-Linked Note Methodology](credit_linked_note_structured.md) |
+| Forward rate agreement | [Forward Rate Agreement Methodology](forward_rate_agreement.md) |
+| Interest rate cap / floor | [Cap / Floor Methodology](cap_floor.md) |
+| Callable / putable bond | [Callable / Putable Bond Methodology](callable_putable_bond.md) |

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | Fixed Income Extensions{% endblock %}
+
+{% block content %}
+{{ product.header(
+    "Fixed Income Extensions",
+    "First-wave institutional rates and fixed-income products that extend the existing bond and swap workflows.",
+    "Fixed Income",
+    "Registered Workspace"
+) }}
+
+{{ product.description(
+    "Rates and fixed-income expansion without duplicating existing bond pages.",
+    "The existing Fixed Income section continues to support fixed-rate, floating-rate, and amortizing non-callable bonds. This extension workspace adds products that require stronger curve, schedule, day-count, discounting, and optionality support.",
+    ["FRAs", "Caps / floors", "Callable / putable bonds", "Curve scenarios"],
+    "Methodology documentation is available for each first-wave product."
+) }}
+
+{% call product.section("Product Workspaces", "Open a first-wave fixed-income extension product.") %}
+<div class="product-workspace-grid">
+    {% for slug, item in products.items() %}
+    <article class="product-workspace-card">
+        <span>{{ item.asset_class }}</span>
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.description_body }}</p>
+        <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug=slug) }}">Open workspace</a>
+    </article>
+    {% endfor %}
+</div>
+{% endcall %}
+
+{% call product.section("Existing Fixed-Income Coverage", "Current bond pages remain available and should be reviewed separately before deeper refactoring.") %}
+<div class="analysis-grid">
+    <article class="analysis-card">
+        <span>Current bond workflows</span>
+        <p>Fixed-rate, floating-rate, fixed amortizing, and floating amortizing non-callable bond pages are retained as the current cash-flow valuation layer.</p>
+    </article>
+    <article class="analysis-card">
+        <span>Recommended cleanup</span>
+        <p>Next UI pass should standardize the legacy bond forms into the same Product Description, Pricing, Analysis, and Reporting layout used by the new extension products.</p>
+    </article>
+    <article class="analysis-card">
+        <span>Model architecture</span>
+        <p>The new products use shared curve parsing, discounting, schedule, and day-count helpers so future swaps, Bermudan swaptions, and cross-currency products can reuse the same conventions.</p>
+    </article>
+</div>
+{% endcall %}
+{% endblock %}

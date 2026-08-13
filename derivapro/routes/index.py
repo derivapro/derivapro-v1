@@ -16,6 +16,9 @@ METHODOLOGY_DOCS = {
     "enhanced_participation_note": "enhanced_participation_note.md",
     "contingent_income_note": "contingent_income_note.md",
     "credit_linked_note_structured": "credit_linked_note_structured.md",
+    "forward_rate_agreement": "forward_rate_agreement.md",
+    "cap_floor": "cap_floor.md",
+    "callable_putable_bond": "callable_putable_bond.md",
 }
 
 
