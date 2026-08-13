@@ -20,7 +20,7 @@
 ) }}
 
 {% call product.section("Pricing", "Enter product terms and run the first-pass exotic option valuation.") %}
-<form method="post" class="european-pricing-form">
+<form method="post" class="european-pricing-form product-standard-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="pricing-form-block">
         <div class="pricing-form-heading">
@@ -115,12 +115,20 @@
 {% else %}
 <div class="available-analysis-grid">
     <article class="analysis-availability-card">
-        <span>Scenario PV</span>
-        <p>Generated after valuation using product-appropriate spot or correlation shocks.</p>
+        <span aria-hidden="true">S</span>
+        <div>
+            <strong>Scenario PV</strong>
+            <p>Generated after valuation using product-appropriate spot or correlation shocks.</p>
+        </div>
+        <em>Ready after pricing</em>
     </article>
     <article class="analysis-availability-card">
-        <span>Diagnostics</span>
-        <p>Shows probability, path, basket, reset, or quanto-adjustment metrics depending on the product.</p>
+        <span aria-hidden="true">D</span>
+        <div>
+            <strong>Diagnostics</strong>
+            <p>Shows probability, path, basket, reset, or quanto-adjustment metrics depending on the product.</p>
+        </div>
+        <em>Ready after pricing</em>
     </article>
 </div>
 {% endif %}

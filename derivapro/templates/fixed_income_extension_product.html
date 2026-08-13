@@ -20,7 +20,7 @@
 ) }}
 
 {% call product.section("Pricing", "Enter trade terms and curve assumptions, then run valuation.") %}
-<form method="post" class="european-pricing-form">
+<form method="post" class="european-pricing-form product-standard-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     {% for section in field_sections %}
@@ -146,16 +146,28 @@
 {% else %}
 <div class="available-analysis-grid">
     <article class="analysis-availability-card">
-        <span>Rate scenarios</span>
-        <p>Base, upward-shift, and downward-shift scenarios are generated after valuation.</p>
+        <span aria-hidden="true">R</span>
+        <div>
+            <strong>Rate scenarios</strong>
+            <p>Base, upward-shift, and downward-shift scenarios are generated after valuation.</p>
+        </div>
+        <em>Ready after pricing</em>
     </article>
     <article class="analysis-availability-card">
-        <span>Period diagnostics</span>
-        <p>FRA payoff periods, caplet/floorlet strips, or bond lattice cash-flow steps are displayed after pricing.</p>
+        <span aria-hidden="true">P</span>
+        <div>
+            <strong>Period diagnostics</strong>
+            <p>FRA payoff periods, caplet/floorlet strips, or bond lattice cash-flow steps are displayed after pricing.</p>
+        </div>
+        <em>Ready after pricing</em>
     </article>
     <article class="analysis-availability-card">
-        <span>Model limitations</span>
-        <p>Each methodology note documents assumptions and next validation checks.</p>
+        <span aria-hidden="true">M</span>
+        <div>
+            <strong>Model limitations</strong>
+            <p>Each methodology note documents assumptions and next validation checks.</p>
+        </div>
+        <em>Documented</em>
     </article>
 </div>
 {% endif %}

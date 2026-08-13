@@ -1486,6 +1486,34 @@ details summary {
     line-height: 1.45;
 }
 
+.analysis-card>span,
+.pricing-summary-card>span:not(.metric-label) {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--dp-text-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
+
+.analysis-card>h3,
+.pricing-summary-card>strong {
+    display: block;
+    margin: 0;
+    color: var(--dp-heading);
+    font-size: 18px;
+    line-height: 1.22;
+}
+
+.analysis-card>p {
+    margin: 8px 0 0;
+    color: var(--dp-text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 .compact-form-grid,
 .mc-parameter-grid {
     grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -2156,11 +2184,22 @@ details summary {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    grid-column: 1;
+    grid-row: 1;
     width: 32px;
     height: 32px;
     border: 1px solid rgba(178, 136, 55, 0.28);
     border-radius: 8px;
     background: rgba(178, 136, 55, 0.08);
+    color: var(--dp-accent-strong);
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.analysis-availability-card>div {
+    grid-column: 2;
+    min-width: 0;
 }
 
 .analysis-availability-card strong {
@@ -2174,12 +2213,15 @@ details summary {
 }
 
 .analysis-availability-card p {
-    grid-column: 1 / -1;
     margin: 4px 0 0;
     color: var(--dp-text-muted);
     font-size: 13px;
     line-height: 1.45;
     overflow-wrap: anywhere;
+}
+
+.analysis-availability-card>p {
+    grid-column: 1 / -1;
 }
 
 .analysis-availability-card em {
@@ -2207,6 +2249,40 @@ details summary {
     color: inherit;
     text-decoration: none;
     white-space: normal;
+}
+
+.product-standard-form .compact-form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.product-standard-form .form-group,
+.product-standard-form input,
+.product-standard-form select,
+.analysis-card,
+.analysis-card *,
+.pricing-summary-card,
+.pricing-summary-card *,
+.product-section-card,
+.product-section-card *,
+.run-summary-grid,
+.run-summary-grid * {
+    min-width: 0;
+}
+
+.product-standard-form .form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.product-standard-form input,
+.product-standard-form select {
+    width: 100%;
+}
+
+.analysis-card,
+.pricing-summary-card,
+.run-summary-grid article,
+.available-analysis-grid article {
+    overflow-wrap: anywhere;
 }
 
 .workspace-link-pill {
