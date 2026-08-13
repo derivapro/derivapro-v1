@@ -19,6 +19,11 @@ METHODOLOGY_DOCS = {
     "forward_rate_agreement": "forward_rate_agreement.md",
     "cap_floor": "cap_floor.md",
     "callable_putable_bond": "callable_putable_bond.md",
+    "digital_option": "digital_option.md",
+    "lookback_option": "lookback_option.md",
+    "basket_option": "basket_option.md",
+    "cliquet_option": "cliquet_option.md",
+    "quanto_option": "quanto_option.md",
 }
 
 

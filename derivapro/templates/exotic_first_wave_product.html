@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | {{ config.title }}{% endblock %}
+
+{% block content %}
+{{ product.header(
+    config.title,
+    config.description,
+    "Equity & Exotic Options",
+    "First-Wave Expansion"
+) }}
+
+{{ product.description(
+    config.title,
+    config.description,
+    [config.methodology, "Scenario PV", "Diagnostics", "Methodology note"],
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name=config.methodology_doc)
+) }}
+
+{% call product.section("Pricing", "Enter product terms and run the first-pass exotic option valuation.") %}
+<form method="post" class="european-pricing-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">E</span>
+            <div>
+                <strong>Trade Terms</strong>
+                <p>Review economics, market assumptions, and model controls for this exotic option.</p>
+            </div>
+        </div>
+        <div class="form-grid compact-form-grid">
+            {% for name, label, type, default, step in config.fields %}
+            <div class="form-group {% if type == 'text' %}full-width{% endif %}">
+                <label for="{{ name }}">{{ label }}</label>
+                <input type="{{ type }}" id="{{ name }}" name="{{ name }}" step="{{ step }}" value="{{ form_data[name] }}" required>
+            </div>
+            {% endfor %}
+            {% for name, select_config in config.selects.items() %}
+            <div class="form-group">
+                <label for="{{ name }}">{{ select_config[0] }}</label>
+                <select id="{{ name }}" name="{{ name }}">
+                    {% for value, label in select_config[2] %}
+                    <option value="{{ value }}" {% if form_data[name] == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="pricing-action-row">
+        <button type="submit" class="btn-primary">Run Valuation</button>
+        <a href="{{ url_for('exotic_options.exotic_options') }}" class="btn-secondary">Exotic Options Hub</a>
+    </div>
+</form>
+
+{% if pricing_error %}
+<div class="info-box error-box">
+    <p><strong>Run error:</strong> {{ pricing_error }}</p>
+</div>
+{% elif results %}
+<div class="pricing-results-shell">
+    <div class="result-kpi-grid">
+        {% for metric in results.primary_metrics %}
+        <div class="pricing-summary-card">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+            <small>Current run</small>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="analysis-card">
+        <span>Pricing Summary</span>
+        <p>{{ results.summary }}</p>
+    </div>
+</div>
+{% else %}
+<div class="empty-state-panel">
+    <strong>No pricing run yet.</strong>
+    <p>Populate terms and run valuation to generate PV, scenario outputs, and diagnostics.</p>
+</div>
+{% endif %}
+{% endcall %}
+
+{% call product.section("Analysis", "Scenario and model diagnostics for the latest run.") %}
+{% if results %}
+<div class="analysis-grid">
+    <article class="analysis-card">
+        <span>Scenario PV</span>
+        <table class="results-table compact-results-table">
+            <thead><tr><th>Scenario</th><th>PV</th></tr></thead>
+            <tbody>
+                {% for row in results.scenarios %}
+                <tr><td>{{ row.label }}</td><td>{{ "${:,.4f}".format(row.pv) }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </article>
+    <article class="analysis-card">
+        <span>Diagnostics</span>
+        <table class="results-table compact-results-table">
+            <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+            <tbody>
+                {% for row in results.diagnostics %}
+                <tr>
+                    <td>{{ row.Metric }}</td>
+                    <td>{% if row.Value is number %}{{ "{:,.6f}".format(row.Value) }}{% else %}{{ row.Value }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </article>
+</div>
+{% else %}
+<div class="available-analysis-grid">
+    <article class="analysis-availability-card">
+        <span>Scenario PV</span>
+        <p>Generated after valuation using product-appropriate spot or correlation shocks.</p>
+    </article>
+    <article class="analysis-availability-card">
+        <span>Diagnostics</span>
+        <p>Shows probability, path, basket, reset, or quanto-adjustment metrics depending on the product.</p>
+    </article>
+</div>
+{% endif %}
+{% endcall %}
+
+{% call product.section("Run Summary", "Methodology and limitation reference.") %}
+<div class="run-summary-grid">
+    <article class="analysis-card">
+        <span>Current Pricing Method</span>
+        <h3>{{ config.methodology }}</h3>
+        <p>This is a first-pass implementation designed for review and incremental validation.</p>
+    </article>
+    <article class="analysis-card">
+        <span>Methodology</span>
+        <h3><a href="{{ url_for('index.methodology_doc', doc_name=config.methodology_doc) }}" target="_blank" rel="noopener">Open methodology</a></h3>
+        <p>Review scope, assumptions, limitations, and planned validation upgrades.</p>
+    </article>
+</div>
+{% endcall %}
+
+{{ product.reporting(config.title) }}
+{% endblock %}

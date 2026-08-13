@@ -17,3 +17,8 @@ This folder contains product-level methodology notes for DerivaPro pricing and a
 | Forward rate agreement | [Forward Rate Agreement Methodology](forward_rate_agreement.md) |
 | Interest rate cap / floor | [Cap / Floor Methodology](cap_floor.md) |
 | Callable / putable bond | [Callable / Putable Bond Methodology](callable_putable_bond.md) |
+| Digital option | [Digital Option Methodology](digital_option.md) |
+| Lookback option | [Lookback Option Methodology](lookback_option.md) |
+| Basket option | [Basket Option Methodology](basket_option.md) |
+| Cliquet / ratchet option | [Cliquet Option Methodology](cliquet_option.md) |
+| Quanto option | [Quanto Option Methodology](quanto_option.md) |

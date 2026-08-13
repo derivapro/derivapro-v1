@@ -1,7 +1,7 @@
 # Note: last updated on Aug 06
 
 from datetime import datetime, timedelta
-from flask import Blueprint, render_template, request, session
+from flask import Blueprint, abort, render_template, request, session
 from flask_login import current_user
 
 import os
@@ -15,6 +15,18 @@ from ..services.simulation_config import (
     apply_simulation_defaults,
     get_effective_simulation_settings,
     simulation_audit_payload,
+)
+from ..models.exotic_first_wave import (
+    BasketTerms,
+    CliquetTerms,
+    DigitalTerms,
+    LookbackTerms,
+    QuantoTerms,
+    price_basket_option,
+    price_cliquet_option,
+    price_digital_option,
+    price_lookback_option,
+    price_quanto_option,
 )
 from ..utils.lazy_imports import LazyAttribute, LazyImport
 import logging
@@ -61,6 +73,110 @@ load_dotenv()
 model = os.getenv("LLM_MODEL", os.getenv("Model"))
 
 
+EXOTIC_FIRST_WAVE_CONFIGS = {
+    "digital": {
+        "title": "Digital Option",
+        "methodology": "Closed-form Black-Scholes cash-or-nothing option",
+        "methodology_doc": "digital_option",
+        "description": "Binary payoff option that pays a fixed cash amount if the terminal condition is met.",
+        "fields": [
+            ("spot", "Spot Price", "number", "190", "0.01"),
+            ("strike", "Strike Price", "number", "200", "0.01"),
+            ("maturity", "Maturity (Years)", "number", "1.0", "0.01"),
+            ("rate", "Risk-Free Rate", "number", "0.04", "0.0001"),
+            ("dividend_yield", "Dividend Yield", "number", "0.005", "0.0001"),
+            ("volatility", "Volatility", "number", "0.25", "0.001"),
+            ("payout", "Cash Payout", "number", "100", "0.01"),
+            ("scenario_shock", "Spot Scenario Shock", "number", "0.10", "0.01"),
+        ],
+        "selects": {"option_type": ("Option Type", "call", [("call", "Call"), ("put", "Put")])},
+    },
+    "lookback": {
+        "title": "Lookback Option",
+        "methodology": "Monte Carlo path simulation",
+        "methodology_doc": "lookback_option",
+        "description": "Path-dependent option whose payoff references the observed minimum or maximum underlying price.",
+        "fields": [
+            ("spot", "Spot Price", "number", "190", "0.01"),
+            ("strike", "Strike Price", "number", "200", "0.01"),
+            ("maturity", "Maturity (Years)", "number", "1.0", "0.01"),
+            ("rate", "Risk-Free Rate", "number", "0.04", "0.0001"),
+            ("dividend_yield", "Dividend Yield", "number", "0.005", "0.0001"),
+            ("volatility", "Volatility", "number", "0.25", "0.001"),
+            ("paths", "Simulation Paths", "number", "10000", "100"),
+            ("steps", "Time Steps", "number", "252", "1"),
+            ("seed", "Random Seed", "number", "42", "1"),
+            ("scenario_shock", "Spot Scenario Shock", "number", "0.10", "0.01"),
+        ],
+        "selects": {
+            "option_type": ("Option Type", "call", [("call", "Call"), ("put", "Put")]),
+            "payoff_variant": ("Payoff Variant", "floating_strike", [("floating_strike", "Floating Strike"), ("fixed_strike", "Fixed Strike")]),
+        },
+    },
+    "basket": {
+        "title": "Basket Option",
+        "methodology": "Correlated Monte Carlo",
+        "methodology_doc": "basket_option",
+        "description": "Multi-asset option on a weighted basket of equity or index underlyings.",
+        "fields": [
+            ("spots", "Spot Prices", "text", "190,160,120", "any"),
+            ("weights", "Basket Weights", "text", "0.40,0.35,0.25", "any"),
+            ("volatilities", "Volatilities", "text", "0.25,0.22,0.28", "any"),
+            ("correlation", "Pairwise Correlation", "number", "0.35", "0.01"),
+            ("strike", "Basket Strike", "number", "165", "0.01"),
+            ("maturity", "Maturity (Years)", "number", "1.0", "0.01"),
+            ("rate", "Risk-Free Rate", "number", "0.04", "0.0001"),
+            ("dividend_yield", "Dividend Yield", "number", "0.005", "0.0001"),
+            ("paths", "Simulation Paths", "number", "10000", "100"),
+            ("seed", "Random Seed", "number", "42", "1"),
+            ("scenario_shock", "Basket Scenario Shock", "number", "0.10", "0.01"),
+        ],
+        "selects": {"option_type": ("Option Type", "call", [("call", "Call"), ("put", "Put")])},
+    },
+    "cliquet": {
+        "title": "Cliquet / Ratchet Option",
+        "methodology": "Monte Carlo reset simulation",
+        "methodology_doc": "cliquet_option",
+        "description": "Multi-period option accumulating locally capped/floored periodic returns subject to global caps/floors.",
+        "fields": [
+            ("spot", "Spot Price", "number", "190", "0.01"),
+            ("maturity", "Maturity (Years)", "number", "3.0", "0.01"),
+            ("rate", "Risk-Free Rate", "number", "0.04", "0.0001"),
+            ("dividend_yield", "Dividend Yield", "number", "0.005", "0.0001"),
+            ("volatility", "Volatility", "number", "0.25", "0.001"),
+            ("notional", "Notional", "number", "1000000", "1000"),
+            ("periods", "Reset Periods", "number", "12", "1"),
+            ("local_floor", "Local Floor", "number", "-0.05", "0.001"),
+            ("local_cap", "Local Cap", "number", "0.08", "0.001"),
+            ("global_floor", "Global Floor", "number", "0.00", "0.001"),
+            ("global_cap", "Global Cap", "number", "0.35", "0.001"),
+            ("paths", "Simulation Paths", "number", "10000", "100"),
+            ("seed", "Random Seed", "number", "42", "1"),
+            ("scenario_shock", "Vol Scenario Shock", "number", "0.10", "0.01"),
+        ],
+        "selects": {},
+    },
+    "quanto": {
+        "title": "Quanto Option",
+        "methodology": "Quanto-adjusted closed-form Black-Scholes",
+        "methodology_doc": "quanto_option",
+        "description": "Foreign underlying option settled in domestic currency with equity-FX correlation adjustment.",
+        "fields": [
+            ("spot", "Foreign Underlying Spot", "number", "190", "0.01"),
+            ("strike", "Strike Price", "number", "200", "0.01"),
+            ("maturity", "Maturity (Years)", "number", "1.0", "0.01"),
+            ("domestic_rate", "Domestic Rate", "number", "0.04", "0.0001"),
+            ("foreign_yield", "Foreign Dividend / Carry", "number", "0.01", "0.0001"),
+            ("equity_volatility", "Equity Volatility", "number", "0.25", "0.001"),
+            ("fx_volatility", "FX Volatility", "number", "0.12", "0.001"),
+            ("equity_fx_correlation", "Equity-FX Correlation", "number", "0.30", "0.01"),
+            ("scenario_shock", "Spot Scenario Shock", "number", "0.10", "0.01"),
+        ],
+        "selects": {"option_type": ("Option Type", "call", [("call", "Call"), ("put", "Put")])},
+    },
+}
+
+
 def ask_gpt(question):
     """Send a request to the configured LLM provider and return text."""
     try:
@@ -82,6 +198,107 @@ def _format_currency(value):
 
 def _format_percent(value):
     return "{:.2f}%".format(float(value) * 100)
+
+
+def _parse_float_sequence(raw_value):
+    return [float(item.strip()) for item in str(raw_value).split(",") if item.strip()]
+
+
+def _first_wave_form_data(config):
+    data = {name: default for name, _label, _type, default, _step in config["fields"]}
+    for name, (_label, default, _options) in config["selects"].items():
+        data[name] = default
+    if request.method == "POST":
+        for key in data:
+            data[key] = request.form.get(key, data[key])
+    return data
+
+
+def _build_first_wave_terms(product_slug, form_data):
+    if product_slug == "digital":
+        return DigitalTerms(
+            spot=float(form_data["spot"]),
+            strike=float(form_data["strike"]),
+            maturity=float(form_data["maturity"]),
+            rate=float(form_data["rate"]),
+            dividend_yield=float(form_data["dividend_yield"]),
+            volatility=float(form_data["volatility"]),
+            option_type=form_data["option_type"],
+            payout=float(form_data["payout"]),
+            scenario_shock=float(form_data["scenario_shock"]),
+        )
+    if product_slug == "lookback":
+        return LookbackTerms(
+            spot=float(form_data["spot"]),
+            strike=float(form_data["strike"]),
+            maturity=float(form_data["maturity"]),
+            rate=float(form_data["rate"]),
+            dividend_yield=float(form_data["dividend_yield"]),
+            volatility=float(form_data["volatility"]),
+            option_type=form_data["option_type"],
+            payoff_variant=form_data["payoff_variant"],
+            paths=int(float(form_data["paths"])),
+            steps=int(float(form_data["steps"])),
+            seed=int(float(form_data["seed"])),
+            scenario_shock=float(form_data["scenario_shock"]),
+        )
+    if product_slug == "basket":
+        return BasketTerms(
+            spots=_parse_float_sequence(form_data["spots"]),
+            weights=_parse_float_sequence(form_data["weights"]),
+            volatilities=_parse_float_sequence(form_data["volatilities"]),
+            correlation=float(form_data["correlation"]),
+            strike=float(form_data["strike"]),
+            maturity=float(form_data["maturity"]),
+            rate=float(form_data["rate"]),
+            dividend_yield=float(form_data["dividend_yield"]),
+            option_type=form_data["option_type"],
+            paths=int(float(form_data["paths"])),
+            seed=int(float(form_data["seed"])),
+            scenario_shock=float(form_data["scenario_shock"]),
+        )
+    if product_slug == "cliquet":
+        return CliquetTerms(
+            spot=float(form_data["spot"]),
+            maturity=float(form_data["maturity"]),
+            rate=float(form_data["rate"]),
+            dividend_yield=float(form_data["dividend_yield"]),
+            volatility=float(form_data["volatility"]),
+            notional=float(form_data["notional"]),
+            periods=int(float(form_data["periods"])),
+            local_floor=float(form_data["local_floor"]),
+            local_cap=float(form_data["local_cap"]),
+            global_floor=float(form_data["global_floor"]),
+            global_cap=float(form_data["global_cap"]),
+            paths=int(float(form_data["paths"])),
+            seed=int(float(form_data["seed"])),
+            scenario_shock=float(form_data["scenario_shock"]),
+        )
+    if product_slug == "quanto":
+        return QuantoTerms(
+            spot=float(form_data["spot"]),
+            strike=float(form_data["strike"]),
+            maturity=float(form_data["maturity"]),
+            domestic_rate=float(form_data["domestic_rate"]),
+            foreign_yield=float(form_data["foreign_yield"]),
+            equity_volatility=float(form_data["equity_volatility"]),
+            fx_volatility=float(form_data["fx_volatility"]),
+            equity_fx_correlation=float(form_data["equity_fx_correlation"]),
+            option_type=form_data["option_type"],
+            scenario_shock=float(form_data["scenario_shock"]),
+        )
+    raise ValueError("Unsupported first-wave exotic option.")
+
+
+def _price_first_wave_product(product_slug, terms):
+    pricing_functions = {
+        "digital": price_digital_option,
+        "lookback": price_lookback_option,
+        "basket": price_basket_option,
+        "cliquet": price_cliquet_option,
+        "quanto": price_quanto_option,
+    }
+    return pricing_functions[product_slug](terms)
 
 
 def _default_autocallable_structured_form_data():
@@ -981,7 +1198,46 @@ def _build_asian_analytics(
 
 @exotic_options_bp.route("/", methods=["GET", "POST"])
 def exotic_options():
-    return render_template("exotic_options.html")
+    methodology_summary = [
+        ("Barrier Options", "Monte Carlo path simulation with finite-difference Greeks; PDE/tree validation planned."),
+        ("Asian Options", "Monte Carlo for arithmetic averaging; analytical/geometric and lattice comparisons where available."),
+        ("Digital Options", "Closed-form Black-Scholes cash-or-nothing formula; PDE/tree validation planned."),
+        ("Lookback Options", "Monte Carlo path-extreme simulation; closed-form continuous-monitoring benchmarks planned."),
+        ("Basket Options", "Correlated Monte Carlo with constant pairwise correlation; copula/local-vol extensions planned."),
+        ("Cliquet / Ratchet Options", "Monte Carlo reset simulation with local/global caps and floors; PDE approximations planned."),
+        ("Quanto Options", "Quanto-adjusted closed-form Black-Scholes; joint equity-FX Monte Carlo planned."),
+    ]
+    return render_template(
+        "exotic_options.html",
+        first_wave_products=EXOTIC_FIRST_WAVE_CONFIGS,
+        methodology_summary=methodology_summary,
+    )
+
+
+@exotic_options_bp.route("/<product_slug>", methods=["GET", "POST"])
+def exotic_first_wave_product(product_slug):
+    config = EXOTIC_FIRST_WAVE_CONFIGS.get(product_slug)
+    if not config:
+        abort(404)
+
+    form_data = _first_wave_form_data(config)
+    results = None
+    pricing_error = None
+    if request.method == "POST":
+        try:
+            terms = _build_first_wave_terms(product_slug, form_data)
+            results = _price_first_wave_product(product_slug, terms)
+        except Exception as exc:
+            pricing_error = str(exc)
+
+    return render_template(
+        "exotic_first_wave_product.html",
+        product_slug=product_slug,
+        config=config,
+        form_data=form_data,
+        results=results,
+        pricing_error=pricing_error,
+    )
 
 
 @exotic_options_bp.route("/autocallable", methods=["GET", "POST"])

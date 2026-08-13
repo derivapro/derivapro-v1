@@ -106,11 +106,18 @@
                             <li><a href="{{ url_for('exotic_options.exotic_options') }}" class="nav-link">Exotic Options</a></li>
                             <li><a href="{{ url_for('exotic_options.barrier_options') }}" class="nav-link">Barrier Options</a></li>
                             <li><a href="{{ url_for('exotic_options.asian_options') }}" class="nav-link">Asian Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='digital') }}" class="nav-link">Digital Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='lookback') }}" class="nav-link">Lookback Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='basket') }}" class="nav-link">Basket Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='cliquet') }}" class="nav-link">Cliquet / Ratchet Options</a></li>
+                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='quanto') }}" class="nav-link">Quanto Options</a></li>
                             {% else %}
                             <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options Preview</a></li>
                             <li><span class="nav-link nav-link-locked">American Options</span></li>
+                            <li><span class="nav-link nav-link-locked">Exotic Options</span></li>
                             <li><span class="nav-link nav-link-locked">Barrier Options</span></li>
                             <li><span class="nav-link nav-link-locked">Asian Options</span></li>
+                            <li><span class="nav-link nav-link-locked">Digital / Lookback / Basket</span></li>
                             {% endif %}
                         </ul>
                     </details>

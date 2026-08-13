@@ -30,9 +30,9 @@
     <article class="product-workspace-card">
         <span>Equity & Options</span>
         <h3>Vanilla and exotic payoff analytics</h3>
-        <p>European, American, barrier, Asian, and structured equity-linked products.</p>
+        <p>European, American, barrier, Asian, digital, lookback, basket, cliquet, and quanto option workflows.</p>
         {% if current_user.is_authenticated %}
-        <a href="{{ url_for('vanilla_options.european_options') }}">Open equity workflow</a>
+        <a href="{{ url_for('exotic_options.exotic_options') }}">Open equity workflow</a>
         {% endif %}
     </article>
     <article class="product-workspace-card">
