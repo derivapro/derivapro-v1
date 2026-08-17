@@ -13,6 +13,7 @@ from flask import (
 )
 import markdown
 import datetime
+from datetime import timedelta
 from dotenv import load_dotenv
 from ..utils.lazy_imports import LazyAttribute, LazyImport
 
@@ -29,6 +30,10 @@ FREDSwapRatesProvider = LazyAttribute(
 )
 SOFRCompoundedRateCalculator = LazyAttribute(
     "derivapro.models.yieldterm_market_data", "SOFRCompoundedRateCalculator"
+)
+build_equity_market_reference = LazyAttribute(
+    "derivapro.services.market_reference",
+    "build_equity_market_reference",
 )
 
 
@@ -286,4 +291,49 @@ def extract_market_data():
         compounding_frequencies=compounding_frequencies,
         treasury_form_data=treasury_form_data,
         sofr_form_data=sofr_form_data,
+    )
+
+
+@extract_market_data_bp.route("/market-reference", methods=["GET", "POST"])
+def market_reference():
+    valuation_date = datetime.date.today()
+    default_maturity = valuation_date + timedelta(days=365)
+    market_query = {
+        "symbol": "AAPL",
+        "period": "6mo",
+        "option_type": "call",
+        "strike": 200.0,
+        "maturity_date": default_maturity.isoformat(),
+        "visual_mode": "none",
+    }
+    market_reference_result = None
+    market_error = None
+
+    if request.method == "POST":
+        market_query = {
+            "symbol": request.form.get("market_symbol", "AAPL").upper().strip(),
+            "period": request.form.get("market_period", "6mo"),
+            "option_type": request.form.get("market_option_type", "call"),
+            "strike": request.form.get("market_strike", type=float),
+            "maturity_date": request.form.get("market_maturity_date", ""),
+            "visual_mode": request.form.get("visual_mode", "none"),
+        }
+
+        try:
+            market_reference_result = build_equity_market_reference(
+                market_query["symbol"],
+                market_query["period"],
+                market_query["strike"],
+                market_query["maturity_date"],
+                market_query["option_type"],
+                market_query["visual_mode"],
+            )
+        except Exception as exc:
+            market_error = str(exc)
+
+    return render_template(
+        "market_reference.html",
+        market_query=market_query,
+        market_reference=market_reference_result,
+        market_error=market_error,
     )

@@ -95,6 +95,14 @@
                             <li><a href="{{ url_for('configuration.simulation_configuration') }}" class="nav-link">Configuration</a></li>
                         </ul>
                     </details>
+                    <details class="nav-group" open>
+                        <summary>Market Data</summary>
+                        <ul>
+                            <li><a href="{{ url_for('extract_market_data.market_reference') }}" class="nav-link">Market Reference</a></li>
+                            <li><a href="{{ url_for('term_structure.calculate_term_structure') }}" class="nav-link">Interest Rate Curves</a></li>
+                            <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Treasury / SOFR Data</a></li>
+                        </ul>
+                    </details>
                     {% endif %}
 
                     <details class="nav-group" open>
@@ -174,11 +182,9 @@
                             <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaption M2M</a></li>
                             <li><a href="{{ url_for('futures_forwards.forwards') }}" class="nav-link">Forwards</a></li>
                             <li><a href="{{ url_for('futures_forwards.futures') }}" class="nav-link">Futures</a></li>
-                            <li><a href="{{ url_for('term_structure.calculate_term_structure') }}" class="nav-link">Term Structure</a></li>
                             {% else %}
                             <li><span class="nav-link nav-link-locked">Swaps / Swaptions</span></li>
                             <li><span class="nav-link nav-link-locked">Forwards / Futures</span></li>
-                            <li><span class="nav-link nav-link-locked">Term Structure</span></li>
                             {% endif %}
                         </ul>
                     </details>
@@ -199,16 +205,14 @@
                     </details>
 
                     <details class="nav-group">
-                        <summary>Volatility & Market Data</summary>
+                        <summary>Volatility</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
                             <li><a href="{{ url_for('volatility_derivatives.variance_swaps') }}" class="nav-link">Variance Swaps</a></li>
                             <li><a href="{{ url_for('volatility_surface.volatility_surface') }}" class="nav-link">Volatility Surface</a></li>
-                            <li><a href="{{ url_for('extract_market_data.extract_market_data') }}" class="nav-link">Market Data</a></li>
                             {% else %}
                             <li><span class="nav-link nav-link-locked">Variance Swaps</span></li>
                             <li><span class="nav-link nav-link-locked">Volatility Surface</span></li>
-                            <li><span class="nav-link nav-link-locked">Market Data</span></li>
                             {% endif %}
                         </ul>
                     </details>

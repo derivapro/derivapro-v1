@@ -53,10 +53,10 @@
     </article>
     <article class="product-workspace-card">
         <span>Rates & Forwards</span>
-        <h3>Curve, swap, swaption, and forward workflows</h3>
-        <p>Interest-rate analytics, term structures, forwards, futures, swaps, and swaptions.</p>
+        <h3>Swap, swaption, and forward workflows</h3>
+        <p>Interest-rate derivative pricing workflows for forwards, futures, swaps, and swaptions.</p>
         {% if current_user.is_authenticated %}
-        <a href="{{ url_for('term_structure.calculate_term_structure') }}">Open rates workflow</a>
+        <a href="{{ url_for('rates.swap_page') }}">Open rates workflow</a>
         {% endif %}
     </article>
     <article class="product-workspace-card">
@@ -68,11 +68,19 @@
         {% endif %}
     </article>
     <article class="product-workspace-card">
-        <span>Market Data & Model Review</span>
-        <h3>Volatility, scenarios, and governance</h3>
-        <p>Volatility surface, variance swaps, market data extraction, model governance, and monitoring.</p>
+        <span>Market Data</span>
+        <h3>Market reference and curve inputs</h3>
+        <p>Equity market snapshots, listed-option IV references, Treasury/SOFR data, and interest-rate curve construction.</p>
         {% if current_user.is_authenticated %}
-        <a href="{{ url_for('volatility_surface.volatility_surface') }}">Open market-data workflow</a>
+        <a href="{{ url_for('extract_market_data.market_reference') }}">Open market-data workflow</a>
+        {% endif %}
+    </article>
+    <article class="product-workspace-card">
+        <span>Volatility & Model Review</span>
+        <h3>Volatility, scenarios, and governance</h3>
+        <p>Volatility surface, variance swaps, model governance, performance review, and monitoring.</p>
+        {% if current_user.is_authenticated %}
+        <a href="{{ url_for('volatility_surface.volatility_surface') }}">Open volatility workflow</a>
         {% endif %}
     </article>
 </section>
