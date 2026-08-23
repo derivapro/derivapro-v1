@@ -17,13 +17,18 @@ from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
 import QuantLib as ql
 import os
 import markdown
-import matplotlib.pyplot as plt
 import uuid
 import logging
 
 logger = logging.getLogger(__name__)
 
 credit_derivatives_bp = Blueprint("credit_derivatives", __name__)
+
+
+def _pyplot():
+    import matplotlib.pyplot as plt
+
+    return plt
 
 
 @credit_derivatives_bp.route("/", methods=["GET", "POST"])
@@ -178,7 +183,7 @@ def creditDefaultSwaps():
                 plot_filename = f"Credit Default Swap_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
 
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
-                plt.savefig(plot_path)
+                _pyplot().savefig(plot_path)
                 cds_analysis_results = {
                     "plot_filename": plot_filename,
                     "range_span": range_span,
@@ -466,7 +471,7 @@ def syntheticCDO():
                 plot_filename = f"Synthetic CDO_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
 
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
-                plt.savefig(plot_path)
+                _pyplot().savefig(plot_path)
                 cdo_analysis_results = {
                     "plot_filename": plot_filename,
                     "range_span": range_span,
@@ -886,7 +891,7 @@ def creditLinkedNotes():
                     plot_filename = f"Credit Linked Notes_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
 
                     plot_path = os.path.join(STATIC_DIR, plot_filename)
-                    plt.savefig(plot_path)
+                    _pyplot().savefig(plot_path)
                     cln_sensitivity_analysis_results_fixed = {
                         "plot_filename": plot_filename,
                         "range_span": range_span,
@@ -1414,7 +1419,7 @@ def creditLinkedNotes():
                     plot_filename = f"Credit Linked Notes Floating_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
 
                     plot_path = os.path.join(STATIC_DIR, plot_filename)
-                    plt.savefig(plot_path)
+                    _pyplot().savefig(plot_path)
                     cln_sensitivity_analysis_results_float = {
                         "plot_filename": plot_filename,
                         "range_span": range_span,

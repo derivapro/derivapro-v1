@@ -13,12 +13,14 @@ Supported conventions in the current workflow:
 - Callable or putable fixed-rate bond.
 - User-supplied face value.
 - User-supplied coupon rate.
+- User-supplied market clean price.
 - Annual, semiannual, or quarterly coupon frequency.
 - User-supplied exercise price as a percentage of par.
 - User-supplied first exercise year.
 - User-supplied short-rate volatility.
 - User-supplied discount curve.
 - Parallel rate shock scenarios.
+- Yield-to-best and yield-to-worst diagnostics across maturity and eligible exercise cases.
 
 ## Pricing Framework
 
@@ -47,6 +49,8 @@ Callable option value = PV_straight - PV_callable
 Putable option value  = PV_putable - PV_straight
 ```
 
+Yield-to-best and yield-to-worst are calculated by solving the yield for each eligible exercise-date cash-flow case plus the final maturity case. The current implementation uses the supplied market clean-price reference for these diagnostics.
+
 ## Outputs
 
 The page reports:
@@ -55,8 +59,11 @@ The page reports:
 - Straight-bond PV.
 - Embedded option value.
 - Effective duration from up/down rate shocks.
+- Yield to worst.
+- Yield to best.
 - Base/up/down rate shock scenario PV.
 - Lattice cash-flow step diagnostics.
+- Exercise-date yield diagnostics.
 
 ## Current Assumptions
 
@@ -65,11 +72,12 @@ The page reports:
 - Exercise schedule is simplified to allow exercise after the first exercise year.
 - Call/put price is flat as a percentage of par.
 - Credit spread, OAS calibration, settlement conventions, accrued interest, holiday calendars, and issuer-specific call schedules are not yet modeled.
+- Yield-to-best/worst uses the supplied clean-price percentage and simplified accrued-interest handling until full clean/dirty price decomposition is introduced.
 
 ## Recommended Validation
 
 - Add calibrated Hull-White and Black-Karasinski engines.
 - Support full call/put schedules with date-specific prices.
-- Add clean/dirty price, accrued interest, yield-to-call, yield-to-worst, OAS, and key-rate duration.
+- Add clean/dirty price, accrued interest, OAS, and key-rate duration.
 - Compare against QuantLib callable bond examples and desk benchmark cases.
 - Add credit spread curve and liquidity spread controls.

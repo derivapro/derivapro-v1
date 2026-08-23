@@ -9,14 +9,26 @@ from copy import deepcopy
 
 from ..utils.lazy_imports import LazyAttribute
 from ..models.rates_fixed_income import (
+    AssetSwapTerms,
+    BondForwardTreasuryLockTerms,
+    BondSeriesTerms,
     CallableBondTerms,
     CapFloorTerms,
     FraTerms,
+    GenericBondTerms,
+    InflationLinkedBondTerms,
+    LoanLeaseAnnuityTerms,
     parse_curve,
     parse_date,
+    price_asset_swap,
+    price_bond_forward_treasury_lock,
+    price_bond_series,
     price_callable_putable_bond,
     price_cap_floor,
     price_fra,
+    price_generic_bond,
+    price_inflation_linked_bond,
+    price_loan_lease_annuity,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,20 +126,22 @@ FIXED_INCOME_EXTENSION_CONFIGS = {
     },
     "callable-putable-bond": {
         "title": "Callable / Putable Bond",
-        "subtitle": "Evaluate fixed-rate bonds with embedded issuer call or investor put rights.",
+        "subtitle": "Evaluate embedded exercise optionality plus yield-to-best and yield-to-worst cases.",
         "asset_class": "Fixed Income",
         "methodology_doc": "callable_putable_bond",
-        "description_title": "Fixed-rate bond plus embedded interest-rate optionality.",
+        "description_title": "Fixed-rate bond plus embedded interest-rate optionality and exercise-date yield diagnostics.",
         "description_body": (
             "Callable and putable bonds extend the existing fixed-rate bond workflow by adding exercise optionality. "
-            "This page compares straight-bond PV with an option-adjusted value from a transparent short-rate lattice approximation."
+            "This page compares straight-bond PV with an option-adjusted value from a transparent short-rate lattice approximation, "
+            "then calculates yield-to-best and yield-to-worst across maturity and eligible exercise-date cases."
         ),
-        "chips": ["Callable bonds", "Putable bonds", "Short-rate lattice", "Effective duration"],
+        "chips": ["Callable bonds", "Putable bonds", "Short-rate lattice", "Yield to worst"],
         "fields": [
             {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
             {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2031-08-13"},
             {"name": "notional", "label": "Face Value", "type": "number", "step": "1000", "value": "1000000"},
             {"name": "coupon_rate", "label": "Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0550"},
+            {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00"},
             {
                 "name": "payments_per_year",
                 "label": "Coupon Frequency",
@@ -153,6 +167,314 @@ FIXED_INCOME_EXTENSION_CONFIGS = {
                 "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
             },
             {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "level-coupon-bond": {
+        "title": "Level Coupon Bond",
+        "subtitle": "Value standard bullet fixed-rate bonds with term-structure discounting.",
+        "asset_class": "Fixed Income",
+        "methodology_doc": "level_coupon_bond",
+        "description_title": "Plain fixed-rate bond cash-flow valuation under a supplied zero-rate curve.",
+        "description_body": (
+            "This workspace standardizes the legacy fixed-rate bond workflow into the product-standard layout. "
+            "It generates periodic coupons, terminal principal, clean-price yield, duration, convexity, DV01, and rate-shock scenarios."
+        ),
+        "chips": ["Level coupon", "Bullet principal", "YTM", "DV01"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2031-08-13"},
+            {"name": "notional", "label": "Face Value", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "coupon_rate", "label": "Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0500"},
+            {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00"},
+            {
+                "name": "payments_per_year",
+                "label": "Coupon Frequency",
+                "type": "select",
+                "value": "2",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Coupon Day Count",
+                "type": "select",
+                "value": "30/360",
+                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+            },
+            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "amortizing-stepup-sinking-bond": {
+        "title": "Amortizing / Step-Up / Sinking Bond",
+        "subtitle": "Configure time-varying coupons and scheduled principal paydown.",
+        "asset_class": "Fixed Income",
+        "methodology_doc": "amortizing_stepup_sinking_bond",
+        "description_title": "Generic bond cash flows with coupon schedules and notional reduction schedules.",
+        "description_body": (
+            "This workspace extends amortizing bond coverage with step-up coupons and sinking-fund principal schedules. "
+            "It is designed for bonds whose coupon and outstanding balance vary across contractual periods."
+        ),
+        "chips": ["Amortizing", "Step-up coupon", "Sinking fund", "Cash-flow table"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2032-08-13"},
+            {"name": "notional", "label": "Original Face Value", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "coupon_rate", "label": "Base Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0450"},
+            {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00"},
+            {
+                "name": "amortization_style",
+                "label": "Principal Schedule Type",
+                "type": "select",
+                "value": "sinking_schedule",
+                "options": [("bullet", "Bullet"), ("straight_line", "Straight-Line Amortization"), ("sinking_schedule", "Sinking Schedule")],
+            },
+            {"name": "coupon_schedule", "label": "Coupon Schedule", "type": "text", "value": "2026-08-13:0.045,2029-08-13:0.055", "hint": "Optional effective-date schedule: YYYY-MM-DD:rate, ..."},
+            {"name": "principal_schedule", "label": "Sinking Schedule", "type": "text", "value": "2029-08-13:0.20,2030-08-13:0.20,2031-08-13:0.20", "hint": "Optional date:pct_original schedule for sinking principal."},
+            {
+                "name": "payments_per_year",
+                "label": "Coupon Frequency",
+                "type": "select",
+                "value": "2",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Coupon Day Count",
+                "type": "select",
+                "value": "30/360",
+                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+            },
+            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "custom-structured-bond": {
+        "title": "Custom Structured Bond",
+        "subtitle": "Build user-defined fixed-income cash flows from coupon, principal, and fixed-payment tables.",
+        "asset_class": "Fixed Income",
+        "methodology_doc": "custom_structured_bond",
+        "description_title": "Configurable bond cash-flow workbench for non-standard contractual features.",
+        "description_body": (
+            "Custom structured bonds use the generic bond engine with user-defined coupon, principal, and fixed-payment schedules. "
+            "This is the foundation for structured fixed-income instruments that do not fit a plain bullet or amortizing template."
+        ),
+        "chips": ["Coupon table", "Principal table", "Fixed payments", "Generic PV"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2033-08-13"},
+            {"name": "notional", "label": "Original Face Value", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "coupon_rate", "label": "Fallback Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0400"},
+            {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "99.50"},
+            {"name": "coupon_schedule", "label": "Coupon Schedule", "type": "text", "value": "2026-08-13:0.04,2028-08-13:0.05,2031-08-13:0.06", "hint": "Optional effective-date schedule: YYYY-MM-DD:rate, ..."},
+            {"name": "principal_schedule", "label": "Principal / Sink Schedule", "type": "text", "value": "2030-08-13:0.25,2032-08-13:0.25", "hint": "Optional date:pct_original schedule."},
+            {"name": "fixed_payment_schedule", "label": "Fixed Payment Schedule", "type": "text", "value": "2028-08-13:25000,2031-08-13:25000", "hint": "Optional date:amount schedule for additional fixed cash flows."},
+            {
+                "name": "payments_per_year",
+                "label": "Payment Frequency",
+                "type": "select",
+                "value": "2",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Day Count",
+                "type": "select",
+                "value": "30/360",
+                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+            },
+            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "bond-series": {
+        "title": "Bond Series",
+        "subtitle": "Aggregate serial bond maturities into issuer-level PV, yield, and maturity analytics.",
+        "asset_class": "Fixed Income",
+        "methodology_doc": "bond_series",
+        "description_title": "Multi-maturity bond program valuation and cash-flow aggregation.",
+        "description_body": (
+            "Bond series analytics value multiple related maturities together, then aggregate PV, yield, weighted-average maturity, "
+            "and series-level scenario exposure. This is useful for municipal, issuer program, and tranche-style fixed-income books."
+        ),
+        "chips": ["Serial bonds", "Aggregate cash flows", "Series yield", "Program risk"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "series_table", "label": "Bond Series Table", "type": "textarea", "value": "2028-08-13|1000000|0.040|100; 2030-08-13|1500000|0.045|100; 2032-08-13|2000000|0.050|100", "hint": "Rows use maturity|principal|coupon_rate|redemption_pct separated by semicolons."},
+            {
+                "name": "day_count",
+                "label": "Day Count",
+                "type": "select",
+                "value": "30/360",
+                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+            },
+            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "loan-lease-annuity": {
+        "title": "Loans / Leases / Annuities",
+        "subtitle": "Value scheduled contractual payment streams with common amortization patterns.",
+        "asset_class": "Fixed Income / Cash Flows",
+        "methodology_doc": "loan_lease_annuity",
+        "description_title": "Present-value cash-flow analytics for level-payment, equal-principal, and interest-only structures.",
+        "description_body": (
+            "This workspace covers loan-style, lease-style, and annuity-style cash-flow instruments using scheduled payments, "
+            "contractual interest, principal amortization, discounting, and rate-shock scenarios."
+        ),
+        "chips": ["PVCF", "Level payment", "Equal principal", "Annuity"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "start_date", "label": "Start Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2031-08-13"},
+            {"name": "principal", "label": "Principal / Financed Amount", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "contract_rate", "label": "Contract Rate", "type": "number", "step": "0.0001", "value": "0.0550"},
+            {
+                "name": "structure_type",
+                "label": "Payment Structure",
+                "type": "select",
+                "value": "level_payment",
+                "options": [("level_payment", "Level Payment"), ("equal_principal", "Equal Principal"), ("interest_only", "Interest Only / Bullet")],
+            },
+            {
+                "name": "payments_per_year",
+                "label": "Payment Frequency",
+                "type": "select",
+                "value": "12",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly"), ("12", "Monthly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Day Count",
+                "type": "select",
+                "value": "ACT/365",
+                "options": [("ACT/365", "ACT/365"), ("ACT/360", "ACT/360"), ("30/360", "30/360")],
+            },
+            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "asset-swap": {
+        "title": "Asset Swap",
+        "subtitle": "Analyze bond-versus-swap relative value and par asset-swap spread.",
+        "asset_class": "Fixed Income",
+        "methodology_doc": "asset_swap",
+        "description_title": "A funded bond position transformed into floating-rate exposure.",
+        "description_body": (
+            "Asset swaps combine a cash bond with an interest-rate swap overlay. "
+            "This workflow compares the bond coupon stream with the par swap rate and estimates the par asset-swap spread "
+            "using user-supplied bond price and discount-curve assumptions."
+        ),
+        "chips": ["Bond relative value", "Par ASW spread", "Curve PV", "Spread scenarios"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Bond Maturity Date", "type": "date", "value": "2031-08-13"},
+            {"name": "notional", "label": "Face Value", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "coupon_rate", "label": "Bond Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0525"},
+            {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "99.25"},
+            {"name": "quoted_asset_swap_spread_bp", "label": "Quoted ASW Spread (bp)", "type": "number", "step": "1", "value": "85"},
+            {
+                "name": "payments_per_year",
+                "label": "Coupon Frequency",
+                "type": "select",
+                "value": "2",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Coupon Day Count",
+                "type": "select",
+                "value": "30/360",
+                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+            },
+            {"name": "scenario_rate_shock_bp", "label": "Rate Shock (bp)", "type": "number", "step": "1", "value": "25"},
+            {"name": "scenario_spread_shock_bp", "label": "Spread Shock (bp)", "type": "number", "step": "1", "value": "25"},
+        ],
+    },
+    "inflation-linked-bond": {
+        "title": "Inflation-Linked Bond",
+        "subtitle": "Project indexed coupons and principal using CPI and real-rate assumptions.",
+        "asset_class": "Fixed Income / Inflation",
+        "methodology_doc": "inflation_linked_bond",
+        "description_title": "A bond whose coupon and redemption cash flows are linked to an inflation index.",
+        "description_body": (
+            "Inflation-linked bonds adjust coupons and principal by an index ratio. "
+            "This first-pass workflow supports CPI inputs, indexation lag, principal-floor treatment, real discounting, "
+            "and inflation/real-rate scenario analysis."
+        ),
+        "chips": ["CPI indexation", "Real discounting", "Index lag", "Inflation scenarios"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2036-08-13"},
+            {"name": "notional", "label": "Face Value", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "real_coupon_rate", "label": "Real Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0125"},
+            {"name": "base_cpi", "label": "Base CPI", "type": "number", "step": "0.01", "value": "300.00"},
+            {"name": "current_cpi", "label": "Current CPI", "type": "number", "step": "0.01", "value": "318.50"},
+            {"name": "annual_inflation_rate", "label": "Projected Inflation Rate", "type": "number", "step": "0.0001", "value": "0.0225"},
+            {"name": "indexation_lag_months", "label": "Indexation Lag (Months)", "type": "number", "step": "1", "value": "3"},
+            {
+                "name": "principal_floor",
+                "label": "Principal Floor",
+                "type": "select",
+                "value": "yes",
+                "options": [("yes", "Floor at Par"), ("no", "No Floor")],
+            },
+            {
+                "name": "payments_per_year",
+                "label": "Coupon Frequency",
+                "type": "select",
+                "value": "2",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Coupon Day Count",
+                "type": "select",
+                "value": "ACT/365",
+                "options": [("ACT/365", "ACT/365"), ("ACT/360", "ACT/360"), ("30/360", "30/360")],
+            },
+            {"name": "scenario_real_rate_shock_bp", "label": "Real Rate Shock (bp)", "type": "number", "step": "1", "value": "25"},
+            {"name": "scenario_inflation_shock_bp", "label": "Inflation Shock (bp)", "type": "number", "step": "1", "value": "50"},
+        ],
+    },
+    "bond-forward-treasury-lock": {
+        "title": "Bond Forward / Treasury Lock",
+        "subtitle": "Estimate forward bond price and duration-based treasury-lock PV.",
+        "asset_class": "Fixed Income / Rates",
+        "methodology_doc": "bond_forward_treasury_lock",
+        "description_title": "Forward delivery and rate-lock analytics for bond-linked exposure.",
+        "description_body": (
+            "Bond forwards and treasury locks are used to hedge or express future rate exposure. "
+            "This workflow applies cost-of-carry pricing to a spot dirty bond price and estimates treasury-lock PV "
+            "from the implied forward yield versus the locked yield."
+        ),
+        "chips": ["Bond forwards", "Treasury locks", "Cost of carry", "Duration PV"],
+        "fields": [
+            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
+            {"name": "delivery_date", "label": "Forward Delivery Date", "type": "date", "value": "2027-02-13"},
+            {"name": "bond_maturity_date", "label": "Bond Maturity Date", "type": "date", "value": "2031-08-13"},
+            {"name": "notional", "label": "Face Value", "type": "number", "step": "1000", "value": "1000000"},
+            {"name": "coupon_rate", "label": "Bond Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0475"},
+            {"name": "spot_dirty_price_pct", "label": "Spot Dirty Price (% of Par)", "type": "number", "step": "0.01", "value": "101.25"},
+            {"name": "financing_rate", "label": "Financing / Repo Rate", "type": "number", "step": "0.0001", "value": "0.0425"},
+            {"name": "locked_forward_yield", "label": "Locked Forward Yield", "type": "number", "step": "0.0001", "value": "0.0450"},
+            {"name": "modified_duration", "label": "Forward Bond Modified Duration", "type": "number", "step": "0.01", "value": "4.25"},
+            {
+                "name": "position",
+                "label": "Treasury Lock Position",
+                "type": "select",
+                "value": "receive_fixed",
+                "options": [("receive_fixed", "Receive Fixed / Long Duration"), ("pay_fixed", "Pay Fixed / Short Duration")],
+            },
+            {
+                "name": "payments_per_year",
+                "label": "Coupon Frequency",
+                "type": "select",
+                "value": "2",
+                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+            },
+            {
+                "name": "day_count",
+                "label": "Coupon Day Count",
+                "type": "select",
+                "value": "30/360",
+                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+            },
+            {"name": "scenario_rate_shock_bp", "label": "Rate Shock (bp)", "type": "number", "step": "1", "value": "25"},
         ],
     },
 }
@@ -264,6 +586,7 @@ def _price_fixed_income_extension(product_slug, form_data):
                 maturity_date=parse_date(form_data["maturity_date"]),
                 notional=_float_value(form_data, "notional"),
                 coupon_rate=_float_value(form_data, "coupon_rate"),
+                market_clean_price_pct=_float_value(form_data, "market_clean_price_pct"),
                 payments_per_year=_int_value(form_data, "payments_per_year"),
                 day_count=form_data["day_count"],
                 discount_curve=discount_curve,
@@ -272,6 +595,144 @@ def _price_fixed_income_extension(product_slug, form_data):
                 first_exercise_year=_float_value(form_data, "first_exercise_year"),
                 short_rate_volatility=_float_value(form_data, "short_rate_volatility"),
                 scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+            )
+        )
+
+    if product_slug == "level-coupon-bond":
+        return price_generic_bond(
+            GenericBondTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                coupon_rate=_float_value(form_data, "coupon_rate"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                market_clean_price_pct=_float_value(form_data, "market_clean_price_pct"),
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+                amortization_style="bullet",
+            )
+        )
+
+    if product_slug == "amortizing-stepup-sinking-bond":
+        return price_generic_bond(
+            GenericBondTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                coupon_rate=_float_value(form_data, "coupon_rate"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                market_clean_price_pct=_float_value(form_data, "market_clean_price_pct"),
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+                coupon_schedule=form_data.get("coupon_schedule", ""),
+                principal_schedule=form_data.get("principal_schedule", ""),
+                amortization_style=form_data["amortization_style"],
+            )
+        )
+
+    if product_slug == "custom-structured-bond":
+        return price_generic_bond(
+            GenericBondTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                coupon_rate=_float_value(form_data, "coupon_rate"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                market_clean_price_pct=_float_value(form_data, "market_clean_price_pct"),
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+                coupon_schedule=form_data.get("coupon_schedule", ""),
+                principal_schedule=form_data.get("principal_schedule", ""),
+                fixed_payment_schedule=form_data.get("fixed_payment_schedule", ""),
+                amortization_style="sinking_schedule",
+            )
+        )
+
+    if product_slug == "bond-series":
+        return price_bond_series(
+            BondSeriesTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                series_table=form_data["series_table"],
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+            )
+        )
+
+    if product_slug == "loan-lease-annuity":
+        return price_loan_lease_annuity(
+            LoanLeaseAnnuityTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                start_date=parse_date(form_data["start_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                principal=_float_value(form_data, "principal"),
+                contract_rate=_float_value(form_data, "contract_rate"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                structure_type=form_data["structure_type"],
+                discount_curve=discount_curve,
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+            )
+        )
+
+    if product_slug == "asset-swap":
+        return price_asset_swap(
+            AssetSwapTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                coupon_rate=_float_value(form_data, "coupon_rate"),
+                market_clean_price_pct=_float_value(form_data, "market_clean_price_pct"),
+                quoted_asset_swap_spread_bp=_float_value(form_data, "quoted_asset_swap_spread_bp"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                scenario_rate_shock_bp=_float_value(form_data, "scenario_rate_shock_bp"),
+                scenario_spread_shock_bp=_float_value(form_data, "scenario_spread_shock_bp"),
+            )
+        )
+
+    if product_slug == "inflation-linked-bond":
+        return price_inflation_linked_bond(
+            InflationLinkedBondTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                real_coupon_rate=_float_value(form_data, "real_coupon_rate"),
+                base_cpi=_float_value(form_data, "base_cpi"),
+                current_cpi=_float_value(form_data, "current_cpi"),
+                annual_inflation_rate=_float_value(form_data, "annual_inflation_rate"),
+                indexation_lag_months=_int_value(form_data, "indexation_lag_months"),
+                principal_floor=form_data["principal_floor"],
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                real_discount_curve=discount_curve,
+                nominal_curve=forward_curve,
+                scenario_real_rate_shock_bp=_float_value(form_data, "scenario_real_rate_shock_bp"),
+                scenario_inflation_shock_bp=_float_value(form_data, "scenario_inflation_shock_bp"),
+            )
+        )
+
+    if product_slug == "bond-forward-treasury-lock":
+        return price_bond_forward_treasury_lock(
+            BondForwardTreasuryLockTerms(
+                valuation_date=parse_date(form_data["valuation_date"]),
+                delivery_date=parse_date(form_data["delivery_date"]),
+                bond_maturity_date=parse_date(form_data["bond_maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                coupon_rate=_float_value(form_data, "coupon_rate"),
+                spot_dirty_price_pct=_float_value(form_data, "spot_dirty_price_pct"),
+                financing_rate=_float_value(form_data, "financing_rate"),
+                locked_forward_yield=_float_value(form_data, "locked_forward_yield"),
+                modified_duration=_float_value(form_data, "modified_duration"),
+                position=form_data["position"],
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                scenario_rate_shock_bp=_float_value(form_data, "scenario_rate_shock_bp"),
             )
         )
 
@@ -954,6 +1415,9 @@ def rates_fixed_income_product(product_slug):
                     "value": form_data["discount_curve_rates"],
                     "hint": "Comma-separated continuously compounded zero rates.",
                 },
+            ]
+            + (
+                [
                 {
                     "name": "forward_curve_tenors",
                     "label": "Forward Curve Tenors (Years)",
@@ -968,7 +1432,10 @@ def rates_fixed_income_product(product_slug):
                     "value": form_data["forward_curve_rates"],
                     "hint": "Used for FRA and cap/floor projected rates.",
                 },
-            ],
+                ]
+                if product_slug in {"fra", "cap-floor", "inflation-linked-bond"}
+                else []
+            ),
         },
     ]
 

@@ -26,7 +26,7 @@ The current version is a working analytical application with broad instrument co
 
 ### Recent Platform Update
 
-DerivaPro now includes an expanded **Structured Products** workspace in the Flask application. In addition to the upgraded Autocallable / Phoenix note workflow, the first-wave structured-products family includes barrier reverse convertibles, principal-protected market-linked notes, enhanced participation / buffered notes, digital coupon / contingent income notes, and credit-linked notes. These pages follow the product-standard layout with description, pricing, analysis, run summary, reporting placeholder, and methodology documentation.
+DerivaPro now includes expanded **Structured Products** and **Fixed Income Extensions** workspaces in the Flask application. The structured-products family includes autocallables, barrier reverse convertibles, principal-protected market-linked notes, enhanced participation / buffered notes, contingent income notes, and credit-linked notes. The fixed-income extension family now includes FRAs, caps/floors, callable/putable bonds, asset swaps, inflation-linked bonds, and bond forward / treasury-lock analytics. These upgraded pages follow the product-standard layout with description, pricing, analysis, run summary, reporting placeholder, and methodology documentation.
 
 ---
 
@@ -91,7 +91,7 @@ DerivaPro already includes active workflows across several major financial produ
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Equity Options**                       | European and American options, Black-Scholes, binomial/lattice models, Monte Carlo workflows, Greeks, convergence, sensitivity, and scenario analysis.                                                                |
 | **Exotic Options / Structured Products** | Barrier, Asian, digital, lookback, basket, cliquet/ratchet, and quanto options; Phoenix-style autocallable notes, barrier reverse convertibles, principal-protected notes, enhanced participation / buffered notes, contingent income notes, and credit-linked notes. |
-| **Fixed Income**                         | Non-callable fixed-rate bonds, fixed-rate amortizing bonds, floating-rate bonds, floating-rate amortizing bonds, callable/putable bonds, FRAs, and cap/floor workflows.                                               |
+| **Fixed Income**                         | Level coupon bonds, amortizing / step-up / sinking bonds, custom structured bonds, bond series, loans / leases / annuities, callable/putable bonds with yield-to-best/worst diagnostics, FRAs, caps/floors, asset swaps, inflation-linked bonds, and bond forward / treasury-lock workflows. |
 | **Interest Rate Derivatives**            | Swaps, swaptions, caps/floors, FRAs, term structure analytics, market-rate extraction, and rates API utilities.                                                                                                       |
 | **Credit Derivatives**                   | Credit default swaps, synthetic CDO analytics, and credit-linked notes.                                                                                                                                               |
 | **Volatility Products**                  | Volatility surface construction, variance swaps, and volatility swaps.                                                                                                                                                |
@@ -124,7 +124,15 @@ DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/meth
 | **Credit-Linked Note**                      | [Reduced-form credit-linked note valuation, hazard rate, recovery, coupon survival logic, and limitations](docs/methodology/credit_linked_note_structured.md)                      |
 | **Forward Rate Agreement**                  | [Forward-rate projection, discounting, scenario shocks, sign conventions, and limitations](docs/methodology/forward_rate_agreement.md)                                           |
 | **Interest Rate Cap / Floor**               | [Black caplet/floorlet strip valuation, forward curves, volatility scenarios, and limitations](docs/methodology/cap_floor.md)                                                   |
-| **Callable / Putable Bond**                 | [Straight-bond benchmark, short-rate lattice approximation, embedded option value, effective duration, and limitations](docs/methodology/callable_putable_bond.md)                |
+| **Callable / Putable Bond**                 | [Straight-bond benchmark, short-rate lattice approximation, embedded option value, effective duration, yield-to-best/worst diagnostics, and limitations](docs/methodology/callable_putable_bond.md)                |
+| **Level Coupon Bond**                       | [Level coupon cash-flow generation, curve discounting, YTM, duration, convexity, DV01, and limitations](docs/methodology/level_coupon_bond.md)                                   |
+| **Amortizing / Step-Up / Sinking Bond**     | [Time-varying coupon and notional schedules, sinking-fund cash flows, scenario risk, and limitations](docs/methodology/amortizing_stepup_sinking_bond.md)                         |
+| **Custom Structured Bond**                  | [Configurable coupon, principal, and fixed-payment schedules with generic bond PV and limitations](docs/methodology/custom_structured_bond.md)                                    |
+| **Bond Series**                             | [Serial bond aggregation, series PV, aggregate yield, weighted-average maturity, and limitations](docs/methodology/bond_series.md)                                                |
+| **Loans / Leases / Annuities**              | [Scheduled payment PV, level-payment, equal-principal, interest-only structures, and limitations](docs/methodology/loan_lease_annuity.md)                                         |
+| **Asset Swap**                              | [Bond-versus-swap relative value, par asset-swap spread, curve PV, and limitations](docs/methodology/asset_swap.md)                                                             |
+| **Inflation-Linked Bond**                   | [CPI indexation, real discounting, breakeven proxy, inflation scenarios, and limitations](docs/methodology/inflation_linked_bond.md)                                            |
+| **Bond Forward / Treasury Lock**            | [Cost-of-carry forward pricing, duration-based treasury-lock PV, rate scenarios, and limitations](docs/methodology/bond_forward_treasury_lock.md)                                |
 
 These notes are intended to support transparency, model review, implementation consistency, and future model governance workflows.
 
@@ -143,7 +151,7 @@ These notes are intended to support transparency, model review, implementation c
 | Prepayment modeling workflow | 🟡 In progress | Calculator-style and v2 data-driven tracks exist and need clearer product boundaries. |
 | Report generation | 🟡 In progress | Report-style pages exist; production-quality PDF/report generation remains planned. |
 | Structured product payoff coverage | 🟡 In progress | First-wave structured product pages now cover autocallables, reverse convertibles, principal-protected notes, enhanced/buffered notes, contingent income notes, and credit-linked notes. Barrier Reverse Convertible now includes configurable user-triggered analysis. Broader payoff-builder components remain a roadmap item. |
-| Rates / fixed-income expansion | 🟡 In progress | First-wave extension pages now cover FRAs, caps/floors, and callable/putable bonds with shared curve, schedule, day-count, discounting, scenario, and methodology patterns. |
+| Rates / fixed-income expansion | 🟡 In progress | The fixed-income workspace now covers level coupon bonds, amortizing / step-up / sinking bonds, custom structured bonds, bond series, loans / leases / annuities, callable/putable bonds, FRAs, caps/floors, asset swaps, inflation-linked bonds, and bond forward / treasury-lock workflows with shared curve, schedule, day-count, discounting, scenario, and methodology patterns. |
 | Portfolio-level risk | 🟡 In progress | Portfolio books now support saved-result positions, local private JSON copies, import/export, and first-pass aggregation. Portfolio repricing and stress testing remain planned. |
 | Database persistence and user identity | 🔵 Planned | Current state is mostly session/file based. |
 | Automated tests and CI | 🔵 Planned | Pricing regression tests and route tests are needed before production use. |
@@ -222,7 +230,7 @@ The following additions align with the long-term multi-asset platform vision.
 | -------: | --------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 |        1 | **FX**                      | FX forwards, FX vanilla options, FX barrier options, cross-currency swaps                 | Reuses existing forwards, options, and swaps patterns.                |
 |        2 | **Interest Rate Options**   | Collars, CMS products, OIS/SOFR swaps, Bermudan swaptions                                 | Builds on term structure, cap/floor, FRA, and swaption infrastructure. |
-|        3 | **Fixed Income Extensions** | TIPS/inflation-linked bonds, convertible bonds, callable schedule refinement               | Extends current bond analytics into more realistic desk workflows.    |
+|        3 | **Fixed Income Extensions** | Convertible bonds, callable schedule refinement, MBS/ABS, bond futures CTD analytics       | Extends current bond, inflation, asset-swap, and bond-forward analytics into more realistic desk workflows. |
 |        4 | **Structured Products**     | Reverse convertibles, principal-protected notes, CPPI structures                          | Combines option, credit, and fixed-income components already present. |
 |        5 | **Additional Exotics**      | Digital/binary options, lookback options, Bermuda options, spread options, quanto options | Expands derivatives coverage after core engines are tested.           |
 |        6 | **XVA**                     | CVA, DVA, FVA, MVA                                                                        | Adds OTC valuation adjustment and counterparty risk capabilities.     |

@@ -1,9 +1,14 @@
 import QuantLib as ql
 import numpy as np
 import datetime
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+
+
+def _plotting():
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
+
+    return plt, ticker
 
 class CreditDefaultSwap:
     def __init__(self, nominal, spread, recovery_rate, risk_free,
@@ -163,6 +168,7 @@ class CreditDefaultSwap:
         return cds_analysis_results
 
     def plot_sensitivity_analysis(self, variable, range_span, num_steps):
+        plt, _ = _plotting()
         sensitivity__analysis_results = self.analyze_variable_sensitivity(variable, range_span, num_steps)
         variable_values, cds_expectedLoss = zip(*sensitivity__analysis_results)
         
@@ -315,6 +321,7 @@ class SyntheticCDO:
 
     def plot_sensitivity_analysis(self, variable, range_span, num_steps):
         """Plot the sensitivity analysis results for each tranche across all CDS instances in separate subplots."""
+        plt, ticker = _plotting()
         # Get the results of the sensitivity analysis by CDS and tranche
         sensitivity_results_by_cds = self.analyze_variable_sensitivity(variable, range_span, num_steps)
         
@@ -485,6 +492,7 @@ class CLNSensitivityAnalysis:
 
     def plot_sensitivity_analysis(self, variable, range_span, num_steps):
         """Plot the sensitivity analysis results for each shock in separate subplots."""
+        plt, ticker = _plotting()
         sensitivity_analysis_results = self.analyze_variable_sensitivity(variable, range_span, num_steps)
         
         num_shocks = len(sensitivity_analysis_results)

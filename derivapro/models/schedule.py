@@ -9,7 +9,7 @@ def _add_months(d: dt.date, n: int) -> dt.date:
     return dt.date(y, m, day)
 
 def build_schedule(start: dt.date, end: dt.date, pay_per_year: int) -> List[dt.date]:
-    if pay_per_year not in (1,2,4): pay_per_year = 2
+    if pay_per_year not in (1,2,4,12): pay_per_year = 2
     months = 12 // pay_per_year
     dates, d = [], _add_months(start, months)
     while d <= end:

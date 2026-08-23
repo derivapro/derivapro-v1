@@ -35,7 +35,7 @@
 
         <div class="form-grid compact-form-grid">
             {% for field in section.fields %}
-            <div class="form-group {% if field.name.endswith('_rates') or field.name.endswith('_tenors') %}full-width{% endif %}">
+            <div class="form-group {% if field.type == 'textarea' or 'schedule' in field.name or field.name.endswith('_rates') or field.name.endswith('_tenors') %}full-width{% endif %}">
                 <label for="{{ field.name }}">{{ field.label }}</label>
                 {% if field.type == "select" %}
                 <select id="{{ field.name }}" name="{{ field.name }}">
@@ -43,6 +43,8 @@
                     <option value="{{ value }}" {% if field.value|string == value|string %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
+                {% elif field.type == "textarea" %}
+                <textarea id="{{ field.name }}" name="{{ field.name }}" rows="3" required>{{ field.value }}</textarea>
                 {% else %}
                 <input type="{{ field.type }}" id="{{ field.name }}" name="{{ field.name }}" step="{{ field.step }}" value="{{ field.value }}" required>
                 {% endif %}
@@ -127,6 +129,35 @@
         </thead>
         <tbody>
             {% for row in results.cashflows %}
+            <tr>
+                {% for value in row.values() %}
+                <td>
+                    {% if value is number %}
+                    {{ "{:,.6f}".format(value) }}
+                    {% else %}
+                    {{ value }}
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if results.diagnostics %}
+<div class="results-table-wrap">
+    <table class="results-table compact-results-table">
+        <thead>
+            <tr>
+                {% for key in results.diagnostics[0].keys() %}
+                <th>{{ key.replace("_", " ").title() }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in results.diagnostics %}
             <tr>
                 {% for value in row.values() %}
                 <td>

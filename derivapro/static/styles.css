@@ -2338,6 +2338,7 @@ details summary {
 
 .product-standard-form input,
 .product-standard-form select,
+.product-standard-form textarea,
 .analysis-card,
 .analysis-card *,
 .pricing-summary-card,
@@ -2354,11 +2355,18 @@ details summary {
 }
 
 .product-standard-form input,
-.product-standard-form select {
+.product-standard-form select,
+.product-standard-form textarea {
     width: 100%;
     min-height: 38px;
     border-radius: 7px;
     background: var(--dp-input-bg);
+}
+
+.product-standard-form textarea {
+    min-height: 92px;
+    resize: vertical;
+    line-height: 1.45;
 }
 
 .product-standard-form label {

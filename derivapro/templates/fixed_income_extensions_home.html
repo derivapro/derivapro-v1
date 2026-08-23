@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
-{% block title %}DerivaPro | Fixed Income Extensions{% endblock %}
+{% block title %}DerivaPro | Fixed Income{% endblock %}
 
 {% block content %}
 {{ product.header(
-    "Fixed Income Extensions",
-    "First-wave institutional rates and fixed-income products that extend the existing bond and swap workflows.",
+    "Fixed Income",
+    "Institutional bond, rates, and cash-flow analytics with shared curve, schedule, day-count, and scenario conventions.",
     "Fixed Income",
     "Registered Workspace"
 ) }}
 
 {{ product.description(
-    "Rates and fixed-income expansion without duplicating existing bond pages.",
-    "The existing Fixed Income section continues to support fixed-rate, floating-rate, and amortizing non-callable bonds. This extension workspace adds products that require stronger curve, schedule, day-count, discounting, and optionality support.",
-    ["FRAs", "Caps / floors", "Callable / putable bonds", "Curve scenarios"],
-    "Methodology documentation is available for each first-wave product."
+    "A consolidated workspace for bond and rates products.",
+    "The current fixed-income build combines the original non-callable bond workflows with newer product-standard pages for level coupon bonds, step-up and sinking structures, bond series, loan-style cash flows, embedded bond optionality, and rates derivatives.",
+    ["Level coupon bonds", "Step-up / sinking bonds", "Bond series", "Loans / leases", "Callable bonds", "Caps / floors"],
+    "Methodology documentation is available for each product workspace."
 ) }}
 
-{% call product.section("Product Workspaces", "Open a first-wave fixed-income extension product.") %}
+{% call product.section("Product Workspaces", "Open a fixed-income product workspace.") %}
 <div class="product-workspace-grid">
     {% for slug, item in products.items() %}
     <article class="product-workspace-card">
@@ -31,19 +31,19 @@
 </div>
 {% endcall %}
 
-{% call product.section("Existing Fixed-Income Coverage", "Current bond pages remain available and should be reviewed separately before deeper refactoring.") %}
+{% call product.section("Existing Fixed-Income Coverage", "Legacy bond workflows remain available through the bond analytics hub while product-standard pages are rolled out.") %}
 <div class="analysis-grid">
     <article class="analysis-card">
-        <span>Current bond workflows</span>
-        <p>Fixed-rate, floating-rate, fixed amortizing, and floating amortizing non-callable bond pages are retained as the current cash-flow valuation layer.</p>
+        <span>Legacy bond analytics</span>
+        <p>Fixed-rate, floating-rate, fixed amortizing, and floating amortizing non-callable pages remain accessible from the bond analytics hub for continuity.</p>
     </article>
     <article class="analysis-card">
-        <span>Recommended cleanup</span>
-        <p>Next UI pass should standardize the legacy bond forms into the same Product Description, Pricing, Analysis, and Reporting layout used by the new extension products.</p>
+        <span>Consolidation direction</span>
+        <p>The newer level coupon and generic bond pages are the preferred path for product-standard UI, methodology links, cash-flow diagnostics, and scenario risk.</p>
     </article>
     <article class="analysis-card">
         <span>Model architecture</span>
-        <p>The new products use shared curve parsing, discounting, schedule, and day-count helpers so future swaps, Bermudan swaptions, and cross-currency products can reuse the same conventions.</p>
+        <p>The products use shared curve parsing, discounting, schedule, and day-count helpers so future swaps, Bermudan swaptions, cross-currency products, and mortgage analytics can reuse the same conventions.</p>
     </article>
 </div>
 {% endcall %}
