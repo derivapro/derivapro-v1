@@ -16,4 +16,25 @@
         {{ html_content|safe }}
     </div>
 </section>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".methodology-doc-content pre code").forEach((codeBlock) => {
+            const raw = codeBlock.textContent.trim();
+            const looksLikeFormula = /[=∑Σ\\^_]/.test(raw) && !raw.includes("|") && !raw.includes("YYYY-MM-DD");
+            if (!looksLikeFormula) return;
+
+            const pre = codeBlock.closest("pre");
+            pre.classList.add("methodology-formula-block");
+            const label = document.createElement("div");
+            label.className = "methodology-formula-label";
+            label.textContent = "Formula";
+            pre.prepend(label);
+        });
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise();
+        }
+    });
+</script>
 {% endblock %}

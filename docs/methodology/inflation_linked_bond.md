@@ -78,3 +78,78 @@ The page reports:
 - Add inflation curve bootstrapping and zero-coupon inflation swap inputs.
 - Compare against TIPS, linker, and inflation-swap benchmark cases.
 - Add real DV01, inflation DV01, breakeven sensitivity, and carry/roll-down analytics.
+
+## Detailed Methodology Notes
+
+### Index Ratio
+
+Inflation-linked bonds adjust real cash flows using an index ratio:
+
+```text
+Index ratio(date) = Reference CPI(date) / Base CPI
+```
+
+For many sovereign linkers, the reference CPI is lagged and interpolated. The current DerivaPro implementation uses a simplified projected ratio:
+
+```text
+Projected ratio_i =
+    Current CPI / Base CPI
+    * exp(projected_inflation_rate * max(T_i - lag, 0))
+```
+
+### Indexed Coupon and Principal
+
+The indexed coupon is:
+
+```text
+Coupon_i = Notional * IndexRatio_i * real_coupon_rate * alpha_i
+```
+
+At maturity:
+
+```text
+Principal_T = Notional * IndexRatio_T
+```
+
+If the principal floor is enabled:
+
+```text
+Principal_T = Notional * max(IndexRatio_T, 1.0)
+```
+
+Some jurisdictions floor only principal, while coupons continue to use the actual index ratio. This distinction should be made configurable.
+
+### Real Yield Versus Nominal Yield
+
+Inflation-linked bonds may be quoted on real yield or real clean price. In a real-yield framework:
+
+```text
+Real price = sum_i RealCF_i / (1 + y_real)^(tau_i)
+```
+
+Nominal cash flows are obtained by multiplying real cash flows by projected index ratios.
+
+### Breakeven Inflation
+
+A simple breakeven proxy is:
+
+```text
+Breakeven = nominal zero rate - real zero rate
+```
+
+This is only an approximation. Production breakeven analysis should include seasonality, inflation risk premium, carry, roll-down, liquidity effects, and index lag.
+
+### Alternative Methodologies
+
+Production linker analytics should support country-specific CPI rules, monthly CPI interpolation, indexation lag by jurisdiction, real clean/dirty price, accrued inflation, deflation floor conventions, inflation curve bootstrapping, zero-coupon inflation swap inputs, and seasonality adjustments.
+
+### Additional Risk Measures
+
+Recommended analytics:
+
+- Real DV01.
+- Nominal DV01.
+- Inflation DV01.
+- Breakeven sensitivity.
+- Carry and roll-down.
+- CPI fixing sensitivity.

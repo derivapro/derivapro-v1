@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import markdown
 from flask import Blueprint, abort, render_template
@@ -35,6 +36,34 @@ METHODOLOGY_DOCS = {
 }
 
 
+DISPLAY_MATH_PATTERN = re.compile(r"(\\\[.*?\\\]|\$\$.*?\$\$)", re.DOTALL)
+
+
+def _protect_display_math(markdown_source):
+    math_blocks = []
+
+    def replace_math_block(match):
+        math_blocks.append(match.group(0))
+        return f"\n\nDERIVAPRO_MATH_BLOCK_{len(math_blocks) - 1}\n\n"
+
+    protected_source = DISPLAY_MATH_PATTERN.sub(replace_math_block, markdown_source)
+    return protected_source, math_blocks
+
+
+def _restore_display_math(html_content, math_blocks):
+    for index, math_block in enumerate(math_blocks):
+        placeholder = f"DERIVAPRO_MATH_BLOCK_{index}"
+        html_content = html_content.replace(
+            f"<p>{placeholder}</p>",
+            f'<div class="methodology-math-display">{math_block}</div>',
+        )
+        html_content = html_content.replace(
+            placeholder,
+            f'<div class="methodology-math-display">{math_block}</div>',
+        )
+    return html_content
+
+
 @index_bp.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
@@ -56,10 +85,14 @@ def methodology_doc(doc_name):
     if not doc_path.exists():
         abort(404)
 
+    markdown_source, math_blocks = _protect_display_math(
+        doc_path.read_text(encoding="utf-8")
+    )
     html_content = markdown.markdown(
-        doc_path.read_text(encoding="utf-8"),
+        markdown_source,
         extensions=["tables", "fenced_code"],
     )
+    html_content = _restore_display_math(html_content, math_blocks)
     return render_template(
         "methodology_doc.html",
         title=doc_name.replace("_", " ").title(),

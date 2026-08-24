@@ -70,3 +70,57 @@ The page reports:
 - Compare par asset-swap spread against benchmark vendor or QuantLib-style examples.
 - Add z-spread, G-spread, I-spread, and OAS comparisons.
 - Add key-rate DV01 and credit-spread DV01.
+
+## Detailed Methodology Notes
+
+### Asset Swap Interpretation
+
+An asset swap combines a cash bond purchase with a swap overlay that transforms fixed bond coupon exposure into floating-rate exposure. The par asset-swap spread is the floating spread that makes the package value zero at inception, given the bond price, bond coupon, and swap curve.
+
+### Bond Premium / Discount Adjustment
+
+When the bond is purchased away from par, the premium or discount must be amortized economically through the swap package. DerivaPro approximates this as:
+
+```text
+Price pull-to-par spread = (Par amount - Market dirty price) / (Par amount * Annuity)
+```
+
+This term increases the par spread for discount bonds and decreases it for premium bonds.
+
+### Coupon Versus Swap Adjustment
+
+The fixed coupon on the bond is compared against the par swap rate:
+
+```text
+Coupon spread component = Bond coupon - Par swap rate
+```
+
+Combining both effects:
+
+```text
+Par ASW spread =
+    Bond coupon - Par swap rate
+  + (Par amount - Market dirty price) / (Par amount * Annuity)
+```
+
+### Package PV
+
+If the market quotes an asset-swap spread `S_quote`, the first-pass package PV is:
+
+```text
+PV_package = Notional * Annuity * (S_quote - S_par)
+```
+
+### Alternative Spread Measures
+
+Asset-swap spread is only one relative-value measure. Production fixed-income analytics should also include:
+
+- Z-spread: flat spread over the zero curve that discounts bond cash flows to market price.
+- G-spread: spread over the government curve at comparable maturity.
+- I-spread: spread over the interpolated swap curve.
+- OAS: spread after adjusting for embedded optionality.
+- CDS basis: comparison between bond-implied spread and CDS spread.
+
+### Production Enhancements
+
+The current approximation should be extended with clean/dirty price conversion, accrued interest, settlement date, floating leg reset schedule, projection/discount curve separation, bond-specific calendars, coupon stubs, funding assumptions, and collateral assumptions.

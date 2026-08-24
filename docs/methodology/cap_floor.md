@@ -22,22 +22,28 @@ Supported conventions in the current workflow:
 
 For each reset/payment period, the model computes:
 
-```text
-tau_i = year_fraction(period_start_i, period_end_i)
-F_i = (DF_fwd(T_start_i) / DF_fwd(T_end_i) - 1) / tau_i
-```
+\[
+\begin{aligned}
+\tau_i &= \text{year fraction}(\text{period start}_i,\text{ period end}_i) \\
+F_i &= \frac{DF_{\text{fwd}}(T_{\text{start},i}) / DF_{\text{fwd}}(T_{\text{end},i}) - 1}{\tau_i}
+\end{aligned}
+\]
 
 Each caplet is valued with a Black-style rate option formula:
 
-```text
-Caplet PV = Notional * tau_i * DF_disc(T_pay_i) * BlackCall(F_i, K, sigma, T_fix_i)
-```
+\[
+PV_{\text{caplet},i} =
+N \cdot \tau_i \cdot DF_{\text{disc}}(T_{\text{pay},i})
+\cdot BlackCall(F_i,K,\sigma,T_{\text{fix},i})
+\]
 
 Each floorlet uses the corresponding Black put formula:
 
-```text
-Floorlet PV = Notional * tau_i * DF_disc(T_pay_i) * BlackPut(F_i, K, sigma, T_fix_i)
-```
+\[
+PV_{\text{floorlet},i} =
+N \cdot \tau_i \cdot DF_{\text{disc}}(T_{\text{pay},i})
+\cdot BlackPut(F_i,K,\sigma,T_{\text{fix},i})
+\]
 
 The cap or floor value is the sum of all caplet or floorlet present values.
 
@@ -68,3 +74,84 @@ The page reports:
 - Compare against QuantLib cap/floor examples.
 - Add caplet stripping and period-level Greeks.
 - Add calibration controls and quote conventions.
+
+## Detailed Methodology Notes
+
+### Caplet and Floorlet Decomposition
+
+An interest rate cap is a strip of caplets. Each caplet pays when the realized/index forward rate is above the strike. A floor is a strip of floorlets that pays when the forward rate is below the strike.
+
+For period `i`:
+
+\[
+\begin{aligned}
+T_i &= \text{option fixing time} \\
+P_i &= \text{payment time} \\
+\alpha_i &= \text{accrual factor} \\
+F_i &= \text{projected forward rate} \\
+K &= \text{strike} \\
+\sigma_i &= \text{Black volatility} \\
+DF_i &= \text{discount factor to payment date}
+\end{aligned}
+\]
+
+Caplet PV:
+
+\[
+PV_{\text{caplet},i} =
+N \cdot \alpha_i \cdot DF_i \cdot BlackCall(F_i,K,\sigma_i,T_i)
+\]
+
+Floorlet PV:
+
+\[
+PV_{\text{floorlet},i} =
+N \cdot \alpha_i \cdot DF_i \cdot BlackPut(F_i,K,\sigma_i,T_i)
+\]
+
+Total cap/floor PV is the sum over all optionlets.
+
+### Black Rate Option Formula
+
+Under lognormal Black assumptions:
+
+\[
+\begin{aligned}
+d_1 &= \frac{\ln(F/K) + \frac{1}{2}\sigma^2T}{\sigma\sqrt{T}} \\
+d_2 &= d_1 - \sigma\sqrt{T}
+\end{aligned}
+\]
+
+\[
+\begin{aligned}
+BlackCall &= F\Phi(d_1) - K\Phi(d_2) \\
+BlackPut  &= K\Phi(-d_2) - F\Phi(-d_1)
+\end{aligned}
+\]
+
+The current DerivaPro implementation uses this Black-style approximation with a user-supplied flat volatility.
+
+### Cap/Floor Parity
+
+For the same strike and schedule:
+
+\[
+Cap - Floor = PV_{\text{floating leg}} - PV_{\text{fixed leg at strike}}
+\]
+
+This relationship is useful for validation and for detecting sign or accrual errors.
+
+### Alternative Methodologies
+
+Production cap/floor analytics should support caplet-specific volatility by expiry and tenor, shifted Black for low or negative rate environments, Bachelier/normal model, SABR-smile calibrated volatility, multi-curve projection and OIS discounting, and in-arrears or compounding conventions.
+
+### Additional Risk Measures
+
+Recommended future analytics:
+
+- Delta to forward curve.
+- Vega by caplet expiry.
+- Key-rate DV01.
+- Volatility bucket risk.
+- Strike ladder and moneyness diagnostics.
+- Cap/floor parity test output.

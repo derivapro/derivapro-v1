@@ -2813,6 +2813,133 @@ details summary {
     max-height: 420px;
 }
 
+.methodology-doc-card {
+    max-width: 1180px;
+}
+
+.methodology-doc-content {
+    color: var(--dp-text);
+    font-size: 16px;
+    line-height: 1.72;
+}
+
+.methodology-doc-content h1,
+.methodology-doc-content h2,
+.methodology-doc-content h3 {
+    color: var(--dp-heading);
+    letter-spacing: 0;
+}
+
+.methodology-doc-content h2 {
+    margin-top: 34px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(190, 185, 176, 0.55);
+}
+
+.methodology-doc-content h3 {
+    margin-top: 24px;
+}
+
+.methodology-doc-content p,
+.methodology-doc-content li {
+    max-width: 96ch;
+}
+
+.methodology-doc-content code {
+    padding: 2px 6px;
+    border: 1px solid rgba(190, 185, 176, 0.55);
+    border-radius: 5px;
+    background: rgba(178, 136, 55, 0.08);
+    color: var(--dp-heading);
+    font-size: 0.92em;
+}
+
+.methodology-doc-content pre {
+    position: relative;
+    margin: 18px 0 24px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    border: 1px solid rgba(178, 136, 55, 0.28);
+    border-left: 4px solid var(--dp-accent);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(178, 136, 55, 0.06));
+    box-shadow: 0 8px 20px rgba(20, 22, 24, 0.04);
+}
+
+.methodology-doc-content pre code {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--dp-heading);
+    font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.methodology-formula-block {
+    padding-top: 42px !important;
+}
+
+.methodology-formula-block code {
+    font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif !important;
+    font-size: 17px !important;
+}
+
+.methodology-formula-label {
+    position: absolute;
+    top: 12px;
+    left: 16px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 2px 9px;
+    border: 1px solid rgba(178, 136, 55, 0.32);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--dp-accent-strong);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.methodology-doc-content mjx-container[jax="CHTML"][display="true"] {
+    margin: 20px 0 26px !important;
+    padding: 18px 22px;
+    overflow-x: auto;
+    border: 1px solid rgba(178, 136, 55, 0.32);
+    border-left: 4px solid var(--dp-accent);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.99), rgba(178, 136, 55, 0.07));
+    box-shadow: 0 10px 22px rgba(20, 22, 24, 0.05);
+    text-align: center;
+}
+
+.methodology-math-display {
+    margin: 20px 0 26px;
+    padding: 18px 22px;
+    overflow-x: auto;
+    border: 1px solid rgba(178, 136, 55, 0.32);
+    border-left: 4px solid var(--dp-accent);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.99), rgba(178, 136, 55, 0.07));
+    box-shadow: 0 10px 22px rgba(20, 22, 24, 0.05);
+    text-align: center;
+}
+
+.methodology-math-display mjx-container[jax="CHTML"][display="true"] {
+    margin: 0 !important;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.methodology-doc-content mjx-container[jax="CHTML"]:not([display="true"]) {
+    color: var(--dp-heading);
+}
+
 @media (max-width: 700px) {
     .detail-summary-grid {
         grid-template-columns: 1fr;
@@ -4289,10 +4416,36 @@ html[data-theme="dark"] #markdown-content,
 html[data-theme="dark"] #markdown-content blockquote,
 html[data-theme="dark"] #markdown-content pre,
 html[data-theme="dark"] #markdown-content code,
+html[data-theme="dark"] .methodology-doc-content pre,
 html[data-theme="dark"] .auth-security-box,
 html[data-theme="dark"] .info-box {
     background: var(--dp-surface-muted);
     color: var(--dp-text);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .methodology-doc-content code {
+    background: rgba(178, 136, 55, 0.12);
+    color: var(--dp-heading);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .methodology-doc-content pre code {
+    background: transparent;
+}
+
+html[data-theme="dark"] .methodology-formula-label {
+    background: var(--dp-surface);
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .methodology-doc-content mjx-container[jax="CHTML"][display="true"] {
+    background: linear-gradient(135deg, var(--dp-surface), rgba(178, 136, 55, 0.10));
+    border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .methodology-math-display {
+    background: linear-gradient(135deg, var(--dp-surface), rgba(178, 136, 55, 0.10));
     border-color: var(--dp-border);
 }
 

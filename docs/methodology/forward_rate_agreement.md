@@ -65,3 +65,60 @@ The page reports:
 - Add settlement-at-start convention and compare against settlement-at-end approximation.
 - Add curve interpolation and compounding controls.
 - Add calibration from money-market and futures instruments.
+
+## Detailed Methodology Notes
+
+### Forward Rate Derivation
+
+For an accrual period beginning at `T1` and ending at `T2`, the no-arbitrage forward rate implied by a discount curve is:
+
+```text
+F(T1,T2) = (DF(T1) / DF(T2) - 1) / alpha
+```
+
+where `alpha` is the accrual year fraction for the reference period. If a separate projection curve is supplied, DerivaPro uses the projection curve for the forward rate and the discount curve for present value. This is consistent with multi-curve methodology, where projection and discounting curves may differ.
+
+### Payoff Timing
+
+A classical FRA is often settled at the start of the loan period, with the end-of-period interest differential discounted back to the settlement date:
+
+```text
+Settlement_start = Notional * alpha * (F - K) / (1 + alpha * F)
+```
+
+The current DerivaPro page uses a transparent end-period discounted payoff:
+
+```text
+Payoff_end = Notional * alpha * (F - K)
+PV         = Payoff_end * DF(T2)
+```
+
+This is acceptable for first-pass analytics but should be enhanced with explicit settlement timing.
+
+### Position Convention
+
+For a pay-fixed / receive-floating FRA:
+
+```text
+PV = Notional * alpha * (F - K) * DF(T2)
+```
+
+For a receive-fixed / pay-floating FRA:
+
+```text
+PV = -Notional * alpha * (F - K) * DF(T2)
+```
+
+### Alternative Methodologies
+
+Production FRA valuation should support start-date settlement, collateral discounting with OIS curves, separate index projection curves, IMM date conventions, forward-starting stub periods, and convexity adjustments where the underlying market quote requires them.
+
+### Additional Risk Measures
+
+Recommended future analytics:
+
+- Forward-rate DV01.
+- Discount-curve DV01.
+- Key-rate DV01 by projection and discount curve.
+- Curve carry and roll-down.
+- Scenario grids across start/end forward rates and discount rates.
