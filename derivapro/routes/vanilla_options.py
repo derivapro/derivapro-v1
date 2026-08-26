@@ -542,6 +542,123 @@ def _default_american_form_data():
     }
 
 
+# Every model the American page can price with. The value is what appears in the
+# Run Summary; the key is what the form posts.
+AMERICAN_PRICING_MODELS = {
+    "Cox Ross Rubinstein Tree": "Cox-Ross-Rubinstein binomial tree",
+    "Jarrow Rudd Tree": "Jarrow-Rudd binomial tree",
+    "Trinomial Tree": "Boyle trinomial tree",
+    "Binomial Tree (discrete dividends)": "CRR binomial tree with discrete dividends",
+    "LSMC": "Least-Squares Monte Carlo (Longstaff-Schwartz)",
+}
+
+# Pinning the seed keeps the finite-difference Greek bumps from being swamped by
+# simulation noise: every bumped revaluation reuses the same random draws.
+_LSMC_SEED = 20240101
+
+
+def _price_american_lsmc(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    num_paths,
+    mc_steps,
+):
+    engine = monte_carlo_module.create_monte_carlo_engine(
+        S0=spot_price,
+        r=risk_free_rate,
+        sigma=volatility,
+        T=time_to_maturity,
+        num_paths=max(1000, min(int(num_paths or 10000), 200000)),
+        num_steps=max(10, min(int(mc_steps or 252), 1000)),
+        random_type="sobol",
+        random_seed=_LSMC_SEED,
+    )
+    # euler_paths reads `q` off the engine for the drift; discounting still uses r.
+    engine.q = dividend_yield
+
+    if option_type == "call":
+        def payoff(S):
+            return np.maximum(S - strike_price, 0.0)
+    else:
+        def payoff(S):
+            return np.maximum(strike_price - S, 0.0)
+
+    price = monte_carlo_module.LSMCEngine(engine).price_option(payoff, option_type)
+    return {
+        "price": float(price),
+        "steps": engine.num_steps,
+        "num_paths": engine.num_paths,
+    }
+
+
+def _price_american_trinomial(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    dividend_yield,
+    option_type,
+    steps,
+):
+    model = LatticeModel(
+        ticker=None,
+        strike_price=strike_price,
+        start_date=None,
+        end_date=None,
+        risk_free_rate=risk_free_rate,
+        volatility=volatility,
+        spot_price=spot_price,
+        time_to_expiry=time_to_maturity,
+    )
+    price = model.Trinomial_Asset_Pricing(
+        option_type=option_type,
+        steps=steps,
+        american=True,
+        dividend_yield=dividend_yield,
+    )
+    return {"price": float(price), "steps": steps}
+
+
+def _price_american_discrete_dividend_tree(
+    spot_price,
+    strike_price,
+    time_to_maturity,
+    risk_free_rate,
+    volatility,
+    option_type,
+    steps,
+    dividends,
+):
+    start_date = datetime.today().date()
+    engine = BinomialTreeEngineCRR(
+        ticker=None,
+        strike_price=strike_price,
+        start_date=start_date,
+        end_date=start_date + timedelta(days=max(1, int(round(time_to_maturity * 365.25)))),
+        risk_free_rate=risk_free_rate,
+        volatility=volatility,
+        num_steps=steps,
+        option_type=option_type,
+        dividends=dividends,
+        spot_price=spot_price,
+        time_to_expiry=time_to_maturity,
+    )
+    price = engine.price_american_option()
+    output = {"price": float(price), "steps": steps}
+    try:
+        boundary = engine.get_exercise_boundary()
+        output["exercise_nodes"] = sum(1 for level in boundary if level is not None)
+    except Exception:
+        logger.debug("Exercise boundary unavailable for the discrete-dividend tree")
+    return output
+
+
 def _price_american_tree(
     spot_price,
     strike_price,
@@ -552,6 +669,9 @@ def _price_american_tree(
     option_type,
     num_steps,
     pricing_model,
+    num_paths=10000,
+    mc_steps=252,
+    dividends=None,
 ):
     if spot_price <= 0:
         raise ValueError("Spot price must be positive.")
@@ -563,6 +683,45 @@ def _price_american_tree(
         raise ValueError("Time to maturity must be positive.")
 
     steps = max(2, min(int(num_steps or 200), 2000))
+    option_type = option_type.lower()
+
+    if pricing_model == "LSMC":
+        return _price_american_lsmc(
+            spot_price,
+            strike_price,
+            time_to_maturity,
+            risk_free_rate,
+            volatility,
+            dividend_yield,
+            option_type,
+            num_paths,
+            mc_steps,
+        )
+
+    if pricing_model == "Trinomial Tree":
+        return _price_american_trinomial(
+            spot_price,
+            strike_price,
+            time_to_maturity,
+            risk_free_rate,
+            volatility,
+            dividend_yield,
+            option_type,
+            steps,
+        )
+
+    if pricing_model == "Binomial Tree (discrete dividends)":
+        return _price_american_discrete_dividend_tree(
+            spot_price,
+            strike_price,
+            time_to_maturity,
+            risk_free_rate,
+            volatility,
+            option_type,
+            steps,
+            dividends,
+        )
+
     dt = time_to_maturity / steps
     discount = math.exp(-risk_free_rate * dt)
     growth = math.exp((risk_free_rate - dividend_yield) * dt)
@@ -638,6 +797,7 @@ def _american_tree_price_only(
     option_type,
     num_steps,
     pricing_model,
+    **model_options,
 ):
     return _price_american_tree(
         spot_price,
@@ -649,6 +809,7 @@ def _american_tree_price_only(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )["price"]
 
 
@@ -662,6 +823,7 @@ def _price_american_with_greeks(
     option_type,
     num_steps,
     pricing_model,
+    **model_options,
 ):
     tree_output = _price_american_tree(
         spot_price,
@@ -673,6 +835,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
     price = tree_output["price"]
     spot_bump = max(spot_price * 0.01, 0.01)
@@ -690,6 +853,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
     price_spot_down = _american_tree_price_only(
         max(spot_price - spot_bump, 0.0001),
@@ -701,6 +865,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
     price_vol_up = _american_tree_price_only(
         spot_price,
@@ -712,6 +877,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
     price_vol_down = _american_tree_price_only(
         spot_price,
@@ -723,6 +889,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
     price_rate_up = _american_tree_price_only(
         spot_price,
@@ -734,6 +901,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
     price_rate_down = _american_tree_price_only(
         spot_price,
@@ -745,6 +913,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
     shorter_price = _american_tree_price_only(
         spot_price,
@@ -756,6 +925,7 @@ def _price_american_with_greeks(
         option_type,
         num_steps,
         pricing_model,
+        **model_options,
     )
 
     tree_output.update({
@@ -776,6 +946,7 @@ def _build_american_analytics(
     time_to_maturity,
     raw_option_price,
     tree_output,
+    **model_options,
 ):
     option_type = form_data["option_type"]
     risk_free_rate = form_data["r"]
@@ -818,6 +989,7 @@ def _build_american_analytics(
             option_type,
             form_data.get("num_steps", 200),
             form_data.get("pricing_model", "Cox Ross Rubinstein Tree"),
+            **model_options,
         )
 
     sensitivity_rows = [
@@ -2709,6 +2881,12 @@ def american_options():
         raw_vega = float(tree_output["vega"])
         raw_theta = float(tree_output["theta"])
         raw_rho = float(tree_output["rho"])
+        model_options = {}
+        if pricing_model == "LSMC":
+            model_options["num_paths"] = form_data.get("num_paths", 10000)
+            model_options["mc_steps"] = form_data.get("mc_steps", 252)
+        elif pricing_model == "Binomial Tree (discrete dividends)":
+            model_options["dividends"] = form_data.get("dividends")
         run_summary = _build_american_analytics(
             form_data,
             spot_price,
@@ -2716,6 +2894,7 @@ def american_options():
             time_to_maturity,
             raw_option_price,
             tree_output,
+            **model_options,
         )
         option_price = "${:,.4f}".format(raw_option_price)
         delta = "{:.4f}".format(raw_delta)

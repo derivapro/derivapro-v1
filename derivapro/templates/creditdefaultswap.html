@@ -22,19 +22,21 @@
 
 {% call product.section("Pricing", "Enter CDS trade terms and credit assumptions to calculate valuation and risk metrics.") %}
 
+{{ product.validation_summary(validation_errors) }}
+
 <form id="cds-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="nominal">Nominal ($):</label>
-        <input type="number" step="0.01" id="nominal" name="nominal" value="{{ form_data.nominal }}" required>
+        <input type="number" step="0.01" min="0.01" id="nominal" name="nominal" value="{{ form_data.nominal }}" required>
     </div>
     <div class="form-group">
         <label for="spread">Spread (i.e., 0.05):</label>
-        <input type="number" step="0.0001" id="spread" name="spread" value="{{ form_data.spread }}" required>
+        <input type="number" step="0.0001" min="0" id="spread" name="spread" value="{{ form_data.spread }}" required>
     </div>
     <div class="form-group">
         <label for="recovery_rate">Recovery Rate (i.e., 0.40):</label>
-        <input type="number" step="0.0001" id="recovery_rate" name="recovery_rate" value="{{ form_data.recovery_rate }}" required>
+        <input type="number" step="0.0001" min="0" max="1" id="recovery_rate" name="recovery_rate" value="{{ form_data.recovery_rate }}" required>
     </div>
     <div class="form-group">
         <label for="risk_free">Risk-Free Rate (i.e., 0.05):</label>
@@ -105,9 +107,6 @@
 <!-- Analysis Tabs -->
 {% call product.section("Analysis", "Run sensitivity and scenario analysis for CDS pricing assumptions.") %}
 <div id="analysis-section">
-    <div class="section-title">
-        <h3>Analysis</h3>
-    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
@@ -149,11 +148,23 @@
         </form>
         <div id="sensitivity-results" class="sens-results">
             {% if cds_analysis_results %}
+                {% if cds_analysis_results.get('error') %}
+            <div class="validation-summary" role="alert">
+                <strong>Sensitivity analysis could not be completed</strong>
+                <ul>
+                    <li>{{ cds_analysis_results['error'] }}</li>
+                </ul>
+            </div>
+                {% else %}
             <div class="result">
                 <h4>Sensitivity Analysis Results</h4>
-                <img src="{{ url_for('static', filename=cds_analysis_results['plot_filename']) }}" alt="Plot">
-            {% endif %}
+                <div class="plot-card">
+                    <img src="{{ url_for('static', filename=cds_analysis_results['plot_filename']) }}"
+                         alt="CDS expected loss vs {{ cds_analysis_results['variable'] }}">
+                </div>
             </div>
+                {% endif %}
+            {% endif %}
         </div>
     </div>
     <!-- Scenario Analysis Tab Content -->
@@ -272,6 +283,12 @@ if (cdsForm) {
 // JavaScript for AJAX Form Submission
 function submitForm(formId, url, updateId) {
     var form = document.getElementById(formId);
+    // Block the POST when a numeric input violates its bound; the shared
+    // validator (static/js/positive-validation.js) shows an inline message.
+    if (window.validatePositiveInputs && !window.validatePositiveInputs(form)) {
+        return;
+    }
+
     var formData = new FormData(form);
     var xhr = new XMLHttpRequest();
 

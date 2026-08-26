@@ -359,12 +359,26 @@
                 <select id="pricing_model" name="pricing_model" required>
                     <option value="Cox Ross Rubinstein Tree" {% if form_data.pricing_model=='Cox Ross Rubinstein Tree' %}selected{% endif %}>Cox Ross Rubinstein Tree</option>
                     <option value="Jarrow Rudd Tree" {% if form_data.pricing_model=='Jarrow Rudd Tree' %}selected{% endif %}>Jarrow Rudd Tree</option>
+                    <option value="Trinomial Tree" {% if form_data.pricing_model=='Trinomial Tree' %}selected{% endif %}>Trinomial Tree</option>
+                    <option value="Binomial Tree (discrete dividends)" {% if form_data.pricing_model=='Binomial Tree (discrete dividends)' %}selected{% endif %}>Binomial Tree (discrete dividends)</option>
+                    <option value="LSMC" {% if form_data.pricing_model=='LSMC' %}selected{% endif %}>LSMC (Least-Squares Monte Carlo)</option>
                 </select>
-                <div class="field-hint">Trinomial and LSMC can be restored after product-standard testing.</div>
             </div>
             <div class="form-group">
                 <label for="num_steps">Tree Steps</label>
                 <input type="number" step="1" id="num_steps" name="num_steps" value="{{ form_data.num_steps|default(200) }}" min="2" max="2000" required>
+            </div>
+            <div class="form-group" id="mc-parameters" style="display: none;">
+                <label for="num_paths">Monte Carlo Paths</label>
+                <input type="number" step="1" id="num_paths" name="num_paths" value="{{ form_data.num_paths|default(10000) }}" min="1000" max="200000">
+            </div>
+            <div class="form-group" id="mc-steps" style="display: none;">
+                <label for="mc_steps">Time Steps per Path</label>
+                <input type="number" step="1" id="mc_steps" name="mc_steps" value="{{ form_data.mc_steps|default(252) }}" min="10" max="1000">
+            </div>
+            <div class="form-group" id="discrete-dividends-group" style="display: none;">
+                <label for="dividends">Dividend Dates & Amounts</label>
+                <input type="text" id="dividends" name="dividends" value="{{ form_data.dividends|default('') }}" placeholder="YYYY-MM-DD: amount; ...">
             </div>
         </div>
     </div>
@@ -533,7 +547,7 @@
 {% endif %}
 {% endcall %}
 
-{% call product.section("Run Summary", "A structured summary replaces customized reporting for this product-standard page. Full report templates can build on this output later.") %}
+{% call product.section("Run Summary") %}
 {% if run_summary %}
 <div class="run-summary-grid">
     <div>
@@ -601,6 +615,34 @@
 
         return true;
     }
+
+    function updatePricingModelDisplay() {
+        const model = document.getElementById('pricing_model').value;
+        const mcParams = document.getElementById('mc-parameters');
+        const mcSteps = document.getElementById('mc-steps');
+        const dividendGroup = document.getElementById('discrete-dividends-group');
+
+        // Hide all conditional fields first
+        mcParams.style.display = 'none';
+        mcSteps.style.display = 'none';
+        dividendGroup.style.display = 'none';
+
+        // Show relevant fields based on selected model
+        if (model === 'LSMC') {
+            mcParams.style.display = 'block';
+            mcSteps.style.display = 'block';
+        } else if (model === 'Binomial Tree (discrete dividends)') {
+            dividendGroup.style.display = 'block';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const pricingModelSelect = document.getElementById('pricing_model');
+        if (pricingModelSelect) {
+            pricingModelSelect.addEventListener('change', updatePricingModelDisplay);
+            updatePricingModelDisplay();
+        }
+    });
 </script>
 
 {% endblock %}

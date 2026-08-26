@@ -22,6 +22,8 @@
 
 {% call product.section("Pricing", "Enter bond terms, curve assumptions, conventions, and shocks to calculate valuation metrics.") %}
 
+{{ product.validation_summary(validation_errors) }}
+
 <form id="fixed-bond-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
@@ -115,7 +117,7 @@
 
     <div class="form-group">
         <label for="notional">Notional:</label>
-        <input type="number" step="0.01" id="notional" name="notional" value="{{ form_data.notional }}" required>
+        <input type="number" step="0.01" min="0.01" id="notional" name="notional" value="{{ form_data.notional }}" required>
     </div>
     
     <div class="form-group">

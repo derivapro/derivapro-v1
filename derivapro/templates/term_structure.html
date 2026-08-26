@@ -103,11 +103,16 @@
 
     <button type="submit">Calculate Term Structure</button>
 
-{% if error %}
-  <p style="color:red;">Error: {{ error }}</p>
-{% endif %}
-
     -->
+
+{% if error %}
+  <div class="validation-summary" role="alert">
+    <strong>The curve could not be built</strong>
+    <ul>
+      <li>{{ error }}</li>
+    </ul>
+  </div>
+{% endif %}
 
 {% if plot %}
   {% if form_data.fit_selection == 'Yes' %}
@@ -148,10 +153,14 @@
 
   {% if yield_curve_plot_filename %}
     <h2>Yield Curve Plots</h2>
-    <img src="{{ url_for('static', filename='plots/' + yield_curve_plot_filename) }}" alt="Yield Curve Plot" />
+    <div class="plot-card">
+      <img src="{{ url_for('static', filename='plots/' + yield_curve_plot_filename) }}" alt="Yield Curve Plot" />
+    </div>
   {% endif %}
-  
-  {% if yield_curve_plot_filename %}
+
+  {# Analysis is guarded on `plot`, not on `yield_curve_plot_filename`: the shock
+     branches re-render without the base curve filename, and gating on it meant
+     the AJAX target divs were missing from the response entirely. #}
     <div id="Analysis">
       <h2>Analysis</h2>
       <div class="tabs">
@@ -198,6 +207,14 @@
         </form>
 
         <div id="parallel-shock-results" class="result">
+          {% if error %}
+          <div class="validation-summary" role="alert">
+            <strong>The shocked curve could not be built</strong>
+            <ul>
+              <li>{{ error }}</li>
+            </ul>
+          </div>
+          {% endif %}
           {% if shocked_yield_curve_plot_filename %}
           {% if form_data.fit_selection == 'Yes' %}
             <h2>Shocked Fit Quality (R² Values)</h2>
@@ -237,7 +254,9 @@
           {% endif %}
 
           <h2>Shocked Yield Curve Plots</h2>
+          <div class="plot-card">
             <img src="{{ url_for('static', filename='plots/' + shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
+          </div>
           {% endif %}
         </div>
       </div>
@@ -281,6 +300,14 @@
         </form>
 
         <div id="non-parallel-shock-results" class="result">
+          {% if error %}
+          <div class="validation-summary" role="alert">
+            <strong>The shocked curve could not be built</strong>
+            <ul>
+              <li>{{ error }}</li>
+            </ul>
+          </div>
+          {% endif %}
           {% if shocked_yield_curve_plot_filename %}
           {% if form_data.fit_selection == 'Yes' %}
             <h2>Shocked Fit Quality (R² Values)</h2>
@@ -319,14 +346,14 @@
             </table>
             {% endif %}
           <h2>Shocked Yield Curve Plots</h2>
+          <div class="plot-card">
             <img src="{{ url_for('static', filename='plots/' + shocked_yield_curve_plot_filename) }}" alt="Shocked Yield Curve Plot" />
+          </div>
           {% endif %}
         </div>
       </div>
 
     </div>
-  
-  {% endif %}
 
 {% endif %}
 
@@ -351,9 +378,27 @@
       });
   });
   
+  // Render a failure inside the results container the user is looking at.
+  function showShockError(updateId, message) {
+    var target = document.getElementById(updateId);
+    if (!target) {
+        return;
+    }
+    target.innerHTML = '<div class="validation-summary" role="alert">'
+        + '<strong>The shocked curve could not be built</strong><ul><li></li></ul></div>';
+    target.querySelector('li').textContent = message;
+    target.style.display = 'block';
+  }
+
   // JavaScript for AJAX Form Submission
   function submitForm(formId, url, updateId) {
     var form = document.getElementById(formId);
+    // Block the POST when a numeric input violates its bound; the shared
+    // validator (static/js/positive-validation.js) shows an inline message.
+    if (window.validatePositiveInputs && !window.validatePositiveInputs(form)) {
+        return;
+    }
+
     var formData = new FormData(form);
     var xhr = new XMLHttpRequest();
 
@@ -372,15 +417,17 @@
                 // Show the results section after successfully updating it
                 document.getElementById(updateId).style.display = 'block';
             } else {
-                console.log("Update section not found");
+                // The response came back without the target section. Say so on the
+                // page rather than only in the console, where nobody sees it.
+                showShockError(updateId, "The server responded but returned no results for this shock. Rebuild the base curve and try again.");
             }
         } else if (xhr.readyState === 4) {
-            console.log("Error in form submission: " + xhr.status);
+            showShockError(updateId, "The request failed (HTTP " + xhr.status + "). Please try again.");
         }
     };
 
     xhr.onerror = function() {
-        console.log("Request failed");
+        showShockError(updateId, "The request could not be sent. Check your connection and try again.");
     };
 
     xhr.send(formData);

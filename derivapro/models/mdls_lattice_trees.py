@@ -24,17 +24,26 @@ class LatticeModel:
         end_date: str,
         risk_free_rate: float,
         volatility: float,
+        spot_price: Union[float, int, None] = None,
+        time_to_expiry: Union[float, None] = None,
     ) -> None:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
         self.strike_price = strike_price
-        self.time_to_expiry = StockData(
-            ticker, start_date, end_date
-        ).get_years_difference()
-        self.spot_price = float(
-            StockData(ticker, start_date, end_date).get_closing_price()
-        )
+
+        # Pages that collect the spot and tenor from the user pass them in
+        # directly; only fall back to a market-data lookup when they are absent,
+        # so the model no longer requires a resolvable ticker.
+        if spot_price is None or time_to_expiry is None:
+            market_data = StockData(ticker, start_date, end_date)
+            if time_to_expiry is None:
+                time_to_expiry = market_data.get_years_difference()
+            if spot_price is None:
+                spot_price = float(market_data.get_closing_price())
+
+        self.time_to_expiry = float(time_to_expiry)
+        self.spot_price = float(spot_price)
         self.risk_free_rate = risk_free_rate
         self.volatility = volatility
 
@@ -290,97 +299,78 @@ class LatticeModel:
         option_type: str = "call",
         steps: int = 100,
         plot_vis: str = "no",
+        american: bool = False,
+        dividend_yield: float = 0.0,
     ) -> float:
+        """Boyle trinomial tree price for a European or American option.
+
+        The tree recombines, so step ``i`` holds exactly ``2i + 1`` distinct
+        nodes indexed by net log displacement ``j`` in ``[-i, i]``. The previous
+        implementation allocated two ``(steps+1)^3`` arrays and walked them with
+        three nested loops, which both wasted memory and did not describe a
+        recombining lattice. This version rolls a single vector of length
+        ``2*steps + 1`` backwards through time.
+
+        Set ``american=True`` for early exercise. ``dividend_yield`` enters the
+        drift only - discounting stays at the risk-free rate.
+        """
         logger.debug(
-            "Running Trinomial Asset Pricing: steps=%s, option_type=%s",
+            "Running Trinomial Asset Pricing: steps=%s, option_type=%s, american=%s",
             steps,
             option_type,
+            american,
         )
 
-        """
-        Trinomial Asset Pricing model for American Call and Put options
-                
-        Returns the option price estimated by the trinomial tree
-        """
+        option_type = option_type.lower()
+        if option_type not in ("call", "put"):
+            raise ValueError("option_type must be 'call' or 'put'.")
+        if steps < 1:
+            raise ValueError("steps must be at least 1.")
+
         deltaT = self.time_to_expiry / steps
-        deltaX = np.sqrt(
-            deltaT * (self.volatility**2)
-            + ((self.risk_free_rate - 0.5 * self.volatility**2) ** 2) * (deltaT**2)
-        )
-        u = np.exp(self.volatility * np.sqrt(3 * deltaT))
-        d = 1 / u
-        D = self.risk_free_rate - (0.5 * self.volatility**2)
+        D = (self.risk_free_rate - dividend_yield) - (0.5 * self.volatility**2)
 
-        # check for convergence
+        deltaX = np.sqrt(
+            deltaT * (self.volatility**2) + (D**2) * (deltaT**2)
+        )
+        # Convergence floor: below this spacing the trinomial probabilities go
+        # negative and the tree becomes unstable.
         if deltaX < self.volatility * np.sqrt(3 * deltaT):
             deltaX = self.volatility * np.sqrt(3 * deltaT)
 
-        pu = 0.5 * (
-            ((self.volatility**2 * deltaT + D**2 * deltaT**2) / deltaX**2)
-            + (deltaT * D / deltaX)
-        )
-        pm = 1 - ((deltaT * self.volatility**2 + D**2 * deltaT**2) / deltaX**2)
-        pd = 0.5 * (
-            ((self.volatility**2 * deltaT + D**2 * deltaT**2) / deltaX**2)
-            - (deltaT * D / deltaX)
-        )
+        variance_term = (self.volatility**2 * deltaT + D**2 * deltaT**2) / deltaX**2
+        drift_term = deltaT * D / deltaX
 
-        underlying = np.zeros((steps + 1, steps + 1, steps + 1))
-        underlying[0, 0, 0] = self.spot_price
+        pu = 0.5 * (variance_term + drift_term)
+        pm = 1 - variance_term
+        pd = 0.5 * (variance_term - drift_term)
 
-        for i in range(1, steps + 1):
-            underlying[i, 0, 0] = underlying[i - 1, 0, 0]
+        disc = np.exp(-self.risk_free_rate * deltaT)
 
-            for j in range(1, i + 1):
-                underlying[i, j, 0] = underlying[i - 1, j - 1, 0] * u
+        # Node prices for every reachable displacement, indexed by j + steps.
+        displacements = np.arange(-steps, steps + 1)
+        spot_grid = self.spot_price * np.exp(displacements * deltaX)
 
-                for k in range(1, j + 1):
-                    underlying[i, j, k] = underlying[i - 1, j - 1, k - 1] * d
+        if option_type == "call":
+            intrinsic = np.maximum(spot_grid - self.strike_price, 0.0)
+        else:
+            intrinsic = np.maximum(self.strike_price - spot_grid, 0.0)
 
-        optionval = np.zeros((steps + 1, steps + 1, steps + 1))
-
-        for i in range(steps + 1):
-            for j in range(i + 1):
-                if option_type.lower() == "call":
-                    optionval[steps, i, j] = max(
-                        0, underlying[steps, i, j] - self.strike_price
-                    )
-
-                elif option_type.lower() == "put":
-                    optionval[steps, i, j] = max(
-                        0, self.strike_price - underlying[steps, i, j]
-                    )
+        values = intrinsic.copy()
 
         for i in range(steps - 1, -1, -1):
-            for j in range(i + 1):
-                for k in range(j + 1):
-                    if option_type.lower() == "call":
-                        optionval[i, j, k] = max(
-                            0,
-                            underlying[i, j, k] - self.strike_price,
-                            np.exp(-self.risk_free_rate * deltaT)
-                            * (
-                                pu * optionval[i + 1, j + 1, k]
-                                + pm * optionval[i + 1, j, k]
-                                + pd * optionval[i + 1, j + 1, k + 1]
-                            ),
-                        )
+            lo = steps - i
+            hi = steps + i
+            continuation = disc * (
+                pu * values[lo + 1:hi + 2]
+                + pm * values[lo:hi + 1]
+                + pd * values[lo - 1:hi]
+            )
+            if american:
+                continuation = np.maximum(continuation, intrinsic[lo:hi + 1])
+            values[lo:hi + 1] = continuation
 
-                    elif option_type.lower() == "put":
-                        optionval[i, j, k] = max(
-                            0,
-                            self.strike_price - underlying[i, j, k],
-                            np.exp(-self.risk_free_rate * deltaT)
-                            * (
-                                pu * optionval[i + 1, j + 1, k]
-                                + pm * optionval[i + 1, j, k]
-                                + pd * optionval[i + 1, j + 1, k + 1]
-                            ),
-                        )
-
-        option_price = optionval[0, 0, 0]
-
-        return option_price
+        return float(values[steps])
 
     def TAPGreeks(self, option_type: str, steps: int) -> dict[str, float]:
         option_price = self.Trinomial_Asset_Pricing(option_type, steps)

@@ -12,6 +12,7 @@ from datetime import datetime
 import uuid
 import logging
 from ..utils.lazy_imports import LazyAttribute, LazyImport
+from ..services.validation import check_positive
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ def forwards():
         forward_sensitivity_analysis_results
     ) = forward_scenario_results = forward_risk_pl = None
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -67,6 +69,34 @@ def forwards():
             "model_selection": request.form["model_selection"],
             "storage_cost": request.form["storage_cost"],
         }
+
+        validation_errors = check_positive(
+            {"settlement_price": form_data["settlement_price"],
+             "num_contracts": form_data["num_contracts"],
+             "multiplier": form_data["multiplier"],
+             "storage_cost": form_data["storage_cost"]},
+            {"settlement_price": "Settlement price", "num_contracts": "Number of contracts",
+             "multiplier": "Multiplier", "storage_cost": "Storage cost"},
+        )
+        validation_errors += check_positive(
+            {"contract_fee": form_data["contract_fee"]},
+            {"contract_fee": "Contract fee"},
+            allow_zero=["contract_fee"],
+        )
+
+        if validation_errors:
+            return render_template(
+                "forwards.html",
+                form_data=form_data,
+                forward_price_results=None,
+                forward_pL=None,
+                margin_requirement=None,
+                forward_sensitivity_analysis_results=None,
+                forward_scenario_results=None,
+                forward_risk_pl=None,
+                md_content=md_content,
+                validation_errors=validation_errors,
+            )
 
         ticker = form_data["ticker"]
         risk_free_rate = float(form_data["risk_free_rate"])
@@ -301,6 +331,7 @@ def forwards():
         forward_scenario_results=forward_scenario_results,
         forward_risk_pl=forward_risk_pl,
         md_content=md_content,
+        validation_errors=validation_errors,
     )
 
 
@@ -315,6 +346,7 @@ def futures():
         future_sensitivity_analysis_results
     ) = future_scenario_results = future_risk_pl = None
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -341,6 +373,35 @@ def futures():
             "maintenance_margin_pct": request.form["maintenance_margin_pct"],
             "model_selection": request.form["model_selection"],
         }
+
+        validation_errors = check_positive(
+            {"settlement_price": form_data["settlement_price"],
+             "num_contracts": form_data["num_contracts"],
+             "multiplier": form_data["multiplier"],
+             "storage_cost": str(form_data["storage_cost"])},
+            {"settlement_price": "Settlement price", "num_contracts": "Number of contracts",
+             "multiplier": "Multiplier", "storage_cost": "Storage cost"},
+        )
+        validation_errors += check_positive(
+            {"contract_fee": form_data["contract_fee"]},
+            {"contract_fee": "Contract fee"},
+            allow_zero=["contract_fee"],
+        )
+
+        if validation_errors:
+            return render_template(
+                "futures.html",
+                form_data=form_data,
+                futures_price_results=None,
+                mark_to_market_results=None,
+                futures_pL=None,
+                margin_requirement=None,
+                future_sensitivity_analysis_results=None,
+                future_scenario_results=None,
+                future_risk_pl=None,
+                md_content=md_content,
+                validation_errors=validation_errors,
+            )
 
         ticker = form_data["ticker"]
         risk_free_rate = float(form_data["risk_free_rate"])
@@ -595,4 +656,5 @@ def futures():
         future_scenario_results=future_scenario_results,
         future_risk_pl=future_risk_pl,
         md_content=md_content,
+        validation_errors=validation_errors,
     )

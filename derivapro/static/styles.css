@@ -390,6 +390,46 @@ nav,
     text-transform: uppercase;
 }
 
+.nav-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.nav-section-head .nav-section-label {
+    margin-right: 0;
+}
+
+.nav-toggle-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 18px 8px 8px;
+    padding: 3px 8px;
+    border: 1px solid rgba(190, 185, 176, 0.64);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dp-rail-muted);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.nav-toggle-all:hover {
+    color: var(--dp-rail-text);
+    border-color: rgba(178, 136, 55, 0.55);
+    background: rgba(178, 136, 55, 0.1);
+}
+
+.nav-toggle-all-icon {
+    font-size: 12px;
+    line-height: 1;
+}
+
 .nav-tree,
 .nav-accordion {
     display: grid;
@@ -824,6 +864,26 @@ main,
 .sens-results img {
     max-width: 100%;
     height: auto;
+}
+
+/* Generated plots are fixed-pixel PNGs, so without a width cap they run past
+   their card and get clipped by the page container's overflow-x: clip. */
+.plot-card {
+    margin: 12px 0;
+    padding: 12px;
+    border: 1px solid var(--dp-border);
+    border-radius: var(--dp-border-radius);
+    background: var(--dp-surface);
+    overflow-x: auto;
+}
+
+.plot-card img,
+.product-section-body img,
+.result img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
 }
 
 .gpt-results {
@@ -1318,7 +1378,8 @@ details summary {
         display: none;
     }
 
-    .nav-section-label {
+    .nav-section-label,
+    .nav-toggle-all {
         margin-top: 4px;
     }
 
@@ -2153,6 +2214,38 @@ details summary {
     margin-top: 5px;
     color: #b42318;
     font-size: 12px;
+}
+
+.validation-summary {
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border: 1px solid rgba(180, 35, 24, 0.35);
+    border-left: 4px solid #b42318;
+    border-radius: 8px;
+    background: rgba(180, 35, 24, 0.06);
+    color: #7a1a11;
+    font-size: 13px;
+}
+
+.validation-summary strong {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.validation-summary ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.validation-summary li {
+    margin: 2px 0;
+}
+
+html[data-theme="dark"] .validation-summary {
+    background: rgba(180, 35, 24, 0.14);
+    color: #f3b9b3;
+    border-color: rgba(180, 35, 24, 0.5);
 }
 
 .pricing-form-actions {
@@ -4292,6 +4385,16 @@ html[data-theme="dark"] .asset-class-summary-card {
     background: var(--dp-surface);
     color: var(--dp-text);
     border-color: var(--dp-border);
+}
+
+html[data-theme="dark"] .nav-toggle-all {
+    border-color: var(--dp-border);
+    color: var(--dp-rail-muted);
+}
+
+html[data-theme="dark"] .nav-toggle-all:hover {
+    color: var(--dp-text);
+    background: rgba(178, 136, 55, 0.18);
 }
 
 html[data-theme="dark"] .status-grid div,

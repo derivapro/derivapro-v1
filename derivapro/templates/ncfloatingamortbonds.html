@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
 
 {% block content %}
 <div class="page-title compact">
@@ -17,6 +18,8 @@
 <div class="section-title">
     <h3>Bond Pricing</h3>
 </div>
+
+{{ product.validation_summary(validation_errors) }}
 
 <form id="floating-bond-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -136,13 +139,17 @@
     </div>
 
     <div class="form-group">
-        <label for="notional">Notional:</label>
-        <input type="text" id="notional" name="notional" value="{{ form_data.notional }}" required>
+        <label for="notional">Notional (Comma separated list):</label>
+        <input type="text" id="notional" name="notional" value="{{ form_data.notional }}"
+               placeholder="1000000, 750000, 500000" required>
+        <small class="field-hint">One amount per notional date; the first is the notional outstanding from issue.</small>
     </div>
 
     <div class="form-group">
-        <label for="notional_dates">Notional Dates:</label>
-        <input type="text" id="notional_dates" name="notional_dates" value="{{ form_data.notional_dates }}" required>
+        <label for="notional_dates">Notional Dates (Comma separated list; YYYY-MM-DD):</label>
+        <input type="text" id="notional_dates" name="notional_dates" value="{{ form_data.notional_dates }}"
+               placeholder="2024-11-24, 2025-11-24, 2026-11-24" required>
+        <small class="field-hint">Each date is when the matching notional takes effect. Must be within the bond's life.</small>
     </div>
 
     <div class="form-group full-width">

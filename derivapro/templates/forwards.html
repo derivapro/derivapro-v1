@@ -24,6 +24,7 @@
 {% call product.section("Pricing", "Enter contract terms, carry assumptions, and settlement assumptions to calculate forward value and P&L.") %}
 <form id="forwards-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ product.validation_summary(validation_errors) }}
     <div class="form-group">
         <label for="ticker">Ticker:</label>
         <input type="text" step="0.01" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -115,9 +116,6 @@
 <!-- Analysis Tabs -->
 {% call product.section("Analysis", "Run sensitivity, scenario, and risk-based P&L analysis for the latest forward assumptions.") %}
 <div id="analysis-section">
-    <div class="section-title">
-        <h3>Analysis</h3>
-    </div>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
@@ -339,6 +337,12 @@ document.getElementById('options-form').addEventListener('submit', function(even
 // JavaScript for AJAX Form Submission
 function submitForm(formId, url, updateId) {
     var form = document.getElementById(formId);
+    // Block the POST when a numeric input violates its bound; the shared
+    // validator (static/js/positive-validation.js) shows an inline message.
+    if (window.validatePositiveInputs && !window.validatePositiveInputs(form)) {
+        return;
+    }
+
     var formData = new FormData(form);
     var xhr = new XMLHttpRequest();
 

@@ -14,7 +14,7 @@
 {% macro description(title, body, instruments=None, methodology_note=None, methodology_url=None) -%}
 <section class="product-section-card product-description-section">
     <div class="product-section-header">
-        <span>Product Description</span>
+        {% if title != "Product Description" %}<span>Product Description</span>{% endif %}
         <h2>{{ title }}</h2>
         <p>{{ body }}</p>
     </div>
@@ -34,10 +34,28 @@
 </section>
 {%- endmacro %}
 
-{% macro section(title, subtitle=None, section_class="") -%}
+{#
+  Renders the messages produced by services/validation.py so every product page
+  reports out-of-range input the same way. Call it near the top of a form:
+      {{ product.validation_summary(validation_errors) }}
+#}
+{% macro validation_summary(errors) -%}
+{% if errors %}
+<div class="validation-summary" role="alert">
+    <strong>Please check the highlighted inputs</strong>
+    <ul>
+        {% for message in errors %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro section(title, subtitle=None, section_class="", kicker=None) -%}
 <section class="product-section-card {{ section_class }}">
     <div class="product-section-header">
-        <span>{{ title }}</span>
+        {% if kicker and kicker != title %}<span>{{ kicker }}</span>{% endif %}
         <h2>{{ title }}</h2>
         {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
     </div>
@@ -50,7 +68,6 @@
 {% macro reporting(product_name, has_report=False, view_url=None, download_url=None) -%}
 <section class="product-section-card product-reporting-section">
     <div class="product-section-header">
-        <span>Reporting</span>
         <h2>Reporting</h2>
         {% if has_report %}
         <p>Generate and export a pricing report for the latest {{ product_name }} run.</p>

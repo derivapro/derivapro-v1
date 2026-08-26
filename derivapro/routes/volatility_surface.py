@@ -114,19 +114,22 @@ def generate_volatility_surface(vol_df):
 def volatility_surface():
     vol_table = None
     plot_url = None
+    error = None
+    symbol = ""
 
     if request.method == "POST":
         symbol = request.form.get("symbol", "").upper().strip()
 
         if not symbol:
-            return jsonify({"error": "Please enter a valid stock symbol."})
-
-        try:
-            vol_df = fetch_option_chain(symbol)
-            vol_df = compute_moneyness(vol_df, symbol)
-            vol_table, plot_url = generate_volatility_surface(vol_df)
-        except Exception as e:
-            return jsonify({"error": str(e)})
+            error = "Please enter a valid stock symbol."
+        else:
+            try:
+                vol_df = fetch_option_chain(symbol)
+                vol_df = compute_moneyness(vol_df, symbol)
+                vol_table, plot_url = generate_volatility_surface(vol_df)
+            except Exception as e:
+                logger.exception("Volatility surface build failed for %s", symbol)
+                error = str(e)
 
     vol_table_html = (
         vol_table.to_html(classes="table table-striped")
@@ -134,8 +137,15 @@ def volatility_surface():
         else None
     )
 
+    # Hand the symbol back so the form keeps its value and the download link can
+    # be built server-side; the old page relied on a JS "input" event that never
+    # fires after a POST, leaving the link pointing at "#".
     return render_template(
-        "volatility_surface.html", vol_table=vol_table_html, plot_url=plot_url
+        "volatility_surface.html",
+        vol_table=vol_table_html,
+        plot_url=plot_url,
+        symbol=symbol,
+        error=error,
     )
 
 

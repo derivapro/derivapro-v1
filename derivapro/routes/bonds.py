@@ -8,6 +8,7 @@ import logging
 from copy import deepcopy
 
 from ..utils.lazy_imports import LazyAttribute
+from ..services.validation import check_positive
 from ..models.rates_fixed_income import (
     AssetSwapTerms,
     BondForwardTreasuryLockTerms,
@@ -758,6 +759,7 @@ def nc_fixed_bonds():
     gpt_assessment = None
     fr_bond_results = None
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -787,6 +789,23 @@ def nc_fixed_bonds():
         maturity_date = form_data["maturity_date"]
         coupon_rate = form_data["coupon_rate"]
         notional = form_data["notional"]
+
+        # A negative or zero notional silently produces meaningless prices, so
+        # tell the user to correct it rather than handing it to QuantLib.
+        validation_errors = check_positive(
+            {"notional": notional, "coupon_rate": coupon_rate},
+            {"notional": "Notional", "coupon_rate": "Coupon rate"},
+            allow_zero=["coupon_rate"],
+        )
+        if validation_errors:
+            return render_template(
+                "ncfixedbonds.html",
+                form_data=form_data,
+                fr_bond_results=None,
+                md_content=md_content,
+                gpt_assessment=None,
+                validation_errors=validation_errors,
+            )
 
         calendar_val = form_data["calendar_val"]
         interpolation_val = form_data["interpolation_val"]
@@ -883,6 +902,7 @@ def nc_fixed_bonds():
         fr_bond_results=fr_bond_results,
         md_content=md_content,
         gpt_assessment=gpt_assessment,
+        validation_errors=validation_errors,
     )
 
 
@@ -1209,6 +1229,7 @@ def nc_floating_amort_bonds():
     flam_bond_results = None
     gpt_assessment = None
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -1233,6 +1254,25 @@ def nc_floating_amort_bonds():
             "notional_dates": request.form["notional_dates"],
             "day_count_val": request.form["day_count"],
         }
+
+        # The amortization schedule is free text, so check it before QuantLib
+        # turns a malformed entry into an opaque overload error.
+        try:
+            NCFloatingBonds._parse_amortization_schedule(
+                form_data["notional"], form_data["notional_dates"]
+            )
+        except ValueError as exc:
+            validation_errors.append(str(exc))
+
+        if validation_errors:
+            return render_template(
+                "ncfloatingamortbonds.html",
+                form_data=form_data,
+                flam_bond_results=None,
+                md_content=md_content,
+                gpt_assessment=None,
+                validation_errors=validation_errors,
+            )
 
         value_date = form_data["value_date"]
         spot_dates = form_data["spot_dates"]
@@ -1344,16 +1384,28 @@ def nc_floating_amort_bonds():
             compounding_frequency,
         )
 
-        flam_bond_results = floating_bond.price_amortizing_floating(
-            shocks,
-            issue_date,
-            maturity_date,
-            tenor,
-            spread,
-            notional,
-            notional_dates,
-            day_count,
-        )
+        try:
+            flam_bond_results = floating_bond.price_amortizing_floating(
+                shocks,
+                issue_date,
+                maturity_date,
+                tenor,
+                spread,
+                notional,
+                notional_dates,
+                day_count,
+            )
+        except Exception as exc:
+            logger.exception("Floating amortizing bond pricing failed")
+            return render_template(
+                "ncfloatingamortbonds.html",
+                form_data=form_data,
+                flam_bond_results=None,
+                md_content=md_content,
+                gpt_assessment=None,
+                validation_errors=[f"Pricing could not be completed: {exc}"],
+            )
+
         if action == "ai_assessment":
             # AI Assessment logic
             if flam_bond_results:
@@ -1369,6 +1421,7 @@ def nc_floating_amort_bonds():
         flam_bond_results=flam_bond_results,
         md_content=md_content,
         gpt_assessment=gpt_assessment,
+        validation_errors=validation_errors,
     )
 
 

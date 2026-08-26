@@ -34,6 +34,7 @@
         };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="{{ url_for('static', filename='js/positive-validation.js') }}" defer></script>
 </head>
 
 <body>
@@ -69,9 +70,16 @@
                     <img src="{{ url_for('static', filename='logo.jpg') }}" alt="Logo" class="nav-logo">
                 </div>
 
-                <div class="nav-section-label">Navigation</div>
+                <div class="nav-section-head">
+                    <div class="nav-section-label">Navigation</div>
+                    <button id="navToggleAll" class="nav-toggle-all" type="button"
+                        aria-expanded="false" title="Expand all sections">
+                        <span class="nav-toggle-all-icon" aria-hidden="true">⌄</span>
+                        <span class="nav-toggle-all-text">Expand all</span>
+                    </button>
+                </div>
                 <div class="nav-accordion">
-                    <details class="nav-group" open>
+                    <details class="nav-group" data-nav-key="platform">
                         <summary>Platform</summary>
                         <ul>
                             <li><a href="{{ url_for('index.index') }}" class="nav-link">Overview</a></li>
@@ -86,7 +94,7 @@
                     </details>
 
                     {% if current_user.is_authenticated %}
-                    <details class="nav-group" open>
+                    <details class="nav-group" data-nav-key="workspace">
                         <summary>Workspace</summary>
                         <ul>
                             <li><a href="{{ url_for('saved_results.saved_results') }}" class="nav-link">Saved Results</a></li>
@@ -96,7 +104,7 @@
                             <li><a href="{{ url_for('configuration.simulation_configuration') }}" class="nav-link">Configuration</a></li>
                         </ul>
                     </details>
-                    <details class="nav-group" open>
+                    <details class="nav-group" data-nav-key="market-data">
                         <summary>Market Data</summary>
                         <ul>
                             <li><a href="{{ url_for('extract_market_data.market_reference') }}" class="nav-link">Market Reference</a></li>
@@ -106,7 +114,7 @@
                     </details>
                     {% endif %}
 
-                    <details class="nav-group" open>
+                    <details class="nav-group" data-nav-key="equity-options">
                         <summary>Equity & Options</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
@@ -131,7 +139,7 @@
                         </ul>
                     </details>
 
-                    <details class="nav-group">
+                    <details class="nav-group" data-nav-key="structured-products">
                         <summary>Structured Products</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
@@ -151,7 +159,7 @@
                         </ul>
                     </details>
 
-                    <details class="nav-group">
+                    <details class="nav-group" data-nav-key="fixed-income">
                         <summary>Fixed Income</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
@@ -177,7 +185,7 @@
                         </ul>
                     </details>
 
-                    <details class="nav-group">
+                    <details class="nav-group" data-nav-key="rates-forwards">
                         <summary>Rates & Forwards</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
@@ -194,7 +202,7 @@
                         </ul>
                     </details>
 
-                    <details class="nav-group">
+                    <details class="nav-group" data-nav-key="credit">
                         <summary>Credit</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
@@ -209,7 +217,7 @@
                         </ul>
                     </details>
 
-                    <details class="nav-group">
+                    <details class="nav-group" data-nav-key="volatility">
                         <summary>Volatility</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
@@ -222,7 +230,7 @@
                         </ul>
                     </details>
 
-                    <details class="nav-group">
+                    <details class="nav-group" data-nav-key="model-validation">
                         <summary>Model Validation</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
@@ -238,6 +246,27 @@
                         </ul>
                     </details>
                 </div>
+                <script>
+                    // Restore the saved accordion state synchronously, before the
+                    // browser paints the nav, so groups do not flash open/closed.
+                    (function () {
+                        var STORAGE_KEY = 'derivaProNavGroups';
+                        var groups = document.querySelectorAll('#navPanel details.nav-group');
+                        if (!groups.length) return;
+
+                        var openKeys = [];
+                        try {
+                            openKeys = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+                        } catch (error) {
+                            openKeys = [];
+                        }
+                        if (!Array.isArray(openKeys)) openKeys = [];
+
+                        groups.forEach(function (group) {
+                            group.open = openKeys.indexOf(group.dataset.navKey) !== -1;
+                        });
+                    })();
+                </script>
 
                 {% if not current_user.is_authenticated %}
                 <div class="nav-public-note">
@@ -307,19 +336,84 @@
             });
         });
 
-        // Persist the selected state on page load
-        window.addEventListener('load', function () {
-            var currentUrl = window.location.href;
-            document.querySelectorAll('.nav-link').forEach(function (link) {
-                if (link.href === currentUrl) {
+        // Navigation accordion: persist open/closed state and drive "Expand all".
+        (function () {
+            var STORAGE_KEY = 'derivaProNavGroups';
+            var groups = Array.prototype.slice.call(
+                document.querySelectorAll('#navPanel details.nav-group')
+            );
+            var toggleAll = document.getElementById('navToggleAll');
+            if (!groups.length) return;
+
+            function saveState() {
+                var openKeys = groups
+                    .filter(function (group) {
+                        // A group opened automatically to reveal the current page is
+                        // not a user choice, so it must not become sticky.
+                        return group.open && group.dataset.autoOpened !== 'true';
+                    })
+                    .map(function (group) { return group.dataset.navKey; });
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(openKeys));
+                } catch (error) {
+                    /* storage unavailable (private mode) - state is simply not persisted */
+                }
+            }
+
+            function syncToggleAll() {
+                if (!toggleAll) return;
+                var allOpen = groups.every(function (group) { return group.open; });
+                toggleAll.setAttribute('aria-expanded', String(allOpen));
+                toggleAll.title = allOpen ? 'Collapse all sections' : 'Expand all sections';
+                toggleAll.querySelector('.nav-toggle-all-text').textContent =
+                    allOpen ? 'Collapse all' : 'Expand all';
+                toggleAll.querySelector('.nav-toggle-all-icon').textContent =
+                    allOpen ? '⌃' : '⌄';
+            }
+
+            groups.forEach(function (group) {
+                var summary = group.querySelector('summary');
+                if (summary) {
+                    // Any deliberate click promotes an auto-opened group to a real choice.
+                    summary.addEventListener('click', function () {
+                        delete group.dataset.autoOpened;
+                    });
+                }
+                group.addEventListener('toggle', function () {
+                    saveState();
+                    syncToggleAll();
+                });
+            });
+
+            if (toggleAll) {
+                toggleAll.addEventListener('click', function () {
+                    var expand = !groups.every(function (group) { return group.open; });
+                    groups.forEach(function (group) {
+                        delete group.dataset.autoOpened;
+                        group.open = expand;
+                    });
+                    saveState();
+                    syncToggleAll();
+                });
+            }
+
+            // Highlight the link for the current page and reveal its group. This runs
+            // after the stored state has been restored and only ever opens a group,
+            // so previously expanded sections stay expanded.
+            var currentPath = window.location.pathname;
+            document.querySelectorAll('#navPanel a.nav-link').forEach(function (link) {
+                if (link.pathname === currentPath) {
                     link.classList.add('selected');
                     var parentGroup = link.closest('details.nav-group');
-                    if (parentGroup) {
+                    if (parentGroup && !parentGroup.open) {
+                        parentGroup.dataset.autoOpened = 'true';
                         parentGroup.open = true;
                     }
                 }
             });
-        });
+
+            syncToggleAll();
+        })();
     </script>
 
 <script>

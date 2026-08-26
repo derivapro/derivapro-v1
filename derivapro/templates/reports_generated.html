@@ -1,7 +1,52 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>Reports</h2>
-<p>This is a placeholder for viewing generated reports.</p>
+<div class="page-title compact">
+    <h1>Generated Reports</h1>
+    <p>Download and review PDF reports generated from your pricing calculations.</p>
+</div>
+
+{% if reports %}
+<div class="history-table-card">
+    <div class="history-table-wrap">
+        <table class="results-table history-table">
+            <thead>
+                <tr>
+                    <th>Generated At</th>
+                    <th>Report Type</th>
+                    <th>Instrument</th>
+                    <th>Download</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                <tr>
+                    <td>{{ report.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ report.report_type }}</td>
+                    <td>
+                        {% if report.instrument %}
+                            {{ report.instrument.product_type }}: {{ report.instrument.ticker or report.instrument.model_name }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('vanilla_options.download_saved_report', report_id=report.id) }}"
+                           class="table-action-link">
+                            Download PDF
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty-state-card">
+    <h3>No Reports Generated Yet</h3>
+    <p>Reports will appear here after you download PDF reports from product pages. Use the "Download report" button on pricing pages to generate and save reports.</p>
+</div>
+{% endif %}
 {% endblock %}
 
