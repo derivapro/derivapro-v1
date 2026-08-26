@@ -157,10 +157,21 @@
         if (!input.hasAttribute('min')) {
             if (rule.strict) {
                 // A strictly-positive field needs a min the browser can enforce.
-                // Derive it from the declared step so integer counters get min=1
-                // and continuous quantities get an arbitrarily small positive floor.
-                var step = parseFloat(input.getAttribute('step'));
-                input.setAttribute('min', (step && step >= 1) ? String(step) : '0.000001');
+                // The min must land on the step grid, or the browser flags every
+                // otherwise-valid value as a stepMismatch (e.g. min=0.000001 with
+                // step=0.01 makes 100 "invalid" since (100-0.000001)/0.01 isn't a
+                // whole number). Anchoring min to the step itself keeps the grid
+                // intact. When no step attribute is authored at all, HTML5 still
+                // applies an implicit step of 1 (integers only) - mirror that
+                // default here rather than assume a continuous field, or a
+                // legitimately whole-number field like num_steps would wrongly
+                // flag valid integers such as 100000 as a stepMismatch.
+                var declaredStep = input.getAttribute('step');
+                var step = declaredStep === 'any' ? NaN : parseFloat(declaredStep);
+                if (isNaN(step) && declaredStep !== 'any') {
+                    step = 1; // HTML5's implicit default when step is unset
+                }
+                input.setAttribute('min', (step && step > 0) ? String(step) : '0.000001');
             } else {
                 input.setAttribute('min', String(rule.min));
             }

@@ -72,7 +72,7 @@
         </div>
         <div class="form-group market-strike-field">
             <label for="market_strike">Target Strike</label>
-            <input type="number" step="any" id="market_strike" name="market_strike" value="{{ market_query.strike if market_query.strike is not none else form_data.strike_price }}">
+            <input type="number" step="any" min="0.01" id="market_strike" name="market_strike" value="{{ market_query.strike if market_query.strike is not none else form_data.strike_price }}">
             <div class="field-hint">Nearest listed strike is selected.</div>
         </div>
         <div class="form-group market-maturity-field">
@@ -262,6 +262,12 @@
 {% call product.section("Pricing", "Enter contract terms, market assumptions, and lattice settings. Sample values are preloaded so the workflow can run immediately.") %}
 <form id="options-form" method="post" class="european-pricing-form" onsubmit="return validateForm()">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if error %}
+    <div class="validation-summary" role="alert">
+        <strong>Pricing error</strong>
+        <ul><li>{{ error }}</li></ul>
+    </div>
+    {% endif %}
 
     <div class="pricing-form-block">
         <div class="pricing-form-heading">
@@ -451,7 +457,7 @@
         <dl class="summary-definition-list">
             <div><dt>Moneyness</dt><dd>{{ run_summary.moneyness_label }}</dd></div>
             <div><dt>Exercise nodes</dt><dd>{{ run_summary.exercise_nodes }}</dd></div>
-            <div><dt>Risk-neutral probability</dt><dd>{{ "{:.4f}".format(run_summary.risk_neutral_probability) }}</dd></div>
+            <div><dt>Risk-neutral probability</dt><dd>{{ "{:.4f}".format(run_summary.risk_neutral_probability) if run_summary.risk_neutral_probability is not none else "N/A (non-binomial model)" }}</dd></div>
             <div><dt>Tenor</dt><dd>{{ run_summary.calendar_days }} days</dd></div>
         </dl>
     </article>

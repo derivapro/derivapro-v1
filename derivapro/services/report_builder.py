@@ -278,3 +278,75 @@ def render_report_pdf(report: ReportTemplate, static_dir: str) -> bytes:
 
     doc.build(story)
     return buffer.getvalue()
+
+
+@dataclass
+class ProductReport:
+    """Structured content for a generic, product-agnostic pricing report.
+
+    Unlike :class:`ReportTemplate` (vanilla-option-specific, with fixed
+    sensitivity/scenario/convergence sections), this covers any product by
+    rendering whatever inputs/results/analysis it was actually run with.
+    """
+
+    title: str = "Pricing Report"
+    subtitle: str = ""
+    generated_at: str = ""
+    inputs: list = field(default_factory=list)  # [(label, value), ...]
+    results: list = field(default_factory=list)  # [(label, value), ...]
+    plot_filename: Optional[str] = None
+    analysis_note: str = ""
+    limitations: str = (
+        "This report reflects a single pricing run under the stated assumptions. "
+        "Model outputs should be independently reviewed before use in production "
+        "or commercial decision-making."
+    )
+
+
+def render_product_report_pdf(report: ProductReport, static_dir: str) -> bytes:
+    """Render a :class:`ProductReport` into PDF bytes."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        topMargin=0.75 * inch,
+        bottomMargin=0.75 * inch,
+        leftMargin=0.75 * inch,
+        rightMargin=0.75 * inch,
+        title=report.title,
+    )
+
+    story: list = []
+    story.append(Paragraph(report.title, _TITLE_STYLE))
+    subtitle_text = report.subtitle
+    if report.generated_at:
+        subtitle_text = f"{subtitle_text} &mdash; Generated: {report.generated_at}" if subtitle_text else f"Generated: {report.generated_at}"
+    if subtitle_text:
+        story.append(Paragraph(subtitle_text, _SUBTITLE_STYLE))
+
+    story.append(Paragraph("Inputs", _HEADING_STYLE))
+    if report.inputs:
+        rows = [["Field", "Value"]] + [[label, _fmt(value)] for label, value in report.inputs]
+        story.append(_styled_table(rows))
+    else:
+        story.append(Paragraph("No inputs recorded.", _BODY_STYLE))
+
+    story.append(Paragraph("Results", _HEADING_STYLE))
+    if report.results:
+        rows = [["Metric", "Value"]] + [[label, _fmt(value)] for label, value in report.results]
+        story.append(_styled_table(rows))
+    else:
+        story.append(Paragraph("No results recorded.", _BODY_STYLE))
+
+    if report.plot_filename or report.analysis_note:
+        story.append(Paragraph("Analysis", _HEADING_STYLE))
+        if report.analysis_note:
+            story.append(Paragraph(report.analysis_note, _BODY_STYLE))
+        if report.plot_filename:
+            _add_plot(story, report.plot_filename, static_dir)
+
+    story.append(Paragraph("Limitations", _HEADING_STYLE))
+    story.append(Paragraph(report.limitations, _BODY_STYLE))
+
+    doc.build(story)
+    return buffer.getvalue()

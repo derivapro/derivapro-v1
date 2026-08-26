@@ -13,7 +13,8 @@
     "Fixed-rate bonds without issuer call optionality.",
     "This workflow supports deterministic fixed-rate bond valuation using cash-flow schedules, discount curves, day-count conventions, compounding assumptions, calendars, and rate shocks. Outputs include price, NPV, yield, duration, dollar duration, convexity, and dollar convexity.",
     ["Fixed coupon", "Non-callable", "Curve shocks", "Duration", "Convexity"],
-    "A full methodology link will be added here once the fixed-bond documentation is published in the repository."
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name="fixed_rate_bond")
 ) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
@@ -208,7 +209,12 @@
 </p>
 {% endcall %}
 
-{{ product.reporting("fixed-rate bond") }}
+{{ product.reporting(
+    "fixed-rate bond",
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key='fixed-rate-bond'),
+    download_url=url_for('product_reports.download', product_key='fixed-rate-bond')
+) }}
 
 <style>
 .assessment-btn {

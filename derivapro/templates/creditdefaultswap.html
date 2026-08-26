@@ -13,7 +13,8 @@
     "Credit protection contracts exchanging premium payments for default-loss protection.",
     "This workflow supports CDS valuation using notional, spread, recovery rate, risk-free rate, trade side, calendar, tenor, and contract dates. Outputs include NPV, fair spread, default probability, expected loss, and premium payment.",
     ["Protection buyer / seller", "Fair spread", "Default probability", "Expected loss"],
-    "A full methodology link will be added here once the CDS documentation is published in the repository."
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name="credit_default_swap")
 ) }}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
@@ -264,7 +265,12 @@
 </div>
 {% endcall %}
 
-{{ product.reporting("credit default swap") }}
+{{ product.reporting(
+    "credit default swap",
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key='credit-default-swap'),
+    download_url=url_for('product_reports.download', product_key='credit-default-swap')
+) }}
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>

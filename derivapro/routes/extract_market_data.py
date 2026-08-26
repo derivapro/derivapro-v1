@@ -319,17 +319,20 @@ def market_reference():
             "visual_mode": request.form.get("visual_mode", "none"),
         }
 
-        try:
-            market_reference_result = build_equity_market_reference(
-                market_query["symbol"],
-                market_query["period"],
-                market_query["strike"],
-                market_query["maturity_date"],
-                market_query["option_type"],
-                market_query["visual_mode"],
-            )
-        except Exception as exc:
-            market_error = str(exc)
+        if market_query["strike"] is not None and market_query["strike"] <= 0:
+            market_error = "Target Strike must be a positive value."
+        else:
+            try:
+                market_reference_result = build_equity_market_reference(
+                    market_query["symbol"],
+                    market_query["period"],
+                    market_query["strike"],
+                    market_query["maturity_date"],
+                    market_query["option_type"],
+                    market_query["visual_mode"],
+                )
+            except Exception as exc:
+                market_error = str(exc)
 
     return render_template(
         "market_reference.html",

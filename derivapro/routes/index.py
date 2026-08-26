@@ -21,6 +21,8 @@ METHODOLOGY_DOCS = {
     "cap_floor": "cap_floor.md",
     "callable_putable_bond": "callable_putable_bond.md",
     "level_coupon_bond": "level_coupon_bond.md",
+    "fixed_rate_bond": "fixed_rate_bond.md",
+    "credit_default_swap": "credit_default_swap.md",
     "amortizing_stepup_sinking_bond": "amortizing_stepup_sinking_bond.md",
     "custom_structured_bond": "custom_structured_bond.md",
     "bond_series": "bond_series.md",

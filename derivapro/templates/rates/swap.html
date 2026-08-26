@@ -120,7 +120,12 @@
 </p>
 {% endcall %}
 
-{{ product.reporting("interest rate swap") }}
+{{ product.reporting(
+    "interest rate swap",
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key='interest-rate-swap'),
+    download_url=url_for('product_reports.download', product_key='interest-rate-swap')
+) }}
 
 <script>
 (function () {

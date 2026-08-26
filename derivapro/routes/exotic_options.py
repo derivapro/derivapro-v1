@@ -1,5 +1,6 @@
 # Note: last updated on Aug 06
 
+import dataclasses
 from datetime import datetime, timedelta
 from flask import Blueprint, abort, render_template, request, session
 from flask_login import current_user
@@ -214,6 +215,49 @@ def _first_wave_form_data(config):
     return data
 
 
+# Fields that must be strictly positive per product; correlation/floor/cap/rate
+# fields are intentionally excluded since they can legitimately be negative.
+_FIRST_WAVE_POSITIVE_FIELDS = {
+    "digital": [("spot", "Spot price"), ("strike", "Strike price"),
+                ("maturity", "Maturity"), ("volatility", "Volatility"),
+                ("payout", "Cash payout")],
+    "lookback": [("spot", "Spot price"), ("strike", "Strike price"),
+                 ("maturity", "Maturity"), ("volatility", "Volatility"),
+                 ("paths", "Simulation paths"), ("steps", "Time steps")],
+    "basket": [("strike", "Basket strike"), ("maturity", "Maturity"),
+               ("paths", "Simulation paths")],
+    "cliquet": [("spot", "Spot price"), ("maturity", "Maturity"),
+                ("volatility", "Volatility"), ("notional", "Notional"),
+                ("periods", "Reset periods"), ("paths", "Simulation paths")],
+    "quanto": [("spot", "Foreign underlying spot"), ("strike", "Strike price"),
+               ("maturity", "Maturity"), ("equity_volatility", "Equity volatility"),
+               ("fx_volatility", "FX volatility")],
+}
+
+
+def _validate_first_wave_form(product_slug, form_data):
+    errors = []
+    for field, label in _FIRST_WAVE_POSITIVE_FIELDS.get(product_slug, []):
+        raw = form_data.get(field)
+        try:
+            if float(raw) <= 0:
+                errors.append(f"{label} must be positive.")
+        except (TypeError, ValueError):
+            errors.append(f"Enter a valid number for {label}.")
+
+    if product_slug == "basket":
+        for label, key in [("Spot prices", "spots"), ("Volatilities", "volatilities")]:
+            try:
+                values = _parse_float_sequence(form_data.get(key))
+                if any(v <= 0 for v in values):
+                    errors.append(f"{label} must all be positive.")
+            except (TypeError, ValueError):
+                errors.append(f"Enter valid comma-separated numbers for {label}.")
+
+    if errors:
+        raise ValueError(" ".join(errors))
+
+
 def _build_first_wave_terms(product_slug, form_data):
     if product_slug == "digital":
         return DigitalTerms(
@@ -327,10 +371,14 @@ def _default_autocallable_structured_form_data():
 
 def _build_autocallable_structured_terms(form_data):
     spot_prices = _parse_float_list(form_data.get("structured_spot_prices"), [100.0])
+    if any(s <= 0 for s in spot_prices):
+        raise ValueError("Spot prices must all be positive.")
     volatilities = _parse_float_list(
         form_data.get("structured_volatilities"),
         [0.20] * len(spot_prices),
     )
+    if any(v <= 0 for v in volatilities):
+        raise ValueError("Volatilities must all be positive.")
     if len(volatilities) == 1 and len(spot_prices) > 1:
         volatilities = volatilities * len(spot_prices)
     if len(volatilities) != len(spot_prices):
@@ -338,6 +386,10 @@ def _build_autocallable_structured_terms(form_data):
     if form_data.get("structured_product_variant") == "phoenix_single":
         spot_prices = spot_prices[:1]
         volatilities = volatilities[:1]
+
+    notional = float(form_data.get("structured_notional", 1000000))
+    if notional <= 0:
+        raise ValueError("Notional must be positive.")
 
     observation_times = _parse_float_list(
         form_data.get("structured_observation_times"),
@@ -347,6 +399,8 @@ def _build_autocallable_structured_terms(form_data):
         raise ValueError("At least one autocall observation time is required.")
 
     maturity = float(form_data.get("structured_maturity", 1.0))
+    if maturity <= 0:
+        raise ValueError("Maturity must be positive.")
     if any(obs <= 0 or obs > maturity for obs in observation_times):
         raise ValueError("Observation times must be greater than zero and no later than maturity.")
 
@@ -357,7 +411,7 @@ def _build_autocallable_structured_terms(form_data):
         dividend_yield=float(form_data.get("structured_q", 0.0)),
         maturity=maturity,
         observation_times=observation_times,
-        notional=float(form_data.get("structured_notional", 1000000)),
+        notional=notional,
         coupon_rate=float(form_data.get("structured_coupon_rate", 0.025)),
         coupon_barrier=float(form_data.get("structured_coupon_barrier", 0.70)),
         autocall_barrier=float(form_data.get("structured_autocall_barrier", 1.00)),
@@ -1225,9 +1279,38 @@ def exotic_first_wave_product(product_slug):
     pricing_error = None
     if request.method == "POST":
         try:
+            _validate_first_wave_form(product_slug, form_data)
             terms = _build_first_wave_terms(product_slug, form_data)
             results = _price_first_wave_product(product_slug, terms)
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type=f"first_wave_{product_slug}",
+                    ticker=None,
+                    model_name=config["methodology"],
+                    start_date=None,
+                    end_date=None,
+                    params_json=dataclasses.asdict(terms),
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=float(results["raw_price"]),
+                    delta=None,
+                    gamma=None,
+                    vega=None,
+                    theta=None,
+                    rho=None,
+                    result_json=results,
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
         except Exception as exc:
+            logger.exception("First-wave exotic pricing failed for %s", product_slug)
             pricing_error = str(exc)
 
     return render_template(
@@ -2041,6 +2124,7 @@ def asian_options():
                 ("spot_price", "Spot price"),
                 ("strike_price", "Strike price"),
                 ("sigma", "Volatility"),
+                ("notional", "Notional"),
             ]:
                 if form_data[field_name] is None or form_data[field_name] <= 0:
                     raise ValueError(f"{label} must be positive.")
@@ -2870,22 +2954,25 @@ def barrier_options():
             if market_query["symbol"]:
                 form_data["ticker"] = market_query["symbol"]
 
-            try:
-                market_reference = build_equity_market_reference(
-                    market_query["symbol"],
-                    market_query["period"],
-                    market_query["strike"],
-                    market_query["maturity_date"],
-                    market_query["option_type"],
-                    market_query["visual_mode"],
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Barrier market reference fetch failed for %s: %s",
-                    market_query["symbol"],
-                    exc,
-                )
-                market_error = str(exc)
+            if market_query["strike"] is not None and market_query["strike"] <= 0:
+                market_error = "Target Strike must be a positive value."
+            else:
+                try:
+                    market_reference = build_equity_market_reference(
+                        market_query["symbol"],
+                        market_query["period"],
+                        market_query["strike"],
+                        market_query["maturity_date"],
+                        market_query["option_type"],
+                        market_query["visual_mode"],
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Barrier market reference fetch failed for %s: %s",
+                        market_query["symbol"],
+                        exc,
+                    )
+                    market_error = str(exc)
 
             return render_template(
                 "barrier_options.html",
@@ -2944,6 +3031,7 @@ def barrier_options():
                 ("strike_price", "Strike price"),
                 ("sigma", "Volatility"),
                 ("barrier", "Barrier level"),
+                ("notional", "Notional"),
             ]
             for field_name, label in required_positive_fields:
                 if form_data[field_name] is None or form_data[field_name] <= 0:

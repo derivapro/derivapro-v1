@@ -20,6 +20,16 @@
 
 <form id="swap-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if validation_errors %}
+    <div class="validation-summary" role="alert">
+        <strong>Please fix the following before pricing:</strong>
+        <ul>
+            {% for error in validation_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
 <h2>Swap Inputs</h2>
 </br>
     <div class="form-group">

@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request
 import QuantLib as ql
 import os
 import markdown
+from ..services.validation import check_positive
 
 # Initialize Flask app
 swaps_bp = Blueprint("swaps", __name__)
@@ -22,6 +23,7 @@ def swaps():
     ) = []  # Initialize as empty lists
 
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         # Retrieve form data from URL parameters
@@ -96,6 +98,20 @@ def swaps():
         rec_tenor_val = form_data["rec_tenor_val"]
         pay_day_count_val = form_data["pay_day_count_val"]
         rec_day_count_val = form_data["rec_day_count_val"]
+
+        validation_errors = check_positive(
+            {"pay_notional": pay_notional, "rec_notional": rec_notional},
+            {"pay_notional": "Pay leg notional", "rec_notional": "Receive leg notional"},
+        )
+        if validation_errors:
+            return render_template(
+                "swaps.html",
+                form_data=form_data,
+                rec_results=None,
+                pay_results=None,
+                md_content=md_content,
+                validation_errors=validation_errors,
+            )
 
         # Map the calendar value to a QuantLib Calendar
         if calendar_val == "UnitedStates":
@@ -286,4 +302,5 @@ def swaps():
         rec_results=rec_leg,
         pay_results=pay_leg,
         md_content=md_content,
+        validation_errors=validation_errors,
     )

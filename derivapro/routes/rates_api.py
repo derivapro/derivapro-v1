@@ -1,8 +1,11 @@
 # routes/rates_api.py
 from flask import Blueprint, request, jsonify
+from flask_login import current_user
 import datetime as dt
 import io
 
+from ..extensions import db
+from ..models.db_models import Instrument, PricingResult
 from ..utils.lazy_imports import LazyAttribute
 
 Curve = LazyAttribute("derivapro.models.curve", "Curve")
@@ -43,6 +46,8 @@ def price_swap():
 
         # inputs
         notional    = _ffloat(p, "notional", 1_000_000.0)
+        if notional <= 0:
+            return jsonify({"ok": False, "error": "Notional must be a positive value."}), 400
         fixed_rate  = _ffloat(p, "fixed_rate", 0.04)
         side        = _jget(p, "side", "pay_fixed")
         pay_freq    = _fint(p, "pay_freq_per_year", 2)
@@ -86,6 +91,41 @@ def price_swap():
             disc_curve=disc, fwd_curve=fwd
         )
         res["legs"] = res["legs"].to_dict(orient="records")
+
+        if current_user.is_authenticated:
+            instrument = Instrument(
+                user_id=current_user.id,
+                product_type="interest_rate_swap",
+                ticker=None,
+                model_name="price_plain_swap",
+                start_date=start.isoformat(),
+                end_date=end.isoformat(),
+                params_json={
+                    "notional": notional,
+                    "fixed_rate": fixed_rate,
+                    "side": side,
+                    "pay_freq_per_year": pay_freq,
+                    "dc_fixed": dc_fixed,
+                    "dc_float": dc_float,
+                },
+            )
+            db.session.add(instrument)
+            db.session.flush()
+
+            pricing_result = PricingResult(
+                user_id=current_user.id,
+                instrument_id=instrument.id,
+                price=res["npv"],
+                delta=None,
+                gamma=None,
+                vega=None,
+                theta=None,
+                rho=None,
+                result_json={"par_rate": res["par_rate"], "npv": res["npv"], "annuity": res["annuity"]},
+            )
+            db.session.add(pricing_result)
+            db.session.commit()
+
         return jsonify({"ok": True, "result": res}), 200
 
     except Exception as e:
@@ -110,6 +150,8 @@ def price_swaption():
         dc_fixed  = _jget(p, "dc_fixed", "30/360")
         dc_float  = _jget(p, "dc_float", "ACT/360")
         notional  = _ffloat(p, "notional", 1.0)
+        if notional <= 0:
+            return jsonify({"ok": False, "error": "Notional must be a positive value."}), 400
 
         # valuation context
         today      = dt.date.today()
@@ -164,6 +206,41 @@ def price_swaption():
         else:
             return jsonify({"ok": False, "error": "Vol surface is required. Upload 'vol_file' or provide 'vol_path'."}), 400
 
+        def _persist_swaption(res, extra_params):
+            if not current_user.is_authenticated:
+                return
+            instrument = Instrument(
+                user_id=current_user.id,
+                product_type="swaption",
+                ticker=None,
+                model_name=res.get("model", method),
+                start_date=val_date.isoformat(),
+                end_date=option_expiry.isoformat(),
+                params_json={
+                    "strike": strike,
+                    "notional": notional,
+                    "is_payer": is_payer,
+                    "pay_freq_per_year": pay_freq,
+                    **extra_params,
+                },
+            )
+            db.session.add(instrument)
+            db.session.flush()
+
+            pricing_result = PricingResult(
+                user_id=current_user.id,
+                instrument_id=instrument.id,
+                price=res.get("pv"),
+                delta=res.get("delta_F"),
+                gamma=res.get("gamma_F"),
+                vega=res.get("vega"),
+                theta=None,
+                rho=None,
+                result_json=res,
+            )
+            db.session.add(pricing_result)
+            db.session.commit()
+
         if method in ("black", "bachelier"):
             res = price_swaption_eu(
                 method=method, is_payer=is_payer, strike=strike,
@@ -172,6 +249,7 @@ def price_swaption():
                 disc_curve=disc, vol_surf=vs, notional=notional,
                 valuation_date=val_date
             )
+            _persist_swaption(res, {"dc_fixed": dc_fixed})
             return jsonify({"ok": True, "result": res}), 200
 
         elif method == "hw_mc":
@@ -188,6 +266,7 @@ def price_swaption():
                 notional=notional,
                 valuation_date=val_date
             )
+            _persist_swaption(res, {"a": a, "sigma": sigma, "paths": paths})
             return jsonify({"ok": True, "result": res}), 200
 
         return jsonify({"ok": False, "error": "Unsupported method. Use 'black', 'bachelier', or 'hw_mc'."}), 400

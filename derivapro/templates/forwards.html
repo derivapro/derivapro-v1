@@ -320,7 +320,12 @@
 </div>
 {% endcall %}
 
-{{ product.reporting("forward contract") }}
+{{ product.reporting(
+    "forward contract",
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key='forward-contract'),
+    download_url=url_for('product_reports.download', product_key='forward-contract')
+) }}
 
 
 <!-- JavaScript for Form Submission and Loading Spinner -->

@@ -33,5 +33,10 @@
     </article>
 </section>
 
-{{ product.reporting("vanilla option family") }}
+{{ product.reporting(
+    "vanilla option family",
+    has_report=True,
+    view_url=url_for('vanilla_options.reporting'),
+    download_url=url_for('vanilla_options.download_report')
+) }}
 {% endblock %}

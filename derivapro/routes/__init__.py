@@ -25,6 +25,7 @@ def register_routes(app):
     from .exports import exports_bp
     from .structured_products import structured_products_bp
     from .configuration import configuration_bp
+    from .product_reports import product_reports_bp
 
     app.register_blueprint(saved_results_bp, url_prefix="/saved-results")
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -55,3 +56,4 @@ def register_routes(app):
     app.register_blueprint(exports_bp, url_prefix="/exports")
     app.register_blueprint(structured_products_bp, url_prefix="/structured-products")
     app.register_blueprint(configuration_bp, url_prefix="/configuration")
+    app.register_blueprint(product_reports_bp)

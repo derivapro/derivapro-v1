@@ -23,6 +23,7 @@
 {% call product.section("Pricing", "Enter observation dates, variance strike assumptions, position, and model parameters.") %}
 <form id="variance-swap-form" method="post" class="form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ product.validation_summary(validation_errors) }}
     <div class="form-group">
         <label for="ticker">Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -126,7 +127,12 @@
 </p>
 {% endcall %}
 
-{{ product.reporting("variance swap") }}
+{{ product.reporting(
+    "variance swap",
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key='variance-swap'),
+    download_url=url_for('product_reports.download', product_key='variance-swap')
+) }}
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>

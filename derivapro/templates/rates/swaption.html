@@ -139,7 +139,12 @@
 </p>
 {% endcall %}
 
-{{ product.reporting("swaption") }}
+{{ product.reporting(
+    "swaption",
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key='swaption'),
+    download_url=url_for('product_reports.download', product_key='swaption')
+) }}
 
 <script>
 const csrfToken = "{{ csrf_token() }}";

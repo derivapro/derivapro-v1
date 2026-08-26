@@ -6,6 +6,9 @@ Created on Sun Jun  9 00:47:33 2024
 """
 
 from flask import Blueprint, render_template, request
+from flask_login import current_user
+from ..extensions import db
+from ..models.db_models import Instrument, PricingResult
 from ..models.mdls_credit import (
     CreditDefaultSwap,
     SyntheticCDO,
@@ -155,6 +158,52 @@ def creditDefaultSwaps():
         )
 
         cds_results = cds.cds_results()
+
+        if current_user.is_authenticated:
+            instrument = Instrument(
+                user_id=current_user.id,
+                product_type="credit_default_swap",
+                ticker=None,
+                model_name="CreditDefaultSwap",
+                start_date=str(entry_date),
+                end_date=str(end_date),
+                params_json={
+                    "nominal": nominal,
+                    "spread": spread,
+                    "recovery_rate": recovery_rate,
+                    "risk_free": risk_free,
+                    "side": side_type,
+                    "tenor": selected_tenor,
+                },
+            )
+            db.session.add(instrument)
+            db.session.flush()
+
+            # cds_results() values are pre-formatted display strings (e.g.
+            # "$12.1046"), not the numeric price column expects.
+            raw_npv = None
+            try:
+                raw_npv = float(
+                    cds_results.get("Net Present Value", "")
+                    .replace("$", "")
+                    .replace(",", "")
+                )
+            except (TypeError, ValueError):
+                raw_npv = None
+
+            pricing_result = PricingResult(
+                user_id=current_user.id,
+                instrument_id=instrument.id,
+                price=raw_npv,
+                delta=None,
+                gamma=None,
+                vega=None,
+                theta=None,
+                rho=None,
+                result_json=cds_results,
+            )
+            db.session.add(pricing_result)
+            db.session.commit()
 
         if action == "sensitivity":
             try:

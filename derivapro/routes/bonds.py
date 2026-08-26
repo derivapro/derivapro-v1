@@ -1,5 +1,6 @@
 from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
 from flask import Blueprint, abort, render_template, request, json
+from flask_login import current_user
 import QuantLib as ql
 import os
 import markdown
@@ -7,6 +8,8 @@ from dotenv import load_dotenv
 import logging
 from copy import deepcopy
 
+from ..extensions import db
+from ..models.db_models import Instrument, PricingResult
 from ..utils.lazy_imports import LazyAttribute
 from ..services.validation import check_positive
 from ..models.rates_fixed_income import (
@@ -887,6 +890,48 @@ def nc_fixed_bonds():
         fr_bond_results = fixed_bond.fixed_rate(
             issue_date, maturity_date, tenor, coupon_rate, notional
         )
+
+        if current_user.is_authenticated:
+            baseline = fr_bond_results.get(0, {})
+            instrument = Instrument(
+                user_id=current_user.id,
+                product_type="fixed_rate_bond",
+                ticker=None,
+                model_name="NCFixedBonds",
+                start_date=str(issue_date),
+                end_date=str(maturity_date),
+                params_json={
+                    "coupon_rate": coupon_rate,
+                    "notional": notional,
+                    "tenor": tenor_val,
+                    "day_count": day_count_val,
+                    "compounding": compounding_val,
+                    "calendar": calendar_val,
+                },
+            )
+            db.session.add(instrument)
+            db.session.flush()
+
+            pricing_result = PricingResult(
+                user_id=current_user.id,
+                instrument_id=instrument.id,
+                price=baseline.get("Price"),
+                delta=None,
+                gamma=None,
+                vega=None,
+                theta=None,
+                rho=None,
+                result_json={
+                    "npv": baseline.get("NPV"),
+                    "price": baseline.get("Price"),
+                    "ytm": baseline.get("YTM"),
+                    "duration": baseline.get("Duration"),
+                    "convexity": baseline.get("Convexity"),
+                },
+            )
+            db.session.add(pricing_result)
+            db.session.commit()
+
         if action == "ai_assessment":
             # AI Assessment logic
             if fr_bond_results:
@@ -1446,7 +1491,45 @@ def rates_fixed_income_product(product_slug):
     if request.method == "POST":
         try:
             results = _price_fixed_income_extension(product_slug, form_data)
+
+            if current_user.is_authenticated:
+                raw_price = None
+                scenarios = results.get("scenarios") if isinstance(results, dict) else None
+                if scenarios and isinstance(scenarios[0], dict):
+                    raw_price = scenarios[0].get("pv") or scenarios[0].get("price")
+
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type=f"fixed_income_{product_slug}",
+                    ticker=None,
+                    model_name=config["title"],
+                    start_date=form_data.get("valuation_date") or form_data.get("start_date"),
+                    end_date=form_data.get("maturity_date") or form_data.get("end_date"),
+                    params_json={
+                        key: value
+                        for key, value in form_data.items()
+                        if key not in {"discount_curve_tenors", "discount_curve_rates",
+                                       "forward_curve_tenors", "forward_curve_rates"}
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=raw_price,
+                    delta=None,
+                    gamma=None,
+                    vega=None,
+                    theta=None,
+                    rho=None,
+                    result_json=results,
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
         except Exception as exc:
+            logger.exception("Fixed income extension pricing failed for %s", product_slug)
             pricing_error = str(exc)
 
     field_sections = [

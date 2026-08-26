@@ -6,11 +6,14 @@ Created on Sun Jun  9 00:46:08 2024
 """
 
 from flask import Blueprint, render_template, request
+from flask_login import current_user
 import os
 import markdown
 from datetime import datetime
 import uuid
 import logging
+from ..extensions import db
+from ..models.db_models import Instrument, PricingResult
 from ..utils.lazy_imports import LazyAttribute, LazyImport
 from ..services.validation import check_positive
 
@@ -130,10 +133,50 @@ def forwards():
             storage_cost,
         )
 
-        forward_price_results = forward_model.forward_price()
-        forward_price_results = "${:,.4f}".format(forward_price_results)
-        forward_pL = forward_model.calculate_profit_loss()
-        forward_pL = "${:,.4f}".format(forward_pL)
+        raw_forward_price = forward_model.forward_price()
+        forward_price_results = "${:,.4f}".format(raw_forward_price)
+        raw_forward_pl = forward_model.calculate_profit_loss()
+        forward_pL = "${:,.4f}".format(raw_forward_pl)
+
+        if current_user.is_authenticated:
+            instrument = Instrument(
+                user_id=current_user.id,
+                product_type="forward_contract",
+                ticker=ticker,
+                model_name=model_selection,
+                start_date=str(entry_date),
+                end_date=str(settlement_date),
+                params_json={
+                    "settlement_price": settlement_price,
+                    "num_contracts": num_contracts,
+                    "multiplier": multiplier,
+                    "position": position,
+                    "risk_free_rate": risk_free_rate,
+                    "dividend_yield": dividend_yield,
+                    "convenience_yield": convenience_yield,
+                    "storage_cost": storage_cost,
+                    "contract_fee": contract_fee,
+                },
+            )
+            db.session.add(instrument)
+            db.session.flush()
+
+            pricing_result = PricingResult(
+                user_id=current_user.id,
+                instrument_id=instrument.id,
+                price=raw_forward_price,
+                delta=None,
+                gamma=None,
+                vega=None,
+                theta=None,
+                rho=None,
+                result_json={
+                    "forward_price": raw_forward_price,
+                    "profit_loss": raw_forward_pl,
+                },
+            )
+            db.session.add(pricing_result)
+            db.session.commit()
 
         if action == "sensitivity":
             try:

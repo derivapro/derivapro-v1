@@ -32,8 +32,13 @@ class NCFixedBonds:
         # Apply shocks to rates
         shocked_rates = [rate + shock for rate in self.spot_rates]
         # Create a yield curve with shocked rates
-        yield_curve = ql.ZeroCurve(self.spot_dates, shocked_rates, self.day_count, 
+        yield_curve = ql.ZeroCurve(self.spot_dates, shocked_rates, self.day_count,
                                    self.calendar, self.interpolation, self.compounding, self.compounding_frequency)
+        # Flat-extrapolate beyond the last supplied pillar so a bond maturing
+        # past the user's curve input (a common case - the curve is often
+        # shorter than the bond) doesn't raise "time past max curve time"
+        # instead of pricing.
+        yield_curve.enableExtrapolation()
         return ql.YieldTermStructureHandle(yield_curve)
 
     def fixed_rate(self, issue_date, maturity_date, tenor, coupon_rate, face_value):

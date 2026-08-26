@@ -1,7 +1,10 @@
 import QuantLib as ql
 import numpy as np
 import datetime
+import logging
 from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+
+logger = logging.getLogger(__name__)
 
 
 def _plotting():
@@ -82,8 +85,24 @@ class CreditDefaultSwap:
                 risk_free_curve
             ) for tenor in tenors
         ]
-        
-        return instruments
+
+        # Short tenors (1M, 3M, 6M) all roll forward to the nearest CDS-standard
+        # IMM date (20th Mar/Jun/Sep/Dec). Depending on how close today's date is
+        # to the next IMM roll, two or more of the tenors above can land on the
+        # *same* pillar date, which PiecewiseFlatHazardRate rejects with
+        # "more than one instrument with pillar <date>". Since every instrument
+        # quotes the same flat spread anyway, the duplicate carries no
+        # additional information - keep only the first helper per unique pillar.
+        seen_pillars = set()
+        deduped_instruments = []
+        for helper in instruments:
+            pillar = helper.latestDate()
+            if pillar in seen_pillars:
+                continue
+            seen_pillars.add(pillar)
+            deduped_instruments.append(helper)
+
+        return deduped_instruments
 
     def hazard_curve_function(self):
         instruments = self.spread_instruments()
@@ -141,11 +160,15 @@ class CreditDefaultSwap:
     
     # Attribute holding each sweepable input, and the bounds outside which the
     # value stops being economically meaningful (a negative recovery rate or
-    # spread makes the hazard-rate bootstrap fail).
+    # spread makes the hazard-rate bootstrap fail). The spread and recovery_rate
+    # bounds stay strictly inside [0, 1] rather than touching the edges: a
+    # literal 0% spread or a recovery rate at/near 100% leaves the ISDA
+    # hazard-rate bootstrap with no bracketed root, which aborted the whole
+    # sensitivity sweep whenever the range happened to reach that edge.
     SENSITIVITY_VARIABLES = {
-        'recovery_rate': (0.0, 1.0),
+        'recovery_rate': (0.0, 0.99),
         'risk_free': (None, None),
-        'spread': (0.0, None),
+        'spread': (0.0001, None),
     }
 
     def generate_variable_range(self, variable, range_span, num_steps):
@@ -183,10 +206,28 @@ class CreditDefaultSwap:
         try:
             for value in variable_range:
                 setattr(self, variable, value)
-                cds_expectedLoss = self.expected_loss()
+                try:
+                    cds_expectedLoss = self.expected_loss()
+                except RuntimeError:
+                    # The ISDA hazard-rate bootstrap has no bracketed root for
+                    # some parameter combinations very close to the edge of a
+                    # bound (e.g. recovery rate near 100%). Skip that single
+                    # point rather than aborting the whole sweep - one bad
+                    # point should not erase an otherwise-valid curve.
+                    logger.warning(
+                        "CDS sensitivity: skipping %s=%s (hazard-rate bootstrap "
+                        "did not converge)", variable, value
+                    )
+                    continue
                 cds_analysis_results.append((value, cds_expectedLoss))
         finally:
             setattr(self, variable, original_value)
+
+        if not cds_analysis_results:
+            raise ValueError(
+                f"Sensitivity analysis on {variable} did not converge at any "
+                "point in the requested range. Try a smaller range span."
+            )
 
         return cds_analysis_results
 

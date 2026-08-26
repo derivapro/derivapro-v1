@@ -219,5 +219,10 @@
 </div>
 {% endcall %}
 
-{{ product.reporting(config.title) }}
+{{ product.reporting(
+    config.title,
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key=product_slug),
+    download_url=url_for('product_reports.download', product_key=product_slug)
+) }}
 {% endblock %}

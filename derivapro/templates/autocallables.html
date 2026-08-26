@@ -324,7 +324,12 @@
 </div>
 {% endcall %}
 
-{{ product.reporting("autocallable structured note") }}
+{{ product.reporting(
+    "autocallable structured note",
+    has_report=True,
+    view_url=url_for('product_reports.preview', product_key='autocallable'),
+    download_url=url_for('product_reports.download', product_key='autocallable')
+) }}
 
 <script>
     const structuredForm = document.getElementById('structured-autocallable-form');

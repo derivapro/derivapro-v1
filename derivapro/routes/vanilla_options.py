@@ -1124,6 +1124,7 @@ def european_options():
     run_summary = None
     market_reference = None
     market_error = None
+    error = None
 
     if current_user.is_authenticated:
         latest_pricing_result = _get_latest_pricing_result_for_user("european_option")
@@ -1195,22 +1196,25 @@ def european_options():
             if market_query["symbol"]:
                 form_data["ticker"] = market_query["symbol"]
 
-            try:
-                market_reference = build_equity_market_reference(
-                    market_query["symbol"],
-                    market_query["period"],
-                    market_query["strike"],
-                    market_query["maturity_date"],
-                    market_query["option_type"],
-                    market_query["visual_mode"],
-                )
-            except Exception as exc:
-                logger.warning(
-                    "Market reference fetch failed for %s: %s",
-                    market_query["symbol"],
-                    exc,
-                )
-                market_error = str(exc)
+            if market_query["strike"] is not None and market_query["strike"] <= 0:
+                market_error = "Target Strike must be a positive value."
+            else:
+                try:
+                    market_reference = build_equity_market_reference(
+                        market_query["symbol"],
+                        market_query["period"],
+                        market_query["strike"],
+                        market_query["maturity_date"],
+                        market_query["option_type"],
+                        market_query["visual_mode"],
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Market reference fetch failed for %s: %s",
+                        market_query["symbol"],
+                        exc,
+                    )
+                    market_error = str(exc)
 
             return render_template(
                 "european_options.html",
@@ -1480,6 +1484,7 @@ def european_options():
                 )
 
         else:
+          try:
             model_type = form_data.get("model_type", "black_scholes")
             num_steps = form_data.get("num_steps", 252)
             mc_stats = None
@@ -1488,6 +1493,10 @@ def european_options():
                     StockData(ticker, start_date, end_date).get_closing_price()
                 )
                 form_data["spot_price"] = spot_price
+
+            notional_check = form_data.get("notional", 1)
+            if notional_check is None or notional_check <= 0:
+                raise ValueError("Notional must be positive.")
 
             if model_type == "black_scholes":
                 pricing_output = _price_european_black_scholes(
@@ -1667,6 +1676,11 @@ def european_options():
                 )
                 db.session.add(pricing_result)
                 db.session.commit()
+          except Exception as exc:
+            logger.exception("An error occurred during European option pricing")
+            error = str(exc)
+            option_price = delta = gamma = vega = theta = rho = None
+            run_summary = None
 
         return render_template(
             "european_options.html",
@@ -1677,6 +1691,7 @@ def european_options():
             vega=vega,
             theta=theta,
             rho=rho,
+            error=error,
             sensitivity_results=sensitivity_results,
             gpt_assessment=gpt_assessment,
             md_content=md_content,
@@ -1695,6 +1710,7 @@ def european_options():
         vega=vega,
         theta=theta,
         rho=rho,
+        error=error,
         sensitivity_results=sensitivity_results,
         gpt_assessment=gpt_assessment,
         md_content=md_content,
@@ -2614,6 +2630,7 @@ def american_options():
     run_summary = None
     market_reference = None
     market_error = None
+    error = None
 
     form_data = _default_american_form_data()
     market_query = {
@@ -2738,22 +2755,25 @@ def american_options():
             if market_query["symbol"]:
                 form_data["ticker"] = market_query["symbol"]
 
-            try:
-                market_reference = build_equity_market_reference(
-                    market_query["symbol"],
-                    market_query["period"],
-                    market_query["strike"],
-                    market_query["maturity_date"],
-                    market_query["option_type"],
-                    market_query["visual_mode"],
-                )
-            except Exception as exc:
-                logger.warning(
-                    "American market reference fetch failed for %s: %s",
-                    market_query["symbol"],
-                    exc,
-                )
-                market_error = str(exc)
+            if market_query["strike"] is not None and market_query["strike"] <= 0:
+                market_error = "Target Strike must be a positive value."
+            else:
+                try:
+                    market_reference = build_equity_market_reference(
+                        market_query["symbol"],
+                        market_query["period"],
+                        market_query["strike"],
+                        market_query["maturity_date"],
+                        market_query["option_type"],
+                        market_query["visual_mode"],
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "American market reference fetch failed for %s: %s",
+                        market_query["symbol"],
+                        exc,
+                    )
+                    market_error = str(exc)
 
             return render_template(
                 "american_options.html",
@@ -2776,6 +2796,7 @@ def american_options():
                 gpt_scenario_assessment=gpt_scenario_assessment,
                 action=action,
                 run_summary=run_summary,
+                error=error,
                 market_query=market_query,
                 market_reference=market_reference,
                 market_error=market_error,
@@ -2859,99 +2880,110 @@ def american_options():
         start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
         end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
         time_to_maturity = _year_fraction(start_date_obj, end_date_obj, day_count)
-        tree_model = (
-            pricing_model
-            if pricing_model in {"Cox Ross Rubinstein Tree", "Jarrow Rudd Tree"}
-            else "Cox Ross Rubinstein Tree"
-        )
-        tree_output = _price_american_with_greeks(
-            spot_price,
-            strike_price,
-            time_to_maturity,
-            risk_free_rate,
-            volatility,
-            dividend_yield,
-            option_type,
-            num_steps,
-            tree_model,
-        )
-        raw_option_price = float(tree_output["price"])
-        raw_delta = float(tree_output["delta"])
-        raw_gamma = float(tree_output["gamma"])
-        raw_vega = float(tree_output["vega"])
-        raw_theta = float(tree_output["theta"])
-        raw_rho = float(tree_output["rho"])
+        if pricing_model not in AMERICAN_PRICING_MODELS:
+            pricing_model = "Cox Ross Rubinstein Tree"
+
         model_options = {}
         if pricing_model == "LSMC":
             model_options["num_paths"] = form_data.get("num_paths", 10000)
             model_options["mc_steps"] = form_data.get("mc_steps", 252)
         elif pricing_model == "Binomial Tree (discrete dividends)":
             model_options["dividends"] = form_data.get("dividends")
-        run_summary = _build_american_analytics(
-            form_data,
-            spot_price,
-            strike_price,
-            time_to_maturity,
-            raw_option_price,
-            tree_output,
-            **model_options,
-        )
-        option_price = "${:,.4f}".format(raw_option_price)
-        delta = "{:.4f}".format(raw_delta)
-        gamma = "{:.6f}".format(raw_gamma)
-        vega = "{:.4f}".format(raw_vega)
-        theta = "{:.4f}".format(raw_theta)
-        rho = "{:.4f}".format(raw_rho)
 
-        if current_user.is_authenticated:
-            instrument = Instrument(
-                user_id=current_user.id,
-                product_type="american_option",
-                ticker=ticker,
-                model_name=pricing_model,
-                start_date=str(start_date),
-                end_date=str(end_date),
-                params_json={
-                    "strike_price": strike_price,
-                    "risk_free_rate": risk_free_rate,
-                    "volatility": volatility,
-                    "spot_price": spot_price,
-                    "dividend_yield": dividend_yield,
-                    "notional": form_data.get("notional"),
-                    "contract_multiplier": form_data.get("contract_multiplier"),
-                    "day_count": day_count,
-                    "option_type": option_type,
-                    "pricing_model": pricing_model,
-                    "num_steps": form_data.get("num_steps"),
-                    "num_paths": form_data.get("num_paths"),
-                    "mc_steps": form_data.get("mc_steps"),
-                    "dividends": form_data.get("dividends"),
-                },
-            )
-            db.session.add(instrument)
-            db.session.flush()
+        try:
+            notional_check = form_data.get("notional", 1)
+            if notional_check is None or notional_check <= 0:
+                raise ValueError("Notional must be positive.")
 
-            pricing_result = PricingResult(
-                user_id=current_user.id,
-                instrument_id=instrument.id,
-                price=raw_option_price,
-                delta=raw_delta,
-                gamma=raw_gamma,
-                vega=raw_vega,
-                theta=raw_theta,
-                rho=raw_rho,
-                result_json={
-                    "option_price": raw_option_price,
-                    "delta": raw_delta,
-                    "gamma": raw_gamma,
-                    "vega": raw_vega,
-                    "theta": raw_theta,
-                    "rho": raw_rho,
-                    "run_summary": run_summary,
-                },
+            tree_output = _price_american_with_greeks(
+                spot_price,
+                strike_price,
+                time_to_maturity,
+                risk_free_rate,
+                volatility,
+                dividend_yield,
+                option_type,
+                num_steps,
+                pricing_model,
+                **model_options,
             )
-            db.session.add(pricing_result)
-            db.session.commit()
+            raw_option_price = float(tree_output["price"])
+            raw_delta = float(tree_output["delta"])
+            raw_gamma = float(tree_output["gamma"])
+            raw_vega = float(tree_output["vega"])
+            raw_theta = float(tree_output["theta"])
+            raw_rho = float(tree_output["rho"])
+            run_summary = _build_american_analytics(
+                form_data,
+                spot_price,
+                strike_price,
+                time_to_maturity,
+                raw_option_price,
+                tree_output,
+                **model_options,
+            )
+            option_price = "${:,.4f}".format(raw_option_price)
+            delta = "{:.4f}".format(raw_delta)
+            gamma = "{:.6f}".format(raw_gamma)
+            vega = "{:.4f}".format(raw_vega)
+            theta = "{:.4f}".format(raw_theta)
+            rho = "{:.4f}".format(raw_rho)
+
+            if current_user.is_authenticated:
+                instrument = Instrument(
+                    user_id=current_user.id,
+                    product_type="american_option",
+                    ticker=ticker,
+                    model_name=pricing_model,
+                    start_date=str(start_date),
+                    end_date=str(end_date),
+                    params_json={
+                        "strike_price": strike_price,
+                        "risk_free_rate": risk_free_rate,
+                        "volatility": volatility,
+                        "spot_price": spot_price,
+                        "dividend_yield": dividend_yield,
+                        "notional": form_data.get("notional"),
+                        "contract_multiplier": form_data.get("contract_multiplier"),
+                        "day_count": day_count,
+                        "option_type": option_type,
+                        "pricing_model": pricing_model,
+                        "num_steps": form_data.get("num_steps"),
+                        "num_paths": form_data.get("num_paths"),
+                        "mc_steps": form_data.get("mc_steps"),
+                        "dividends": form_data.get("dividends"),
+                    },
+                )
+                db.session.add(instrument)
+                db.session.flush()
+
+                pricing_result = PricingResult(
+                    user_id=current_user.id,
+                    instrument_id=instrument.id,
+                    price=raw_option_price,
+                    delta=raw_delta,
+                    gamma=raw_gamma,
+                    vega=raw_vega,
+                    theta=raw_theta,
+                    rho=raw_rho,
+                    result_json={
+                        "option_price": raw_option_price,
+                        "delta": raw_delta,
+                        "gamma": raw_gamma,
+                        "vega": raw_vega,
+                        "theta": raw_theta,
+                        "rho": raw_rho,
+                        "run_summary": run_summary,
+                    },
+                )
+                db.session.add(pricing_result)
+                db.session.commit()
+        except Exception as exc:
+            logger.exception("An error occurred during American option pricing")
+            error = str(exc)
+            option_price = delta = gamma = vega = theta = rho = None
+            run_summary = None
+            action = None
 
         if action == "sensitivity":
             try:
@@ -4150,6 +4182,7 @@ def american_options():
         theta=theta,
         rho=rho,
         run_summary=run_summary,
+        error=error,
         market_query=market_query,
         market_reference=market_reference,
         market_error=market_error,

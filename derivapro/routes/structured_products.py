@@ -19,6 +19,7 @@ from ..services.simulation_config import (
     get_effective_simulation_settings,
     simulation_audit_payload,
 )
+from ..services.validation import check_positive, check_fractions
 
 structured_products_bp = Blueprint("structured_products", __name__)
 
@@ -308,6 +309,26 @@ def _parse_form_data(config):
     if "memory_coupon" in config["defaults"] and "memory_coupon" not in request.form:
         form_data["memory_coupon"] = "off"
     return form_data
+
+
+# Fields that must be strictly positive when the product defines them; rate/
+# barrier/cap/buffer-style fields are excluded since 0 or negative values are
+# legitimate (e.g. a 0% dividend yield, or a rate shock).
+_POSITIVE_IF_PRESENT = ["notional", "spot_price", "maturity", "volatility",
+                        "num_paths", "num_steps"]
+
+
+def _validate_terms_form(config, form_data):
+    positive_fields = {
+        field: form_data[field]
+        for field in _POSITIVE_IF_PRESENT
+        if field in config["defaults"]
+    }
+    errors = check_positive(positive_fields)
+    if "recovery_rate" in config["defaults"]:
+        errors += check_fractions({"recovery_rate": form_data["recovery_rate"]})
+    if errors:
+        raise ValueError(" ".join(errors))
 
 
 def _build_terms(config, form_data):
@@ -607,6 +628,7 @@ def structured_product(product_slug):
         form_data = _parse_form_data(config)
         analysis_form_data = _parse_analysis_form_data()
         try:
+            _validate_terms_form(config, form_data)
             terms = _build_terms(config, form_data)
             raw_results = price_structured_note(terms)
             if selected_action == "price":
