@@ -35,6 +35,9 @@
 
         <div class="form-grid compact-form-grid">
             {% for field in section.fields %}
+            {% if field.type == "hidden" %}
+            <input type="hidden" id="{{ field.name }}" name="{{ field.name }}" value="{{ field.value }}">
+            {% else %}
             <div class="form-group {% if field.type == 'textarea' or 'schedule' in field.name or field.name.endswith('_rates') or field.name.endswith('_tenors') %}full-width{% endif %}">
                 <label for="{{ field.name }}">{{ field.label }}</label>
                 {% if field.type == "select" %}
@@ -50,10 +53,49 @@
                 {% endif %}
                 {% if field.hint %}<div class="field-hint">{{ field.hint }}</div>{% endif %}
             </div>
+            {% endif %}
             {% endfor %}
         </div>
     </div>
     {% endfor %}
+
+    {% if product_slug == "amortizing-stepup-sinking-bond" %}
+    <div class="pricing-form-block schedule-editor-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">S</span>
+            <div>
+                <strong>Coupon Payment Schedule</strong>
+                <p>Edit contractual payment dates, coupon rates, and principal payments. Opening notional is calculated from the original face value and prior principal reductions.</p>
+            </div>
+        </div>
+        <div class="schedule-editor-toolbar">
+            <button type="button" class="btn-secondary" id="rebuild-payment-schedule">Rebuild from Terms</button>
+            <p>Use the table for bullet bonds, straight-line amortization, or custom sinking schedules. The notional column rolls forward automatically; coupon rates can be entered as decimals or percentages.</p>
+        </div>
+        <div class="schedule-table-wrap">
+            <table class="results-table payment-schedule-table" id="payment-schedule-table">
+                <thead>
+                    <tr>
+                        <th>Payment Date</th>
+                        <th>Opening Notional Amount</th>
+                        <th>Coupon</th>
+                        <th>Principal Payment Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in schedule_rows %}
+                    <tr>
+                        <td><input type="date" class="schedule-date" value="{{ row.payment_date }}"></td>
+                        <td><input type="number" step="any" min="0" class="schedule-notional" value="{{ row.opening_notional }}" readonly aria-readonly="true" tabindex="-1"></td>
+                        <td><input type="number" step="any" class="schedule-coupon" value="{{ row.coupon_rate }}"></td>
+                        <td><input type="number" step="any" min="0" class="schedule-principal" value="{{ row.principal }}" {% if loop.last %}readonly aria-readonly="true" tabindex="-1"{% endif %}></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 
     <div class="pricing-action-row">
         <button type="submit" class="btn-primary">Run Valuation</button>
@@ -225,4 +267,132 @@
     view_url=url_for('product_reports.preview', product_key=product_slug),
     download_url=url_for('product_reports.download', product_key=product_slug)
 ) }}
+
+{% if product_slug == "amortizing-stepup-sinking-bond" %}
+<script>
+(() => {
+    const form = document.querySelector(".product-standard-form");
+    const table = document.getElementById("payment-schedule-table");
+    const scheduleInput = document.getElementById("cashflow_schedule");
+    const rebuildButton = document.getElementById("rebuild-payment-schedule");
+    if (!form || !table || !scheduleInput) return;
+
+    const parseNumber = (id, fallback = 0) => {
+        const value = Number(document.getElementById(id)?.value);
+        return Number.isFinite(value) ? value : fallback;
+    };
+
+    const addMonths = (date, months) => {
+        const next = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+        const targetMonth = next.getUTCMonth();
+        const day = Math.min(date.getUTCDate(), new Date(Date.UTC(next.getUTCFullYear(), targetMonth + 1, 0)).getUTCDate());
+        return new Date(Date.UTC(next.getUTCFullYear(), targetMonth, day));
+    };
+
+    const isoDate = (date) => date.toISOString().slice(0, 10);
+    const formatAmount = (value) => {
+        const rounded = Math.abs(value) < 0.005 ? 0 : value;
+        return rounded.toFixed(2);
+    };
+
+    const recalculateNotionals = () => {
+        let outstanding = parseNumber("notional", 1000000);
+        const rows = [...table.querySelectorAll("tbody tr")];
+        rows.forEach((row, index) => {
+            const notionalInput = row.querySelector(".schedule-notional");
+            const principalInput = row.querySelector(".schedule-principal");
+            if (notionalInput) {
+                notionalInput.value = formatAmount(outstanding);
+            }
+            let principal = Number(principalInput?.value || 0);
+            if (!Number.isFinite(principal)) {
+                principal = 0;
+            }
+            if (index === rows.length - 1) {
+                principal = outstanding;
+                principalInput?.setAttribute("readonly", "true");
+                principalInput?.setAttribute("aria-readonly", "true");
+                principalInput?.setAttribute("tabindex", "-1");
+            }
+            principal = Math.max(0, Math.min(principal, Math.max(outstanding, 0)));
+            if (principalInput && Number(principalInput.value) !== principal) {
+                principalInput.value = formatAmount(principal);
+            }
+            outstanding -= principal;
+        });
+    };
+
+    const serializeSchedule = () => {
+        recalculateNotionals();
+        const rows = [...table.querySelectorAll("tbody tr")].map((row) => {
+            const date = row.querySelector(".schedule-date")?.value || "";
+            const notional = row.querySelector(".schedule-notional")?.value || "0";
+            const coupon = row.querySelector(".schedule-coupon")?.value || "0";
+            const principal = row.querySelector(".schedule-principal")?.value || "0";
+            return `${date}|${notional}|${coupon}|${principal}`;
+        }).filter((line) => !line.startsWith("|"));
+        scheduleInput.value = rows.join(";");
+    };
+
+    const rebuildSchedule = () => {
+        const firstCouponRaw = document.getElementById("first_coupon_date")?.value;
+        const maturityRaw = document.getElementById("maturity_date")?.value;
+        const paymentsPerYear = Math.max(parseNumber("payments_per_year", 2), 1);
+        const notional = parseNumber("notional", 1000000);
+        const couponRate = parseNumber("coupon_rate", 0.05);
+        const style = document.getElementById("amortization_style")?.value || "straight_line";
+        if (!firstCouponRaw || !maturityRaw) return;
+
+        const months = Math.floor(12 / paymentsPerYear);
+        const maturity = new Date(`${maturityRaw}T00:00:00Z`);
+        let current = new Date(`${firstCouponRaw}T00:00:00Z`);
+        const dates = [];
+        while (current < maturity) {
+            dates.push(new Date(current));
+            current = addMonths(current, months);
+        }
+        if (!dates.length || isoDate(dates[dates.length - 1]) !== maturityRaw) {
+            dates.push(maturity);
+        }
+
+        let outstanding = notional;
+        const rows = dates.map((date, index) => {
+            let principal = 0;
+            if (style === "bullet") {
+                principal = index === dates.length - 1 ? outstanding : 0;
+            } else if (style === "straight_line") {
+                principal = index === dates.length - 1 ? outstanding : notional / dates.length;
+            }
+            principal = Math.max(0, Math.min(principal, outstanding));
+            const row = `
+                <tr>
+                    <td><input type="date" class="schedule-date" value="${isoDate(date)}"></td>
+                    <td><input type="number" step="any" min="0" class="schedule-notional" value="${formatAmount(outstanding)}" readonly aria-readonly="true" tabindex="-1"></td>
+                    <td><input type="number" step="any" class="schedule-coupon" value="${couponRate.toFixed(4)}"></td>
+                    <td><input type="number" step="any" min="0" class="schedule-principal" value="${formatAmount(principal)}" ${index === dates.length - 1 ? 'readonly aria-readonly="true" tabindex="-1"' : ""}></td>
+                </tr>
+            `;
+            outstanding -= principal;
+            return row;
+        });
+        table.querySelector("tbody").innerHTML = rows.join("");
+        serializeSchedule();
+    };
+
+    table.addEventListener("input", (event) => {
+        if (event.target?.classList?.contains("schedule-principal")) {
+            recalculateNotionals();
+        }
+        serializeSchedule();
+    });
+    document.getElementById("notional")?.addEventListener("input", () => {
+        recalculateNotionals();
+        serializeSchedule();
+    });
+    rebuildButton?.addEventListener("click", rebuildSchedule);
+    form.addEventListener("submit", serializeSchedule);
+    serializeSchedule();
+})();
+</script>
+{% endif %}
 {% endblock %}

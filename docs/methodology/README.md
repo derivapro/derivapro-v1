@@ -18,7 +18,7 @@ This folder contains product-level methodology notes for DerivaPro pricing and a
 | Interest rate cap / floor | [Cap / Floor Methodology](cap_floor.md) |
 | Callable / putable bond | [Callable / Putable Bond Methodology](callable_putable_bond.md) |
 | Level coupon bond | [Level Coupon Bond Methodology](level_coupon_bond.md) |
-| Amortizing / step-up / sinking bond | [Amortizing / Step-Up / Sinking Bond Methodology](amortizing_stepup_sinking_bond.md) |
+| Structured amortizing bonds | [Structured Amortizing Bonds Methodology](amortizing_stepup_sinking_bond.md) |
 | Custom structured bond | [Custom Structured Bond Methodology](custom_structured_bond.md) |
 | Bond series | [Bond Series Methodology](bond_series.md) |
 | Loans / leases / annuities | [Loan / Lease / Annuity Methodology](loan_lease_annuity.md) |

@@ -7,6 +7,7 @@ import markdown
 from dotenv import load_dotenv
 import logging
 from copy import deepcopy
+import datetime as dt
 
 from ..extensions import db
 from ..models.db_models import Instrument, PricingResult
@@ -208,31 +209,44 @@ FIXED_INCOME_EXTENSION_CONFIGS = {
         ],
     },
     "amortizing-stepup-sinking-bond": {
-        "title": "Amortizing / Step-Up / Sinking Bond",
-        "subtitle": "Configure time-varying coupons and scheduled principal paydown.",
+        "title": "Structured Amortizing Bonds",
+        "subtitle": "Configure amortizing, step-up, step-down, and sinking-fund bond structures.",
         "asset_class": "Fixed Income",
         "methodology_doc": "amortizing_stepup_sinking_bond",
-        "description_title": "Generic bond cash flows with coupon schedules and notional reduction schedules.",
+        "description_title": "Generic bond cash flows with coupon schedules, principal schedules, and clean/dirty price diagnostics.",
         "description_body": (
-            "This workspace extends amortizing bond coverage with step-up coupons and sinking-fund principal schedules. "
-            "It is designed for bonds whose coupon and outstanding balance vary across contractual periods."
+            "This workspace covers bonds whose coupon and outstanding balance vary across contractual periods. "
+            "It supports yield-based clean-price benchmarks, straight-line amortization, bullet principal, and explicit sinking schedules."
         ),
-        "chips": ["Amortizing", "Step-up coupon", "Sinking fund", "Cash-flow table"],
+        "chips": ["Amortizing", "Step-up coupon", "Sinking fund", "Clean/dirty price"],
         "fields": [
-            {"name": "valuation_date", "label": "Valuation Date", "type": "date", "value": "2026-08-13"},
-            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2032-08-13"},
+            {"name": "valuation_date", "label": "Settlement / Value Date", "type": "date", "value": "2026-08-30"},
+            {"name": "dated_date", "label": "Dated Date", "type": "date", "value": "2026-06-20"},
+            {"name": "first_coupon_date", "label": "First Coupon Date", "type": "date", "value": "2026-12-20"},
+            {"name": "last_coupon_date", "label": "Last Coupon Before Maturity", "type": "date", "value": "2040-12-20"},
+            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2041-06-20"},
             {"name": "notional", "label": "Original Face Value", "type": "number", "step": "1000", "value": "1000000"},
-            {"name": "coupon_rate", "label": "Base Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0450"},
+            {"name": "coupon_rate", "label": "Base Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0500"},
+            {
+                "name": "pricing_basis",
+                "label": "Pricing Basis",
+                "type": "select",
+                "value": "yield",
+                "options": [("yield", "Price from Yield"), ("curve", "Price from Curve")],
+                "hint": "Use Price from Yield for clean-price benchmarking against external calculators.",
+            },
+            {"name": "yield_to_maturity", "label": "Yield to Maturity", "type": "number", "step": "0.0001", "value": "0.0600"},
             {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00"},
             {
                 "name": "amortization_style",
                 "label": "Principal Schedule Type",
                 "type": "select",
-                "value": "sinking_schedule",
+                "value": "straight_line",
                 "options": [("bullet", "Bullet"), ("straight_line", "Straight-Line Amortization"), ("sinking_schedule", "Sinking Schedule")],
             },
-            {"name": "coupon_schedule", "label": "Coupon Schedule", "type": "text", "value": "2026-08-13:0.045,2029-08-13:0.055", "hint": "Optional effective-date schedule: YYYY-MM-DD:rate, ..."},
-            {"name": "principal_schedule", "label": "Sinking Schedule", "type": "text", "value": "2029-08-13:0.20,2030-08-13:0.20,2031-08-13:0.20", "hint": "Optional date:pct_original schedule for sinking principal."},
+            {"name": "coupon_schedule", "label": "Coupon Schedule", "type": "hidden", "value": ""},
+            {"name": "principal_schedule", "label": "Sinking Schedule", "type": "hidden", "value": ""},
+            {"name": "cashflow_schedule", "label": "Payment Schedule", "type": "hidden", "value": ""},
             {
                 "name": "payments_per_year",
                 "label": "Coupon Frequency",
@@ -242,10 +256,10 @@ FIXED_INCOME_EXTENSION_CONFIGS = {
             },
             {
                 "name": "day_count",
-                "label": "Coupon Day Count",
+                "label": "Accrual Method",
                 "type": "select",
-                "value": "30/360",
-                "options": [("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+                "value": "ACT/ACT ISMA",
+                "options": [("ACT/ACT ISMA", "Actual/Actual (ISMA)"), ("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
             },
             {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
         ],
@@ -538,6 +552,91 @@ def _int_value(data, key):
     return int(float(data[key]))
 
 
+def _add_months_preserve_day(d: dt.date, months: int) -> dt.date:
+    year = d.year + (d.month - 1 + months) // 12
+    month = (d.month - 1 + months) % 12 + 1
+    if month == 12:
+        next_month = dt.date(year + 1, 1, 1)
+    else:
+        next_month = dt.date(year, month + 1, 1)
+    last_day = (next_month - dt.timedelta(days=1)).day
+    return dt.date(year, month, min(d.day, last_day))
+
+
+def _format_schedule_number(value):
+    return f"{value:.6f}".rstrip("0").rstrip(".")
+
+
+def _parse_payment_schedule_for_display(raw):
+    rows = []
+    if not raw:
+        return rows
+    for item in raw.replace("\n", ";").split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        parts = [part.strip() for part in item.split("|")]
+        if len(parts) != 4:
+            continue
+        rows.append(
+            {
+                "payment_date": parts[0],
+                "opening_notional": parts[1],
+                "coupon_rate": parts[2],
+                "principal": parts[3],
+            }
+        )
+    return rows
+
+
+def _structured_amortizing_schedule_rows(form_data):
+    existing = _parse_payment_schedule_for_display(form_data.get("cashflow_schedule", ""))
+    if existing:
+        return existing
+
+    try:
+        first_coupon = parse_date(form_data["first_coupon_date"])
+        maturity = parse_date(form_data["maturity_date"])
+        notional = _float_value(form_data, "notional")
+        coupon_rate = _float_value(form_data, "coupon_rate")
+        payments_per_year = _int_value(form_data, "payments_per_year")
+        amortization_style = form_data.get("amortization_style", "straight_line")
+    except (KeyError, TypeError, ValueError):
+        return []
+
+    months = 12 // payments_per_year
+    payment_dates = []
+    current = first_coupon
+    while current < maturity:
+        payment_dates.append(current)
+        current = _add_months_preserve_day(current, months)
+    if not payment_dates or payment_dates[-1] != maturity:
+        payment_dates.append(maturity)
+
+    outstanding = notional
+    rows = []
+    for idx, payment_date in enumerate(payment_dates, start=1):
+        if amortization_style == "bullet":
+            principal = outstanding if idx == len(payment_dates) else 0.0
+        elif amortization_style == "straight_line":
+            principal = notional / len(payment_dates)
+            if idx == len(payment_dates):
+                principal = outstanding
+        else:
+            principal = 0.0
+        principal = min(max(principal, 0.0), max(outstanding, 0.0))
+        rows.append(
+            {
+                "payment_date": payment_date.isoformat(),
+                "opening_notional": _format_schedule_number(outstanding),
+                "coupon_rate": _format_schedule_number(coupon_rate),
+                "principal": _format_schedule_number(principal),
+            }
+        )
+        outstanding -= principal
+    return rows
+
+
 def _price_fixed_income_extension(product_slug, form_data):
     discount_curve = parse_curve(
         form_data["discount_curve_tenors"],
@@ -632,7 +731,13 @@ def _price_fixed_income_extension(product_slug, form_data):
                 scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
                 coupon_schedule=form_data.get("coupon_schedule", ""),
                 principal_schedule=form_data.get("principal_schedule", ""),
+                cashflow_schedule=form_data.get("cashflow_schedule", ""),
                 amortization_style=form_data["amortization_style"],
+                pricing_basis=form_data.get("pricing_basis", "curve"),
+                yield_to_maturity=_float_value(form_data, "yield_to_maturity") if form_data.get("yield_to_maturity") else None,
+                dated_date=parse_date(form_data["dated_date"]) if form_data.get("dated_date") else None,
+                first_coupon_date=parse_date(form_data["first_coupon_date"]) if form_data.get("first_coupon_date") else None,
+                last_coupon_date=parse_date(form_data["last_coupon_date"]) if form_data.get("last_coupon_date") else None,
             )
         )
 
@@ -1581,6 +1686,10 @@ def rates_fixed_income_product(product_slug):
             field.setdefault("hint", "")
             field.setdefault("step", "any")
 
+    schedule_rows = []
+    if product_slug == "amortizing-stepup-sinking-bond":
+        schedule_rows = _structured_amortizing_schedule_rows(form_data)
+
     return render_template(
         "fixed_income_extension_product.html",
         config=config,
@@ -1589,4 +1698,5 @@ def rates_fixed_income_product(product_slug):
         form_data=form_data,
         results=results,
         pricing_error=pricing_error,
+        schedule_rows=schedule_rows,
     )

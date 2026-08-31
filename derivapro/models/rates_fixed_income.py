@@ -1,6 +1,6 @@
 import datetime as dt
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .curve import Curve
@@ -58,6 +58,83 @@ def _pct(value: float) -> str:
     return f"{value * 100:.4f}%"
 
 
+def _add_months_preserve_day(d: dt.date, months: int) -> dt.date:
+    year = d.year + (d.month - 1 + months) // 12
+    month = (d.month - 1 + months) % 12 + 1
+    if month == 12:
+        next_month = dt.date(year + 1, 1, 1)
+    else:
+        next_month = dt.date(year, month + 1, 1)
+    last_day = (next_month - dt.timedelta(days=1)).day
+    return dt.date(year, month, min(d.day, last_day))
+
+
+def _build_coupon_dates(
+    start: dt.date,
+    maturity: dt.date,
+    payments_per_year: int,
+    first_coupon_date: dt.date | None = None,
+) -> list[dt.date]:
+    if first_coupon_date is None:
+        return build_schedule(start, maturity, payments_per_year)
+
+    if first_coupon_date <= start:
+        raise ValueError("First coupon date must be after settlement / valuation date.")
+    if first_coupon_date > maturity:
+        raise ValueError("First coupon date cannot be after maturity date.")
+
+    months = 12 // payments_per_year
+    dates: list[dt.date] = []
+    current = first_coupon_date
+    while current < maturity:
+        dates.append(current)
+        current = _add_months_preserve_day(current, months)
+    if not dates or dates[-1] != maturity:
+        dates.append(maturity)
+    return dates
+
+
+def _period_accrual(start: dt.date, end: dt.date, day_count: str, payments_per_year: int) -> float:
+    normalized = day_count.upper().replace(" ", "")
+    if normalized in {"ACT/ACT", "ACT/ACTISMA", "ACTUAL/ACTUAL", "ACTUAL/ACTUAL(ISMA-99ULTIMO)"}:
+        return 1.0 / max(payments_per_year, 1)
+    return DayCount.year_frac(start, end, day_count)
+
+
+def _accrued_interest(
+    settlement: dt.date,
+    previous_coupon: dt.date,
+    next_coupon: dt.date,
+    opening_notional: float,
+    coupon_rate: float,
+    payments_per_year: int,
+    day_count: str,
+) -> float:
+    if settlement <= previous_coupon or settlement >= next_coupon:
+        return 0.0
+    normalized = day_count.upper().replace(" ", "")
+    if normalized in {"ACT/ACT", "ACT/ACTISMA", "ACTUAL/ACTUAL", "ACTUAL/ACTUAL(ISMA-99ULTIMO)"}:
+        coupon_amount = opening_notional * coupon_rate / max(payments_per_year, 1)
+        elapsed = (settlement - previous_coupon).days
+        period_days = max((next_coupon - previous_coupon).days, 1)
+        return coupon_amount * elapsed / period_days
+    return opening_notional * coupon_rate * DayCount.year_frac(previous_coupon, settlement, day_count)
+
+
+def _yield_discount_factor(
+    yield_to_maturity: float,
+    payments_per_year: int,
+    period_index: int,
+    settlement: dt.date,
+    previous_coupon: dt.date,
+    next_coupon: dt.date,
+) -> float:
+    period_days = max((next_coupon - previous_coupon).days, 1)
+    first_period_fraction = max((next_coupon - settlement).days, 0) / period_days
+    exponent = max(period_index - 1 + first_period_fraction, 0.0)
+    return (1.0 + yield_to_maturity / payments_per_year) ** (-exponent)
+
+
 def _parse_dated_amounts(raw: str | None, value_type: str = "amount") -> list[tuple[dt.date, float]]:
     """Parse comma-separated date:value entries used by first-pass schedule tables."""
     if not raw:
@@ -93,6 +170,32 @@ def _principal_due_between(schedule: list[tuple[dt.date, float]], start: dt.date
 
 def _fixed_payments_between(schedule: list[tuple[dt.date, float]], start: dt.date, end: dt.date) -> float:
     return sum(amount for event_date, amount in schedule if start < event_date <= end)
+
+
+def _parse_cashflow_schedule(raw: str | None) -> list[dict[str, Any]]:
+    if not raw:
+        return []
+    rows = []
+    for item in raw.replace("\n", ";").split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        parts = [part.strip() for part in item.split("|")]
+        if len(parts) != 4:
+            raise ValueError("Payment schedule rows must use date|opening_notional|coupon_rate|principal_payment.")
+        payment_date, opening_notional, coupon_rate, principal_payment = parts
+        rate = float(coupon_rate)
+        if abs(rate) > 1.0:
+            rate = rate / 100.0
+        rows.append(
+            {
+                "payment_date": parse_date(payment_date),
+                "opening_notional": float(opening_notional),
+                "coupon_rate": rate,
+                "principal": float(principal_payment),
+            }
+        )
+    return sorted(rows, key=lambda row: row["payment_date"])
 
 
 def _solve_yield_from_cashflows(
@@ -468,8 +571,14 @@ class GenericBondTerms:
     coupon_schedule: str = ""
     principal_schedule: str = ""
     fixed_payment_schedule: str = ""
+    cashflow_schedule: str = ""
     amortization_style: str = "bullet"
     redemption_pct: float = 100.0
+    pricing_basis: str = "curve"
+    yield_to_maturity: float | None = None
+    dated_date: dt.date | None = None
+    first_coupon_date: dt.date | None = None
+    last_coupon_date: dt.date | None = None
 
 
 def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict[str, Any]:
@@ -478,58 +587,117 @@ def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict
     if terms.notional <= 0:
         raise ValueError("Notional must be positive.")
 
-    pay_dates = build_schedule(terms.valuation_date, terms.maturity_date, terms.payments_per_year)
+    explicit_schedule = _parse_cashflow_schedule(terms.cashflow_schedule)
+    pay_dates = [row["payment_date"] for row in explicit_schedule] or _build_coupon_dates(
+        terms.valuation_date,
+        terms.maturity_date,
+        terms.payments_per_year,
+        terms.first_coupon_date,
+    )
+    previous_coupon_date = terms.dated_date or terms.valuation_date
+    if terms.last_coupon_date and terms.last_coupon_date >= terms.maturity_date:
+        raise ValueError("Last coupon date before maturity must be before maturity date.")
+    if terms.last_coupon_date and len(pay_dates) >= 2 and pay_dates[-2] != terms.last_coupon_date:
+        raise ValueError("Last coupon date before maturity does not match the generated coupon schedule.")
     coupon_schedule = _parse_dated_amounts(terms.coupon_schedule, "pct")
     principal_schedule = _parse_dated_amounts(terms.principal_schedule, "pct")
     fixed_schedule = _parse_dated_amounts(terms.fixed_payment_schedule, "amount")
 
-    previous = terms.valuation_date
     outstanding = terms.notional
     total_pv = 0.0
     weighted_time_pv = 0.0
     convexity_numerator = 0.0
     rows = []
     cashflows_for_yield = []
+    accrued = 0.0
+    pricing_basis = terms.pricing_basis if terms.pricing_basis in {"curve", "yield"} else "curve"
+    if pricing_basis == "yield" and terms.yield_to_maturity is None:
+        raise ValueError("Yield to maturity is required when pricing basis is set to yield.")
+    first_previous_coupon_date = previous_coupon_date
+    first_payment_date = pay_dates[0]
+    first_period_days = max((first_payment_date - first_previous_coupon_date).days, 1)
+    first_period_fraction = max((first_payment_date - terms.valuation_date).days, 0) / first_period_days
 
     for idx, pay_date in enumerate(pay_dates, start=1):
-        t = DayCount.year_frac(terms.valuation_date, pay_date, "ACT/365")
-        accrual = DayCount.year_frac(previous, pay_date, terms.day_count)
-        coupon_rate = _value_effective_on(coupon_schedule, pay_date, terms.coupon_rate)
-        coupon = outstanding * coupon_rate * accrual
+        schedule_row = explicit_schedule[idx - 1] if explicit_schedule else None
+        calendar_t = DayCount.year_frac(terms.valuation_date, pay_date, "ACT/365")
+        yield_period_exponent = max(idx - 1 + first_period_fraction, 0.0)
+        risk_time = yield_period_exponent / terms.payments_per_year if pricing_basis == "yield" else calendar_t
+        accrual = _period_accrual(previous_coupon_date, pay_date, terms.day_count, terms.payments_per_year)
+        opening_notional = outstanding
+        coupon_rate = schedule_row["coupon_rate"] if schedule_row else _value_effective_on(coupon_schedule, pay_date, terms.coupon_rate)
+        coupon = opening_notional * coupon_rate * accrual
 
         principal = 0.0
-        if terms.amortization_style == "straight_line":
+        if schedule_row:
+            principal = schedule_row["principal"]
+        elif terms.amortization_style == "straight_line":
             principal = terms.notional / len(pay_dates)
         elif terms.amortization_style == "sinking_schedule":
-            principal = _principal_due_between(principal_schedule, previous, pay_date, terms.notional)
+            principal = _principal_due_between(principal_schedule, previous_coupon_date, pay_date, terms.notional)
         elif pay_date == pay_dates[-1]:
             principal = terms.notional * terms.redemption_pct / 100.0
 
-        if pay_date == pay_dates[-1] and terms.amortization_style in {"straight_line", "sinking_schedule"}:
+        if pay_date == pay_dates[-1] and (
+            terms.amortization_style in {"straight_line", "sinking_schedule"}
+            or (schedule_row and terms.amortization_style == "bullet")
+        ):
             principal = min(max(outstanding, 0.0), max(principal, outstanding))
         principal = min(max(principal, 0.0), max(outstanding, 0.0))
-        fixed_payment = _fixed_payments_between(fixed_schedule, previous, pay_date)
+        fixed_payment = _fixed_payments_between(fixed_schedule, previous_coupon_date, pay_date)
         cashflow = coupon + principal + fixed_payment
-        df = curve.df(t)
+        if pricing_basis == "yield":
+            df = _yield_discount_factor(
+                terms.yield_to_maturity or 0.0,
+                terms.payments_per_year,
+                idx,
+                terms.valuation_date,
+                first_previous_coupon_date,
+                first_payment_date,
+            )
+        else:
+            df = curve.df(calendar_t)
         pv = cashflow * df
         total_pv += pv
-        weighted_time_pv += t * pv
-        convexity_numerator += t * (t + 1.0) * pv
+        weighted_time_pv += risk_time * pv
+        if pricing_basis == "yield":
+            periodic_yield = (terms.yield_to_maturity or 0.0) / terms.payments_per_year
+            convexity_numerator += (
+                pv
+                * yield_period_exponent
+                * (yield_period_exponent + 1.0)
+                / ((1.0 + periodic_yield) ** 2)
+                / (terms.payments_per_year**2)
+            )
+        else:
+            convexity_numerator += calendar_t * (calendar_t + 1.0) * pv
         cashflows_for_yield.append((pay_date, cashflow))
+        if idx == 1:
+            accrued = _accrued_interest(
+                terms.valuation_date,
+                previous_coupon_date,
+                pay_date,
+                outstanding,
+                coupon_rate,
+                terms.payments_per_year,
+                terms.day_count,
+            )
         rows.append(
             {
-                "period": f"{previous.isoformat()} to {pay_date.isoformat()}",
+                "period": f"{previous_coupon_date.isoformat()} to {pay_date.isoformat()}",
+                "payment_date": pay_date.isoformat(),
                 "coupon_rate": coupon_rate,
-                "opening_notional": outstanding,
+                "opening_notional": opening_notional,
                 "coupon": coupon,
                 "principal": principal,
                 "fixed_payment": fixed_payment,
+                "cashflow": cashflow,
                 "discount_factor": df,
                 "discounted_pv": pv,
             }
         )
         outstanding -= principal
-        previous = pay_date
+        previous_coupon_date = pay_date
 
     market_price = terms.notional * terms.market_clean_price_pct / 100.0
     ytm = _solve_yield_from_cashflows(
@@ -538,34 +706,51 @@ def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict
         market_price,
         terms.day_count,
     )
+    clean_pv = total_pv - accrued
     duration = weighted_time_pv / max(total_pv, 1e-12)
+    modified_duration = duration / (1.0 + (terms.yield_to_maturity or 0.0) / terms.payments_per_year) if pricing_basis == "yield" else duration
     convexity = convexity_numerator / max(total_pv, 1e-12)
-    dv01 = duration * total_pv / 10000.0
+    bpv = -modified_duration * total_pv / 10000.0
     return {
         "label": label,
-        "pv": total_pv,
-        "model_price_pct": total_pv / terms.notional * 100.0,
+        "pv": clean_pv,
+        "dirty_pv": total_pv,
+        "accrued_interest": accrued,
+        "model_price_pct": clean_pv / terms.notional * 100.0,
+        "dirty_price_pct": total_pv / terms.notional * 100.0,
         "market_price": market_price,
         "ytm": ytm,
         "duration": duration,
+        "modified_duration": modified_duration,
         "convexity": convexity,
-        "dv01": dv01,
+        "bpv": bpv,
         "cashflows": rows,
     }
 
 
 def price_generic_bond(terms: GenericBondTerms) -> dict[str, Any]:
     base = _generic_bond_run(terms, terms.discount_curve, "Base")
-    up = _generic_bond_run(terms, shifted_curve(terms.discount_curve, terms.scenario_shock_bp), f"Rates +{terms.scenario_shock_bp:.0f} bp")
-    down = _generic_bond_run(terms, shifted_curve(terms.discount_curve, -terms.scenario_shock_bp), f"Rates -{terms.scenario_shock_bp:.0f} bp")
+    if terms.pricing_basis == "yield":
+        up_terms = replace(terms, yield_to_maturity=(terms.yield_to_maturity or 0.0) + terms.scenario_shock_bp / 10000.0)
+        down_terms = replace(terms, yield_to_maturity=(terms.yield_to_maturity or 0.0) - terms.scenario_shock_bp / 10000.0)
+        up = _generic_bond_run(up_terms, terms.discount_curve, f"Yield +{terms.scenario_shock_bp:.0f} bp")
+        down = _generic_bond_run(down_terms, terms.discount_curve, f"Yield -{terms.scenario_shock_bp:.0f} bp")
+    else:
+        up = _generic_bond_run(terms, shifted_curve(terms.discount_curve, terms.scenario_shock_bp), f"Rates +{terms.scenario_shock_bp:.0f} bp")
+        down = _generic_bond_run(terms, shifted_curve(terms.discount_curve, -terms.scenario_shock_bp), f"Rates -{terms.scenario_shock_bp:.0f} bp")
 
     return {
         "primary_metrics": [
-            {"label": "Model PV", "value": _money(base["pv"])},
-            {"label": "Model Price", "value": f"{base['model_price_pct']:.4f}%"},
-            {"label": "Yield to Maturity", "value": _pct(base["ytm"]) if base["ytm"] is not None else "n/a"},
-            {"label": "Modified Duration", "value": f"{base['duration']:.4f}"},
-            {"label": "DV01", "value": _money(base["dv01"])},
+            {"label": "Fair Value (Clean)", "value": _money(base["pv"])},
+            {"label": "Accrued Interest", "value": _money(base["accrued_interest"])},
+            {"label": "Fair Value + Accrued", "value": _money(base["dirty_pv"])},
+            {
+                "label": "Yield to Maturity",
+                "value": _pct(terms.yield_to_maturity) if terms.pricing_basis == "yield" and terms.yield_to_maturity is not None else (_pct(base["ytm"]) if base["ytm"] is not None else "n/a"),
+            },
+            {"label": "Duration", "value": f"{base['duration']:.4f}"},
+            {"label": "Modified Duration", "value": f"{base['modified_duration']:.4f}"},
+            {"label": "BPV (+1bp Price Change)", "value": _money(base["bpv"])},
             {"label": "Convexity", "value": f"{base['convexity']:.4f}"},
         ],
         "scenarios": [base, up, down],

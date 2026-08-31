@@ -1,4 +1,4 @@
-# Amortizing / Step-Up / Sinking Bond Methodology
+# Structured Amortizing Bonds Methodology
 
 ## 1. Scope and Product Definition
 
@@ -14,11 +14,15 @@ The methodology is aligned conceptually with:
 
 The workflow supports:
 
-- Valuation date.
+- Settlement / valuation date.
+- Dated date.
+- First coupon date after the dated date.
+- Last coupon date before maturity.
 - Maturity date.
 - Original face value.
 - Base coupon rate.
 - Market clean-price reference.
+- Yield-to-maturity input for street-style price-from-yield benchmarks.
 - Payment frequency.
 - Day-count convention.
 - Principal schedule type: bullet, straight-line amortization, or explicit sinking schedule.
@@ -28,7 +32,39 @@ The workflow supports:
 
 The page is deterministic. It does not include embedded optionality, default risk, stochastic prepayment, floating coupon resets, or inflation indexation.
 
-## 3. Schedule Table Conventions
+## 3. External Calculator Benchmark Inputs
+
+For benchmarking against spreadsheet calculators and commercial fixed-income libraries, the page supports the main fields needed to reproduce a clean/dirty price workflow:
+
+| Field | Role in valuation |
+| --- | --- |
+| Settlement / value date | Date from which future cash flows are discounted and accrued interest is calculated. |
+| Dated date | Start of the first accrual period for a newly issued or recently dated bond. |
+| First coupon date | First scheduled coupon date after the dated date. |
+| Last coupon before maturity | Final regular coupon date before principal redemption. |
+| Maturity date | Final contractual redemption date. |
+| Coupon frequency | Number of coupon periods per year. |
+| Accrual method | Day-count rule used for coupon accrual and accrued interest. |
+| Opening notional amount | Calculated from original face value less prior principal payments. This is not an independent valuation input. |
+| Principal payment amount | User-editable contractual principal reduction for each payment date; the final row redeems remaining principal. |
+| Pricing basis | Either curve discounting or price from yield. |
+| Yield to maturity | Required for price-from-yield benchmarking. |
+
+The external calculator benchmark cases reviewed for DerivaPro use:
+
+- Settlement date: 30 Aug 2026.
+- Dated date: 20 Jun 2026.
+- First coupon date: 20 Dec 2026.
+- Last coupon before maturity: 20 Dec 2040.
+- Maturity date: 20 Jun 2041.
+- Coupon frequency: semiannual.
+- Coupon rate: 5.00%.
+- Yield to maturity: 6.00%.
+- Accrual method: Actual/Actual ISMA-style coupon-period accrual.
+
+The benchmark is sensitive to the fractional first coupon period. The first discount exponent is based on the fraction of the current coupon period remaining from settlement to the next coupon date.
+
+## 4. Schedule Table Conventions
 
 DerivaPro uses compact schedule strings for first-wave review.
 
@@ -41,7 +77,7 @@ YYYY-MM-DD:coupon_rate, YYYY-MM-DD:coupon_rate, ...
 Example:
 
 ```text
-2026-08-13:0.045, 2029-08-13:0.055
+2026-06-20:0.050, 2031-06-20:0.060
 ```
 
 The latest effective coupon rate on or before a payment date is applied. If no schedule entry applies, the base coupon rate is used.
@@ -55,46 +91,51 @@ YYYY-MM-DD:pct_original_notional, YYYY-MM-DD:pct_original_notional, ...
 Example:
 
 ```text
-2029-08-13:0.20, 2030-08-13:0.20, 2031-08-13:0.20
+2029-06-20:0.20, 2030-06-20:0.20, 2031-06-20:0.20
 ```
 
 Each percentage is interpreted as a reduction of original notional, not current outstanding balance.
 
-## 4. Cash-Flow Generation
+## 5. Cash-Flow Generation
 
 Let:
 
-```text
-N_0       = original notional
-N_i       = opening outstanding notional for period i
-c_i       = effective coupon rate for period i
-alpha_i   = day-count accrual factor
-S_i       = scheduled principal reduction during period i
-DF_i      = discount factor to payment date i
-```
+\[
+\begin{aligned}
+N_0 &= \text{original notional},\\
+N_i &= \text{opening outstanding notional for period } i,\\
+c_i &= \text{effective coupon rate for period } i,\\
+\alpha_i &= \text{coupon accrual factor},\\
+S_i &= \text{scheduled principal reduction during period } i,\\
+DF_i &= \text{discount factor to payment date } i.
+\end{aligned}
+\]
 
 Coupon cash flow:
 
-```text
-Coupon_i = N_i * c_i * alpha_i
-```
+\[
+\text{Coupon}_i = N_i c_i \alpha_i
+\]
 
 Principal cash flow depends on the selected amortization style.
 
 ### Bullet
 
-```text
-Principal_i = 0       for i < maturity
-Principal_T = N_0     at maturity
-```
+\[
+\text{Principal}_i =
+\begin{cases}
+0, & i<T,\\
+N_0, & i=T.
+\end{cases}
+\]
 
 ### Straight-Line Amortization
 
-If there are `M` payment dates:
+If there are \(M\) payment dates:
 
-```text
-Principal_i = N_0 / M
-```
+\[
+\text{Principal}_i = \frac{N_0}{M}
+\]
 
 The final period is adjusted to avoid over- or under-amortization due to rounding or schedule truncation.
 
@@ -102,75 +143,142 @@ The final period is adjusted to avoid over- or under-amortization due to roundin
 
 For explicit sinking events:
 
-```text
-Principal_i = sum_j scheduled_pct_j * N_0
-```
+\[
+\text{Principal}_i = \sum_{j \in i} p_j N_0
+\]
 
-where event `j` falls inside payment period `i`. Outstanding balance evolves as:
+where event \(j\) falls inside payment period \(i\). Outstanding balance evolves as:
 
-```text
-N_{i+1} = N_i - Principal_i
-```
+\[
+N_{i+1}=N_i-\text{Principal}_i
+\]
 
 The total period cash flow is:
 
-```text
-CF_i = Coupon_i + Principal_i
-```
+\[
+CF_i=\text{Coupon}_i+\text{Principal}_i+\text{FixedPayment}_i
+\]
 
-## 5. Present Value and Yield
+## 6. Present Value, Yield, and Clean Price
 
-The present value is:
+The dirty present value is:
 
-```text
-PV = sum_i CF_i * DF_i
-```
+\[
+PV_{\text{dirty}}=\sum_i CF_i DF_i
+\]
+
+For curve-based pricing:
+
+\[
+DF_i = P(0,t_i)
+\]
+
+For yield-based benchmarking with coupon frequency \(m\), yield \(y\), and first coupon fraction \(w\):
+
+\[
+DF_i=\left(1+\frac{y}{m}\right)^{-(i-1+w)}
+\]
+
+where:
+
+\[
+w=\frac{\text{days from settlement to next coupon date}}{\text{days in current coupon period}}
+\]
+
+Accrued interest for an Actual/Actual ISMA-style period is:
+
+\[
+AI=N_{\text{current}}\frac{c}{m}
+\frac{\text{days from previous coupon date to settlement}}{\text{days from previous coupon date to next coupon date}}
+\]
+
+Clean value is:
+
+\[
+PV_{\text{clean}}=PV_{\text{dirty}}-AI
+\]
 
 The model price is:
 
-```text
-Model price pct = PV / N_0 * 100
-```
+\[
+\text{Model price percent}=\frac{PV_{\text{clean}}}{N_0}\times 100
+\]
 
-Yield to maturity is solved against the supplied market clean-price reference:
+For curve-mode diagnostics, yield to maturity is solved against the supplied market clean-price reference:
 
-```text
-Market price = sum_i CF_i / (1 + y)^(tau_i)
-```
+\[
+\text{Market price}=\sum_i\frac{CF_i}{(1+y)^{\tau_i}}
+\]
 
 Because amortizing and sinking structures return principal over time, their yield, weighted-average life, duration, and convexity can differ substantially from a bullet bond with the same final maturity.
 
-## 6. Risk Measures
+## 7. Risk Measures
 
 The page currently reports:
 
-- Model PV.
-- Model price.
+- Fair value clean price.
+- Accrued interest.
+- Fair value plus accrued interest.
 - Yield to maturity.
-- Present-value weighted duration.
-- Convexity proxy.
-- DV01.
+- Macaulay duration.
+- Modified duration.
+- Modified convexity.
+- BPV / price change for a +1bp yield move.
 - Parallel rate-shock scenario PV.
 - Period-level coupon, principal, outstanding balance, discount factor, and PV diagnostics.
 
+For yield-based benchmarking:
+
+\[
+D_{\text{Mac}}=
+\frac{\sum_i \left(\frac{i-1+w}{m}\right)PV_i}{\sum_i PV_i}
+\]
+
+\[
+D_{\text{Mod}}=\frac{D_{\text{Mac}}}{1+y/m}
+\]
+
+\[
+C_{\text{Mod}}=
+\frac{1}{PV_{\text{dirty}}}
+\sum_i
+\frac{CF_i(i-1+w)(i+w)}
+{m^2(1+y/m)^{i+1+w}}
+\]
+
 For amortizing bonds, risk is distributed across the principal repayment schedule. Principal that returns earlier reduces weighted-average life and duration.
 
-## 7. Assumptions in the Current Implementation
+## 8. Benchmark Results
+
+With the external calculator benchmark terms above, DerivaPro reproduces the following reference outputs:
+
+| Case | Principal behavior | Clean value | Accrued interest | Dirty value | Duration | Modified duration | Modified convexity |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A | Bullet principal paid at maturity | 902,702.15 | 9,699.45 | 912,401.60 | 10.2737 | 9.9745 | 129.8359 |
+| B | Straight-line principal amortization over 30 periods | 943,393.01 | 9,699.45 | 953,092.46 | 5.8385 | 5.6684 | 50.7291 |
+
+The straight-line amortizing case repays \(1{,}000{,}000/30=33{,}333.33\) principal per semiannual period, with the final period adjusted for rounding.
+
+## 9. Assumptions in the Current Implementation
 
 - Coupon schedule entries are effective-date based.
+- In the editable payment table, opening notional is derived from original face value and previous principal payments.
+- User-entered principal payments are the source of truth for the outstanding-balance roll-forward.
+- The final payment date redeems remaining outstanding principal after previous amortization or sinking payments.
 - Sinking schedule entries are aligned into payment periods by event date.
 - Sinking percentages are percentages of original notional.
 - Principal payments are capped at remaining outstanding balance.
 - The final payment is adjusted so remaining outstanding principal is fully repaid for amortizing and sinking structures.
-- Accrued interest, clean/dirty decomposition, holiday calendars, and business-day adjustment are simplified.
+- Accrued interest and clean/dirty price are supported for the benchmark workflow.
+- Business-day adjustment, ex-dividend handling, and holiday calendars remain simplified.
 - Payment-in-kind and accreting-notional treatment are not yet implemented.
 - Call/put optionality is handled on the callable/putable bond page, not here.
 
-## 8. Alternative Methodologies
+## 10. Alternative Methodologies
 
 ### Full Generic Bond Table Engine
 
-A more complete implementation would allow separate tables for coupon rates, notional amounts, sinking fund amounts, PIK/accretion amounts, fixed payments, and custom cash-flow overrides. The engine would then generate a reconciled cash-flow table from these components.
+A more complete implementation would allow separate tables for coupon rates, notional amounts, sinking fund amounts, payment-in-kind/accretion amounts, fixed payments, and custom cash-flow overrides. The engine would then generate a reconciled cash-flow table from these components.
 
 ### Amortization Schedule Import
 
@@ -180,17 +288,17 @@ For real-world loans, project bonds, and private credit instruments, amortizatio
 
 Credit-sensitive amortizing bonds should support discounting on:
 
-```text
-DF_spread(t) = exp(-(z(t) + s(t)) * t)
-```
+\[
+DF_{\text{spread}}(t)=\exp\left(-(z(t)+s(t))t\right)
+\]
 
-where `s(t)` may be a flat z-spread or a term structure of credit spreads.
+where \(s(t)\) may be a flat z-spread or a term structure of credit spreads.
 
 ### Prepayment or Extension Risk
 
 Some amortizing assets include borrower optionality or prepayment behavior. Those require stochastic or scenario-based prepayment models and should not be priced as deterministic bonds.
 
-## 9. Validation Plan
+## 11. Validation Plan
 
 Recommended validation:
 
@@ -200,25 +308,30 @@ Recommended validation:
 4. Increasing coupon schedule should increase PV relative to a flat lower coupon.
 5. Earlier principal reduction should reduce duration.
 6. Scenario PV should decrease under positive rate shocks for ordinary positive cash-flow bonds.
-7. Cash-flow table totals should reconcile to model PV.
+7. Cash-flow table totals should reconcile to dirty value before accrued interest.
+8. Price-from-yield mode should reproduce the external calculator bullet and straight-line amortizing benchmark cases.
 
-## 10. Current DerivaPro Status
+## 12. Current DerivaPro Status
 
 Implemented now:
 
 - Coupon schedule parsing.
 - Sinking schedule parsing.
 - Bullet, straight-line, and explicit sinking principal logic.
+- Settlement / dated / first coupon / last coupon inputs.
+- Price-from-yield benchmarking.
+- Clean and dirty value decomposition.
+- Actual/Actual ISMA-style accrued interest for regular coupon periods.
 - Curve discounting.
 - Yield solve.
-- Duration, convexity, DV01.
+- Duration, convexity, BPV.
 - Parallel rate scenarios.
 
 Planned:
 
 - Rich editable schedule table.
 - CSV import/export.
-- PIK/accreting notional.
+- Payment-in-kind/accreting notional.
 - Odd coupon periods.
-- Clean/dirty price and accrued interest.
+- Business-day adjustment and ex-dividend convention controls.
 - Key-rate duration and spread measures.
