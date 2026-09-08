@@ -17,6 +17,7 @@ This folder contains product-level methodology notes for DerivaPro pricing and a
 | Forward rate agreement | [Forward Rate Agreement Methodology](forward_rate_agreement.md) |
 | Interest rate cap / floor | [Cap / Floor Methodology](cap_floor.md) |
 | Callable / putable bond | [Callable / Putable Bond Methodology](callable_putable_bond.md) |
+| Callable amortizing bond | [Callable Amortizing Bond Methodology](callable_amortizing_bond.md) |
 | Level coupon bond | [Level Coupon Bond Methodology](level_coupon_bond.md) |
 | Structured amortizing bonds | [Structured Amortizing Bonds Methodology](amortizing_stepup_sinking_bond.md) |
 | Custom structured bond | [Custom Structured Bond Methodology](custom_structured_bond.md) |

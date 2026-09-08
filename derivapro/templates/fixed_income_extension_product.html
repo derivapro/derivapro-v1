@@ -20,16 +20,16 @@
 ) }}
 
 {% call product.section("Pricing", "Enter trade terms and curve assumptions, then run valuation.") %}
-<form method="post" class="european-pricing-form product-standard-form">
+<form method="post" class="european-pricing-form product-standard-form{% if product_slug == 'callable-amortizing-bond' %} callable-amortizing-form{% endif %}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     {% for section in field_sections %}
     <div class="pricing-form-block">
         <div class="pricing-form-heading">
-            <span aria-hidden="true">{% if loop.index == 1 %}T{% else %}C{% endif %}</span>
+            <span aria-hidden="true">{{ section.icon if section.icon is defined else ("T" if loop.index == 1 else "C") }}</span>
             <div>
                 <strong>{{ section.title }}</strong>
-                <p>{% if loop.index == 1 %}Review contract economics and product conventions.{% else %}Review zero-rate curve assumptions used for projection and discounting.{% endif %}</p>
+                <p>{{ section.description if section.description is defined else ("Review contract economics and product conventions." if loop.index == 1 else "Review zero-rate curve assumptions used for projection and discounting.") }}</p>
             </div>
         </div>
 
@@ -38,7 +38,7 @@
             {% if field.type == "hidden" %}
             <input type="hidden" id="{{ field.name }}" name="{{ field.name }}" value="{{ field.value }}">
             {% else %}
-            <div class="form-group {% if field.type == 'textarea' or 'schedule' in field.name or field.name.endswith('_rates') or field.name.endswith('_tenors') %}full-width{% endif %}">
+            <div class="form-group field-{{ field.name }} {% if field.type == 'textarea' or 'schedule' in field.name or field.name.endswith('_rates') or field.name.endswith('_tenors') %}full-width{% endif %}">
                 <label for="{{ field.name }}">{{ field.label }}</label>
                 {% if field.type == "select" %}
                 <select id="{{ field.name }}" name="{{ field.name }}">
@@ -49,7 +49,7 @@
                 {% elif field.type == "textarea" %}
                 <textarea id="{{ field.name }}" name="{{ field.name }}" rows="3" required>{{ field.value }}</textarea>
                 {% else %}
-                <input type="{{ field.type }}" id="{{ field.name }}" name="{{ field.name }}" step="{{ field.step }}" value="{{ field.value }}" required>
+                <input type="{{ field.type }}" id="{{ field.name }}" name="{{ field.name }}" step="{{ field.step }}" value="{{ field.value }}" {% if not field.optional|default(false) %}required{% endif %}>
                 {% endif %}
                 {% if field.hint %}<div class="field-hint">{{ field.hint }}</div>{% endif %}
             </div>
@@ -59,27 +59,137 @@
     </div>
     {% endfor %}
 
-    {% if product_slug == "amortizing-stepup-sinking-bond" %}
+    {% if product_slug == "callable-amortizing-bond" %}
+    <div class="pricing-form-block schedule-editor-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">C</span>
+            <div>
+                <strong>Discount Curve Tables</strong>
+                <p>Enter either dated discount factors for benchmark replication or zero-rate tenors for standard curve-based valuation.</p>
+            </div>
+        </div>
+        <div class="curve-table-panels">
+            <div class="curve-table-panel" id="discount-factor-curve-panel">
+                <div class="schedule-editor-toolbar">
+                    <button type="button" class="btn-secondary" id="add-discount-factor-row">Add Discount Factor Row</button>
+                    <p>Use grid dates and discount factors when matching a published benchmark curve.</p>
+                </div>
+                <div class="schedule-table-wrap compact-table-wrap">
+                    <table class="results-table payment-schedule-table curve-data-table" id="discount-factor-curve-table">
+                        <thead>
+                            <tr>
+                                <th>Grid Date</th>
+                                <th>Discount Factor</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in discount_factor_rows %}
+                            <tr>
+                                <td><input type="date" class="curve-date" value="{{ row.curve_date }}"></td>
+                                <td><input type="number" step="any" min="0" class="curve-discount-factor" value="{{ row.discount_factor }}"></td>
+                                <td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="curve-table-panel" id="zero-curve-panel">
+                <div class="schedule-editor-toolbar">
+                    <button type="button" class="btn-secondary" id="add-zero-curve-row">Add Zero Curve Row</button>
+                    <p>Use tenor and continuously compounded zero-rate pairs for ordinary curve entry.</p>
+                </div>
+                <div class="schedule-table-wrap compact-table-wrap">
+                    <table class="results-table payment-schedule-table curve-data-table" id="zero-curve-table">
+                        <thead>
+                            <tr>
+                                <th>Tenor (Years)</th>
+                                <th>Zero Rate</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in zero_curve_rows %}
+                            <tr>
+                                <td><input type="number" step="any" min="0" class="zero-curve-tenor" value="{{ row.tenor }}"></td>
+                                <td><input type="number" step="any" class="zero-curve-rate" value="{{ row.zero_rate }}"></td>
+                                <td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pricing-form-block schedule-editor-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">H</span>
+            <div>
+                <strong>Holiday Calendar</strong>
+                <p>Payment dates use these holidays and weekends when a business-day adjustment is selected.</p>
+            </div>
+        </div>
+        <div class="schedule-editor-toolbar">
+            <button type="button" class="btn-secondary" id="add-holiday-row">Add Holiday Date</button>
+            <p>Holiday dates are calendar conventions, not curve assumptions. They are separated from the discount curve intentionally.</p>
+        </div>
+        <div class="schedule-table-wrap compact-table-wrap">
+            <table class="results-table payment-schedule-table curve-data-table" id="holiday-date-table">
+                <thead>
+                    <tr>
+                        <th>Holiday Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in holiday_rows %}
+                    <tr>
+                        <td><input type="date" class="holiday-date" value="{{ row.holiday_date }}"></td>
+                        <td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if product_slug in ["amortizing-stepup-sinking-bond", "callable-amortizing-bond"] %}
     <div class="pricing-form-block schedule-editor-block">
         <div class="pricing-form-heading">
             <span aria-hidden="true">S</span>
             <div>
                 <strong>Coupon Payment Schedule</strong>
+                {% if product_slug == "callable-amortizing-bond" %}
+                <p id="coupon-table-description">In terms mode, each row applies through its cutoff date. Fixed principal is paid on the last generated coupon covered by that row. In explicit mode, each row is one payment.</p>
+                {% else %}
                 <p>Edit contractual payment dates, coupon rates, and principal payments. Opening notional is calculated from the original face value and prior principal reductions.</p>
+                {% endif %}
             </div>
         </div>
         <div class="schedule-editor-toolbar">
             <button type="button" class="btn-secondary" id="rebuild-payment-schedule">Rebuild from Terms</button>
+            {% if product_slug == "callable-amortizing-bond" %}
+            <p>Fixed payments reduce the next row's notional. Generated cashflows and discount factors appear after valuation.</p>
+            {% else %}
             <p>Use the table for bullet bonds, straight-line amortization, or custom sinking schedules. The notional column rolls forward automatically; coupon rates can be entered as decimals or percentages.</p>
+            {% endif %}
         </div>
         <div class="schedule-table-wrap">
             <table class="results-table payment-schedule-table" id="payment-schedule-table">
                 <thead>
                     <tr>
-                        <th>Payment Date</th>
+                        <th id="coupon-date-heading">{% if product_slug == "callable-amortizing-bond" %}Terms Cutoff / Payment Date{% else %}Payment Date{% endif %}</th>
                         <th>Opening Notional Amount</th>
                         <th>Coupon</th>
+                        {% if product_slug != "callable-amortizing-bond" %}
                         <th>Principal Payment Amount</th>
+                        {% endif %}
+                        <th>Fixed Payment Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -88,7 +198,53 @@
                         <td><input type="date" class="schedule-date" value="{{ row.payment_date }}"></td>
                         <td><input type="number" step="any" min="0" class="schedule-notional" value="{{ row.opening_notional }}" readonly aria-readonly="true" tabindex="-1"></td>
                         <td><input type="number" step="any" class="schedule-coupon" value="{{ row.coupon_rate }}"></td>
+                        {% if product_slug == "callable-amortizing-bond" %}
+                        <td>
+                            <input type="hidden" class="schedule-principal" value="{{ row.principal }}">
+                            <input type="number" step="any" class="schedule-fixed-payment" value="{{ row.fixed_payment|default('0') }}">
+                        </td>
+                        {% else %}
                         <td><input type="number" step="any" min="0" class="schedule-principal" value="{{ row.principal }}" {% if loop.last %}readonly aria-readonly="true" tabindex="-1"{% endif %}></td>
+                        <td><input type="number" step="any" class="schedule-fixed-payment" value="{{ row.fixed_payment|default('0') }}"></td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if product_slug == "callable-amortizing-bond" %}
+    <div class="pricing-form-block schedule-editor-block">
+        <div class="pricing-form-heading">
+            <span aria-hidden="true">E</span>
+            <div>
+                <strong>Exercise Schedule</strong>
+                <p>Define call and put windows separately from the payment schedule. For Bermudan exercise, the end date is treated as the exercise date; for American approximation, the model tests each lattice date inside the window.</p>
+            </div>
+        </div>
+        <div class="schedule-editor-toolbar">
+            <button type="button" class="btn-secondary" id="rebuild-exercise-schedule">Rebuild from Exercise Terms</button>
+            <p>Exercise prices are percentages of outstanding principal. The benchmark screenshot obscures three exercise end dates; the prefilled dates remain provisional until those dates are confirmed.</p>
+        </div>
+        <div class="schedule-table-wrap">
+            <table class="results-table payment-schedule-table exercise-schedule-table" id="exercise-schedule-table">
+                <thead>
+                    <tr>
+                        <th>Exercise Start Date</th>
+                        <th>Exercise End Date</th>
+                        <th>Call Price (% Outstanding)</th>
+                        <th>Put Price (% Outstanding)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in exercise_rows %}
+                    <tr>
+                        <td><input type="date" class="exercise-start-date" value="{{ row.start_date }}"></td>
+                        <td><input type="date" class="exercise-end-date" value="{{ row.end_date }}"></td>
+                        <td><input type="number" step="any" min="0" class="exercise-call-price" value="{{ row.call_price_pct }}"></td>
+                        <td><input type="number" step="any" min="0" class="exercise-put-price" value="{{ row.put_price_pct }}"></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -122,6 +278,46 @@
         <span>Pricing Summary</span>
         <p>{{ results.summary }}</p>
     </div>
+    {% if results.benchmark_metrics %}
+    <div class="results-table-wrap">
+        <table class="results-table compact-results-table">
+            <thead>
+                <tr>
+                    <th>Benchmark Field</th>
+                    <th>DerivaPro Output</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for metric in results.benchmark_metrics %}
+                <tr>
+                    <td>{{ metric.label }}</td>
+                    <td>
+                        {% if metric.value is number %}
+                            {% if "Probability" in metric.label %}
+                            {{ "{:.6f}".format(metric.value) }}
+                            {% elif metric.label == "OAS" %}
+                            {{ "{:,.4f} bp".format(metric.value) if metric.value is not none else "n/a" }}
+                            {% elif "Fit Error" in metric.label %}
+                            {{ "{:.3e}".format(metric.value) }}
+                            {% elif "Years" in metric.label or "Duration" in metric.label or "Convexity" in metric.label %}
+                            {{ "{:,.6f}".format(metric.value) }}
+                            {% elif "Steps" in metric.label or "Days" in metric.label %}
+                            {{ "{:,.0f}".format(metric.value) }}
+                            {% else %}
+                            {{ "${:,.6f}".format(metric.value) }}
+                            {% endif %}
+                        {% elif metric.value is none %}
+                        n/a
+                        {% else %}
+                        {{ metric.value }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 </div>
 {% else %}
 <div class="empty-state-panel">
@@ -216,6 +412,35 @@
     </table>
 </div>
 {% endif %}
+
+{% if results.yield_diagnostics %}
+<div class="results-table-wrap">
+    <table class="results-table compact-results-table">
+        <thead>
+            <tr>
+                {% for key in results.yield_diagnostics[0].keys() %}
+                <th>{{ key.replace("_", " ").title() }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in results.yield_diagnostics %}
+            <tr>
+                {% for value in row.values() %}
+                <td>
+                    {% if value is number %}
+                    {{ "{:,.6f}".format(value) }}
+                    {% else %}
+                    {{ value }}
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% else %}
 <div class="available-analysis-grid">
     <article class="analysis-availability-card">
@@ -268,13 +493,27 @@
     download_url=url_for('product_reports.download', product_key=product_slug)
 ) }}
 
-{% if product_slug == "amortizing-stepup-sinking-bond" %}
+{% if product_slug in ["amortizing-stepup-sinking-bond", "callable-amortizing-bond"] %}
 <script>
 (() => {
     const form = document.querySelector(".product-standard-form");
     const table = document.getElementById("payment-schedule-table");
     const scheduleInput = document.getElementById("cashflow_schedule");
     const rebuildButton = document.getElementById("rebuild-payment-schedule");
+    const exerciseTable = document.getElementById("exercise-schedule-table");
+    const exerciseScheduleInput = document.getElementById("exercise_schedule");
+    const rebuildExerciseButton = document.getElementById("rebuild-exercise-schedule");
+    const curveMode = document.getElementById("discount_curve_input_type");
+    const discountFactorPanel = document.getElementById("discount-factor-curve-panel");
+    const zeroCurvePanel = document.getElementById("zero-curve-panel");
+    const discountFactorTable = document.getElementById("discount-factor-curve-table");
+    const zeroCurveTable = document.getElementById("zero-curve-table");
+    const holidayTable = document.getElementById("holiday-date-table");
+    const discountFactorInput = document.getElementById("discount_factor_curve");
+    const zeroTenorsInput = document.getElementById("discount_curve_tenors");
+    const zeroRatesInput = document.getElementById("discount_curve_rates");
+    const holidayDatesInput = document.getElementById("holiday_dates");
+    const fixedPaymentTreatment = document.getElementById("fixed_payment_treatment")?.value || "additional_cashflow";
     if (!form || !table || !scheduleInput) return;
 
     const parseNumber = (id, fallback = 0) => {
@@ -294,6 +533,44 @@
         const rounded = Math.abs(value) < 0.005 ? 0 : value;
         return rounded.toFixed(2);
     };
+    const appendRow = (tbody, html) => {
+        if (!tbody) return;
+        tbody.insertAdjacentHTML("beforeend", html);
+    };
+
+    const syncCurveTableVisibility = () => {
+        if (!curveMode || !discountFactorPanel || !zeroCurvePanel) return;
+        const useDiscountFactors = curveMode.value === "discount_factors";
+        discountFactorPanel.hidden = !useDiscountFactors;
+        zeroCurvePanel.hidden = useDiscountFactors;
+    };
+
+    const serializeCurveTables = () => {
+        if (discountFactorTable && discountFactorInput) {
+            const rows = [...discountFactorTable.querySelectorAll("tbody tr")].map((row) => {
+                const curveDate = row.querySelector(".curve-date")?.value || "";
+                const discountFactor = row.querySelector(".curve-discount-factor")?.value || "";
+                return curveDate && discountFactor ? `${curveDate}|${discountFactor}` : "";
+            }).filter(Boolean);
+            discountFactorInput.value = rows.join(";");
+        }
+        if (zeroCurveTable && zeroTenorsInput && zeroRatesInput) {
+            const rows = [...zeroCurveTable.querySelectorAll("tbody tr")].map((row) => ({
+                tenor: row.querySelector(".zero-curve-tenor")?.value || "",
+                rate: row.querySelector(".zero-curve-rate")?.value || "",
+            })).filter((row) => row.tenor && row.rate);
+            zeroTenorsInput.value = rows.map((row) => row.tenor).join(",");
+            zeroRatesInput.value = rows.map((row) => row.rate).join(",");
+        }
+    };
+
+    const serializeHolidayDates = () => {
+        if (!holidayTable || !holidayDatesInput) return;
+        const dates = [...holidayTable.querySelectorAll("tbody tr")].map((row) => (
+            row.querySelector(".holiday-date")?.value || ""
+        )).filter(Boolean);
+        holidayDatesInput.value = dates.join(";");
+    };
 
     const recalculateNotionals = () => {
         let outstanding = parseNumber("notional", 1000000);
@@ -301,6 +578,7 @@
         rows.forEach((row, index) => {
             const notionalInput = row.querySelector(".schedule-notional");
             const principalInput = row.querySelector(".schedule-principal");
+            const fixedPaymentInput = row.querySelector(".schedule-fixed-payment");
             if (notionalInput) {
                 notionalInput.value = formatAmount(outstanding);
             }
@@ -308,17 +586,31 @@
             if (!Number.isFinite(principal)) {
                 principal = 0;
             }
-            if (index === rows.length - 1) {
+            let fixedPayment = Number(fixedPaymentInput?.value || 0);
+            if (!Number.isFinite(fixedPayment)) {
+                fixedPayment = 0;
+            }
+            if (index === rows.length - 1 && fixedPaymentTreatment !== "principal_redemption") {
                 principal = outstanding;
                 principalInput?.setAttribute("readonly", "true");
                 principalInput?.setAttribute("aria-readonly", "true");
                 principalInput?.setAttribute("tabindex", "-1");
+            } else if (index === rows.length - 1 && fixedPaymentTreatment === "principal_redemption") {
+                fixedPayment = outstanding;
+                fixedPaymentInput?.setAttribute("readonly", "true");
+                fixedPaymentInput?.setAttribute("aria-readonly", "true");
+                fixedPaymentInput?.setAttribute("tabindex", "-1");
             }
             principal = Math.max(0, Math.min(principal, Math.max(outstanding, 0)));
             if (principalInput && Number(principalInput.value) !== principal) {
                 principalInput.value = formatAmount(principal);
             }
-            outstanding -= principal;
+            fixedPayment = Math.max(0, Math.min(fixedPayment, Math.max(outstanding, 0)));
+            if (fixedPaymentInput && Number(fixedPaymentInput.value) !== fixedPayment) {
+                fixedPaymentInput.value = formatAmount(fixedPayment);
+            }
+            const notionalReduction = fixedPaymentTreatment === "principal_redemption" ? fixedPayment : principal;
+            outstanding -= notionalReduction;
         });
     };
 
@@ -329,9 +621,22 @@
             const notional = row.querySelector(".schedule-notional")?.value || "0";
             const coupon = row.querySelector(".schedule-coupon")?.value || "0";
             const principal = row.querySelector(".schedule-principal")?.value || "0";
-            return `${date}|${notional}|${coupon}|${principal}`;
+            const fixedPayment = row.querySelector(".schedule-fixed-payment")?.value || "0";
+            return `${date}|${notional}|${coupon}|${principal}|${fixedPayment}`;
         }).filter((line) => !line.startsWith("|"));
         scheduleInput.value = rows.join(";");
+    };
+
+    const serializeExerciseSchedule = () => {
+        if (!exerciseTable || !exerciseScheduleInput) return;
+        const rows = [...exerciseTable.querySelectorAll("tbody tr")].map((row) => {
+            const startDate = row.querySelector(".exercise-start-date")?.value || "";
+            const endDate = row.querySelector(".exercise-end-date")?.value || "";
+            const callPrice = row.querySelector(".exercise-call-price")?.value || "0";
+            const putPrice = row.querySelector(".exercise-put-price")?.value || "0";
+            return `${startDate}|${endDate}|${callPrice}|${putPrice}`;
+        }).filter((line) => !line.startsWith("|"));
+        exerciseScheduleInput.value = rows.join(";");
     };
 
     const rebuildSchedule = () => {
@@ -341,15 +646,26 @@
         const notional = parseNumber("notional", 1000000);
         const couponRate = parseNumber("coupon_rate", 0.05);
         const style = document.getElementById("amortization_style")?.value || "straight_line";
-        if (!firstCouponRaw || !maturityRaw) return;
+        if (!maturityRaw || style === "sinking_schedule") return;
 
         const months = Math.floor(12 / paymentsPerYear);
         const maturity = new Date(`${maturityRaw}T00:00:00Z`);
-        let current = new Date(`${firstCouponRaw}T00:00:00Z`);
         const dates = [];
-        while (current < maturity) {
-            dates.push(new Date(current));
-            current = addMonths(current, months);
+        if (firstCouponRaw) {
+            let current = new Date(`${firstCouponRaw}T00:00:00Z`);
+            while (current < maturity) {
+                dates.push(new Date(current));
+                current = addMonths(current, months);
+            }
+        } else {
+            const startRaw = document.getElementById("effective_date")?.value || document.getElementById("dated_date")?.value;
+            if (!startRaw) return;
+            const start = new Date(`${startRaw}T00:00:00Z`);
+            for (let offset = months; ; offset += months) {
+                const current = addMonths(maturity, -offset);
+                if (current <= start) break;
+                dates.unshift(current);
+            }
         }
         if (!dates.length || isoDate(dates[dates.length - 1]) !== maturityRaw) {
             dates.push(maturity);
@@ -369,7 +685,9 @@
                     <td><input type="date" class="schedule-date" value="${isoDate(date)}"></td>
                     <td><input type="number" step="any" min="0" class="schedule-notional" value="${formatAmount(outstanding)}" readonly aria-readonly="true" tabindex="-1"></td>
                     <td><input type="number" step="any" class="schedule-coupon" value="${couponRate.toFixed(4)}"></td>
-                    <td><input type="number" step="any" min="0" class="schedule-principal" value="${formatAmount(principal)}" ${index === dates.length - 1 ? 'readonly aria-readonly="true" tabindex="-1"' : ""}></td>
+                    ${fixedPaymentTreatment === "principal_redemption"
+                        ? `<td><input type="hidden" class="schedule-principal" value="0.00"><input type="number" step="any" class="schedule-fixed-payment" value="${formatAmount(principal)}" ${index === dates.length - 1 ? 'readonly aria-readonly="true" tabindex="-1"' : ""}></td>`
+                        : `<td><input type="number" step="any" min="0" class="schedule-principal" value="${formatAmount(principal)}" ${index === dates.length - 1 ? 'readonly aria-readonly="true" tabindex="-1"' : ""}></td><td><input type="number" step="any" class="schedule-fixed-payment" value="0.00"></td>`}
                 </tr>
             `;
             outstanding -= principal;
@@ -379,19 +697,159 @@
         serializeSchedule();
     };
 
+    const rebuildExerciseSchedule = () => {
+        if (!exerciseTable || !exerciseScheduleInput) return;
+        const valuationRaw = document.getElementById("valuation_date")?.value;
+        const firstExerciseRaw = document.getElementById("first_exercise_date")?.value;
+        const maturityRaw = document.getElementById("maturity_date")?.value;
+        const exerciseStyle = document.getElementById("exercise_style")?.value || "bermudan";
+        const optionRights = document.getElementById("option_rights")?.value || "callable";
+        const defaultPrice = parseNumber("exercise_price_pct", 100);
+        if (!valuationRaw || !firstExerciseRaw || !maturityRaw) return;
+
+        const firstExercise = new Date(`${firstExerciseRaw}T00:00:00Z`);
+        const maturity = new Date(`${maturityRaw}T00:00:00Z`);
+        let previousDate = new Date(`${valuationRaw}T00:00:00Z`);
+        const rows = [...table.querySelectorAll("tbody tr")].map((paymentRow) => {
+            const paymentRaw = paymentRow.querySelector(".schedule-date")?.value;
+            if (!paymentRaw) return "";
+            const paymentDate = new Date(`${paymentRaw}T00:00:00Z`);
+            if (paymentDate < firstExercise || paymentDate >= maturity) {
+                previousDate = paymentDate;
+                return "";
+            }
+            const startDate = exerciseStyle === "bermudan" ? paymentDate : (previousDate > firstExercise ? previousDate : firstExercise);
+            previousDate = paymentDate;
+            const callPrice = optionRights === "callable" || optionRights === "callable_putable" ? defaultPrice.toFixed(2) : "0.00";
+            const putPrice = optionRights === "putable" || optionRights === "callable_putable" ? defaultPrice.toFixed(2) : "0.00";
+            return `
+                <tr>
+                    <td><input type="date" class="exercise-start-date" value="${isoDate(startDate)}"></td>
+                    <td><input type="date" class="exercise-end-date" value="${paymentRaw}"></td>
+                    <td><input type="number" step="any" min="0" class="exercise-call-price" value="${callPrice}"></td>
+                    <td><input type="number" step="any" min="0" class="exercise-put-price" value="${putPrice}"></td>
+                </tr>
+            `;
+        }).filter(Boolean);
+        exerciseTable.querySelector("tbody").innerHTML = rows.join("");
+        serializeExerciseSchedule();
+    };
+
     table.addEventListener("input", (event) => {
         if (event.target?.classList?.contains("schedule-principal")) {
             recalculateNotionals();
         }
         serializeSchedule();
     });
+    exerciseTable?.addEventListener("input", serializeExerciseSchedule);
     document.getElementById("notional")?.addEventListener("input", () => {
         recalculateNotionals();
         serializeSchedule();
     });
+    document.getElementById("add-discount-factor-row")?.addEventListener("click", () => {
+        appendRow(
+            discountFactorTable?.querySelector("tbody"),
+            `<tr>
+                <td><input type="date" class="curve-date"></td>
+                <td><input type="number" step="any" min="0" class="curve-discount-factor"></td>
+                <td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td>
+            </tr>`
+        );
+        serializeCurveTables();
+    });
+    document.getElementById("add-zero-curve-row")?.addEventListener("click", () => {
+        appendRow(
+            zeroCurveTable?.querySelector("tbody"),
+            `<tr>
+                <td><input type="number" step="any" min="0" class="zero-curve-tenor"></td>
+                <td><input type="number" step="any" class="zero-curve-rate"></td>
+                <td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td>
+            </tr>`
+        );
+        serializeCurveTables();
+    });
+    document.getElementById("add-holiday-row")?.addEventListener("click", () => {
+        appendRow(
+            holidayTable?.querySelector("tbody"),
+            `<tr>
+                <td><input type="date" class="holiday-date"></td>
+                <td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td>
+            </tr>`
+        );
+        serializeHolidayDates();
+    });
+    [discountFactorTable, zeroCurveTable].forEach((curveTable) => {
+        curveTable?.addEventListener("input", serializeCurveTables);
+        curveTable?.addEventListener("click", (event) => {
+            if (!event.target?.classList?.contains("remove-table-row")) return;
+            event.target.closest("tr")?.remove();
+            serializeCurveTables();
+        });
+    });
+    holidayTable?.addEventListener("input", serializeHolidayDates);
+    holidayTable?.addEventListener("click", (event) => {
+        if (!event.target?.classList?.contains("remove-table-row")) return;
+        event.target.closest("tr")?.remove();
+        serializeHolidayDates();
+    });
+    curveMode?.addEventListener("change", () => {
+        syncCurveTableVisibility();
+        serializeCurveTables();
+    });
+    const syncScheduleControls = () => {
+        const source = document.getElementById("schedule_mode")?.value || "explicit";
+        const style = document.getElementById("amortization_style");
+        const generated = source.startsWith("generated_");
+        if (style) {
+            style.value = source === "generated_bullet" ? "bullet" : source === "generated_straight_line" ? "straight_line" : "sinking_schedule";
+        }
+        if (rebuildButton && document.getElementById("schedule_mode")) {
+            rebuildButton.disabled = !generated;
+            rebuildButton.hidden = !generated;
+            rebuildButton.title = generated ? "Rebuild coupon rows from instrument terms" : "The selected table is edited directly";
+        }
+        const heading = document.getElementById("coupon-date-heading");
+        if (heading) heading.textContent = source === "period_terms" ? "Terms Apply Through" : "Payment Date";
+        document.querySelector(".field-coupon_rate")?.toggleAttribute("hidden", !generated);
+    };
+    const syncExerciseControls = () => {
+        const generated = document.getElementById("exercise_schedule_source")?.value === "generated";
+        document.querySelector(".field-first_exercise_date")?.toggleAttribute("hidden", !generated);
+        document.querySelector(".field-exercise_price_pct")?.toggleAttribute("hidden", !generated);
+        if (rebuildExerciseButton) {
+            rebuildExerciseButton.disabled = !generated;
+            rebuildExerciseButton.hidden = !generated;
+            rebuildExerciseButton.title = generated ? "Rebuild exercise rows from coupon dates" : "The editable exercise table is the source of truth";
+        }
+    };
+    document.getElementById("schedule_mode")?.addEventListener("change", () => {
+        syncScheduleControls();
+        if (document.getElementById("schedule_mode")?.value.startsWith("generated_")) rebuildSchedule();
+    });
+    document.getElementById("exercise_schedule_source")?.addEventListener("change", () => {
+        syncExerciseControls();
+        if (document.getElementById("exercise_schedule_source")?.value === "generated") rebuildExerciseSchedule();
+    });
+    ["option_rights", "exercise_style", "first_exercise_date", "exercise_price_pct"].forEach((id) => {
+        document.getElementById(id)?.addEventListener("change", () => {
+            if (document.getElementById("exercise_schedule_source")?.value === "generated") rebuildExerciseSchedule();
+        });
+    });
     rebuildButton?.addEventListener("click", rebuildSchedule);
-    form.addEventListener("submit", serializeSchedule);
+    rebuildExerciseButton?.addEventListener("click", rebuildExerciseSchedule);
+    form.addEventListener("submit", () => {
+        serializeSchedule();
+        serializeExerciseSchedule();
+        serializeCurveTables();
+        serializeHolidayDates();
+    });
     serializeSchedule();
+    serializeExerciseSchedule();
+    serializeCurveTables();
+    serializeHolidayDates();
+    syncCurveTableVisibility();
+    syncScheduleControls();
+    syncExerciseControls();
 })();
 </script>
 {% endif %}

@@ -135,6 +135,10 @@ a:hover {
     display: none !important;
 }
 
+[hidden] {
+    display: none !important;
+}
+
 /* ===== Top Bar ===== */
 .top-bar {
     display: flex;
@@ -2504,10 +2508,40 @@ html[data-theme="dark"] .validation-summary {
     background: var(--dp-surface);
 }
 
+.compact-table-wrap {
+    max-height: 360px;
+}
+
 .payment-schedule-table {
-    min-width: 920px;
+    min-width: 1120px;
     margin: 0;
     border: 0;
+}
+
+.curve-data-table {
+    min-width: 680px;
+}
+
+.curve-data-table th:last-child,
+.curve-data-table td:last-child {
+    width: 120px;
+    text-align: center;
+}
+
+.curve-table-panels {
+    display: grid;
+    gap: 16px;
+}
+
+.curve-table-panel[hidden] {
+    display: none;
+}
+
+.table-row-action {
+    min-height: 32px;
+    padding: 6px 12px;
+    font-size: 12px;
+    white-space: nowrap;
 }
 
 .payment-schedule-table thead th {
@@ -4666,4 +4700,122 @@ html[data-theme="dark"] .table-cell {
 
 html[data-theme="dark"] .results-table tr:nth-child(even) {
     background-color: var(--dp-table-stripe);
+}
+
+/* Callable bond workspace: dense, aligned controls without nested field cards. */
+.product-standard-form.callable-amortizing-form .compact-form-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+    width: 100%;
+    max-width: 1400px;
+    gap: 16px 18px;
+}
+
+.product-standard-form.callable-amortizing-form .form-group {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.product-standard-form.callable-amortizing-form .form-group > label {
+    display: flex;
+    align-items: flex-end;
+    min-height: 32px;
+}
+
+.product-standard-form.callable-amortizing-form .form-group > input,
+.product-standard-form.callable-amortizing-form .form-group > select {
+    box-sizing: border-box;
+    height: 42px;
+    min-height: 42px;
+    padding: 8px 10px;
+}
+
+.product-standard-form.callable-amortizing-form .field-hint {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.product-standard-form.callable-amortizing-form .form-group.field-schedule_mode,
+.product-standard-form.callable-amortizing-form .form-group.field-exercise_schedule_source,
+.product-standard-form.callable-amortizing-form .form-group.field-payments_per_year,
+.product-standard-form.callable-amortizing-form .form-group.field-day_count,
+.product-standard-form.callable-amortizing-form .form-group.field-business_day_convention,
+.product-standard-form.callable-amortizing-form .form-group.field-notification_days,
+.product-standard-form.callable-amortizing-form .form-group.field-discount_curve_input_type,
+.product-standard-form.callable-amortizing-form .form-group.field-interpolation_method {
+    grid-column: span 2;
+}
+
+.callable-amortizing-form .schedule-editor-toolbar {
+    justify-content: flex-start;
+    gap: 12px;
+}
+
+.callable-amortizing-form .schedule-editor-toolbar p {
+    flex: 1;
+    max-width: none;
+    text-align: left;
+}
+
+.callable-amortizing-form .compact-table-wrap {
+    max-height: 320px;
+}
+
+.callable-amortizing-form .payment-schedule-table {
+    min-width: 760px;
+}
+
+.callable-amortizing-form .exercise-schedule-table {
+    min-width: 900px;
+}
+
+.callable-amortizing-form .payment-schedule-table input {
+    box-sizing: border-box;
+    min-height: 36px;
+    height: 36px;
+}
+
+.callable-amortizing-form .payment-schedule-table input[readonly]::-webkit-inner-spin-button,
+.callable-amortizing-form .payment-schedule-table input[readonly]::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+}
+
+html[data-theme="dark"] .product-standard-form.callable-amortizing-form .form-group {
+    background: transparent;
+    border-color: transparent;
+}
+
+@media (max-width: 1100px) {
+    .product-standard-form.callable-amortizing-form .compact-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .product-standard-form.callable-amortizing-form .compact-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .product-standard-form.callable-amortizing-form .form-group.field-schedule_mode,
+    .product-standard-form.callable-amortizing-form .form-group.field-exercise_schedule_source,
+    .product-standard-form.callable-amortizing-form .form-group.field-payments_per_year,
+    .product-standard-form.callable-amortizing-form .form-group.field-day_count,
+    .product-standard-form.callable-amortizing-form .form-group.field-business_day_convention,
+    .product-standard-form.callable-amortizing-form .form-group.field-notification_days,
+    .product-standard-form.callable-amortizing-form .form-group.field-discount_curve_input_type,
+    .product-standard-form.callable-amortizing-form .form-group.field-interpolation_method {
+        grid-column: 1 / -1;
+    }
+
+    .callable-amortizing-form .schedule-editor-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
 }

@@ -17,17 +17,20 @@ from ..models.rates_fixed_income import (
     AssetSwapTerms,
     BondForwardTreasuryLockTerms,
     BondSeriesTerms,
+    CallableAmortizingBondTerms,
     CallableBondTerms,
     CapFloorTerms,
     FraTerms,
     GenericBondTerms,
     InflationLinkedBondTerms,
     LoanLeaseAnnuityTerms,
+    parse_discount_factor_curve,
     parse_curve,
     parse_date,
     price_asset_swap,
     price_bond_forward_treasury_lock,
     price_bond_series,
+    price_callable_amortizing_bond,
     price_callable_putable_bond,
     price_cap_floor,
     price_fra,
@@ -128,6 +131,144 @@ FIXED_INCOME_EXTENSION_CONFIGS = {
             {"name": "scenario_rate_shock_bp", "label": "Rate Shock (bp)", "type": "number", "step": "1", "value": "25"},
             {"name": "scenario_vol_shock", "label": "Vol Shock", "type": "number", "step": "0.001", "value": "0.05"},
         ],
+    },
+    "callable-amortizing-bond": {
+        "title": "Callable Amortizing Bond",
+        "subtitle": "Value callable or putable bonds with amortizing notionals, variable coupons, and scheduled exercise rights.",
+        "asset_class": "Fixed Income",
+        "methodology_doc": "callable_amortizing_bond",
+        "description_title": "A schedule-driven callable bond workspace for American and Bermudan exercise structures.",
+        "description_body": (
+            "Callable amortizing bonds combine contractual coupon/principal schedules with issuer call or investor put rights. "
+            "This workspace uses explicit payment and exercise schedules, then values the embedded optionality with a transparent "
+            "short-rate lattice and reports option-adjusted PV, OAS, effective duration, yield diagnostics, and exercise probabilities."
+        ),
+        "chips": ["Amortizing notional", "Step-up coupons", "Bermudan exercise", "American approximation", "OAS"],
+        "field_sections": [
+            {
+                "title": "Instrument Terms",
+                "description": "Define the contractual bond schedule, clean-price reference, and accrual convention.",
+                "icon": "T",
+                "fields": [
+                    {"name": "valuation_date", "label": "Settlement / Value Date", "type": "date", "value": "2019-09-24"},
+                    {"name": "effective_date", "label": "Effective Date", "type": "date", "value": "2019-09-24", "hint": "Contract effective date from the benchmark setup."},
+                    {"name": "dated_date", "label": "Dated Date / Accrual Start", "type": "date", "value": "2019-09-24", "hint": "The source leaves this optional field blank. Its contractual default is the effective date, shown explicitly here to avoid browser date placeholders."},
+                    {"name": "first_coupon_date", "label": "First Coupon Date", "type": "hidden", "value": ""},
+                    {"name": "last_coupon_date", "label": "Penultimate Coupon Date", "type": "hidden", "value": ""},
+                    {"name": "maturity_date", "label": "Maturity / Terminating Date", "type": "date", "value": "2024-09-24", "hint": "Contractual final payment date. Coupon terms cutoff dates may extend beyond this date."},
+                    {"name": "schedule_mode", "label": "Payment Schedule Source", "type": "select", "value": "period_terms", "options": [("period_terms", "Coupon Terms Table (Generate Payment Dates)"), ("explicit", "Explicit Payment Table"), ("generated_bullet", "Generated Bullet Schedule"), ("generated_straight_line", "Generated Straight-Line Amortization")], "hint": "The benchmark uses the coupon terms table. Each row applies through its cutoff while frequency and maturity generate the actual payment dates."},
+                    {"name": "notional", "label": "Original Face Value", "type": "number", "step": "any", "value": "100"},
+                    {"name": "coupon_rate", "label": "Base Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0500"},
+                    {"name": "market_clean_price_pct", "label": "OAS Target Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00", "hint": "Used only for OAS and yield diagnostics. It does not affect model fair value or embedded option value."},
+                    {
+                        "name": "payments_per_year",
+                        "label": "Coupon Frequency",
+                        "type": "select",
+                        "value": "2",
+                        "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+                    },
+                    {
+                        "name": "day_count",
+                        "label": "Accrual Method",
+                        "type": "select",
+                        "value": "30/360 ISDA",
+                        "options": [("ACT/ACT ISMA", "Actual/Actual (ISMA)"), ("30/360 ISDA", "30/360 ISDA"), ("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+                    },
+                    {"name": "amortization_style", "label": "Amortization Style", "type": "hidden", "value": "sinking_schedule"},
+                ],
+            },
+            {
+                "title": "Calendar & Conventions",
+                "description": "Capture date-adjustment and notification assumptions separately from discount-curve construction.",
+                "icon": "D",
+                "fields": [
+                    {
+                        "name": "business_day_convention",
+                        "label": "Business Day Convention",
+                        "type": "select",
+                        "value": "none",
+                        "options": [("none", "No Adjustment"), ("following", "Following"), ("modified_following", "Modified Following")],
+                        "hint": "Adjusts payment dates using weekends and the holiday table. Accrual dates remain contractual.",
+                    },
+                    {"name": "notification_days", "label": "Notification Days (Calendar)", "type": "number", "step": "1", "value": "30", "hint": "Exercise is decided this many calendar days before redemption. Cashflows during the notice period are retained."},
+                    {
+                        "name": "holiday_dates",
+                        "label": "Holiday Dates",
+                        "type": "hidden",
+                        "value": "2004-12-31;2008-02-13;2011-03-28;2014-05-10;2017-06-22;2020-08-04;2023-09-17;2026-10-30;2029-12-12",
+                    },
+                ],
+            },
+            {
+                "title": "Exercise & Model Configuration",
+                "description": "Choose exercise rights, exercise style, lattice granularity, and short-rate model assumptions.",
+                "icon": "M",
+                "fields": [
+                    {
+                        "name": "option_rights",
+                        "label": "Embedded Option Rights",
+                        "type": "select",
+                        "value": "callable",
+                        "options": [("callable", "Callable"), ("putable", "Putable"), ("callable_putable", "Callable + Putable")],
+                    },
+                    {
+                        "name": "exercise_style",
+                        "label": "Exercise Style",
+                        "type": "select",
+                        "value": "bermudan",
+                        "options": [("bermudan", "Bermudan (End Dates)"), ("american_grid", "American (Window Grid)")],
+                    },
+                    {"name": "exercise_schedule_source", "label": "Exercise Schedule Source", "type": "select", "value": "custom", "options": [("custom", "Editable Exercise Table"), ("generated", "Generate from Coupon Dates")], "hint": "The benchmark uses its supplied exercise table. Generator fields appear only when generation is selected."},
+                    {"name": "first_exercise_date", "label": "Generator First Exercise Date", "type": "date", "value": "2019-09-24"},
+                    {"name": "exercise_price_pct", "label": "Generator Exercise Price (% Outstanding)", "type": "number", "step": "0.01", "value": "100.00"},
+                    {
+                        "name": "short_rate_model",
+                        "label": "Short-Rate Model",
+                        "type": "select",
+                        "value": "hull_white",
+                        "options": [
+                            ("hull_white", "Hull-White 1F (Normal)"),
+                            ("black_karasinski", "Black-Karasinski 1F (Lognormal)"),
+                        ],
+                        "hint": "Curve-fitted trinomial tree. Model parameters are supplied rather than calibrated here.",
+                    },
+                    {"name": "short_rate_volatility_pct", "label": "Short-Rate Volatility (%)", "type": "number", "step": "0.01", "value": "20.00", "hint": "Benchmark: 20.00% (0.20 internally). Hull-White uses absolute instantaneous rate volatility; production inputs should be calibrated."},
+                    {"name": "short_rate_mean_reversion_pct", "label": "Mean Reversion (%)", "type": "number", "step": "0.01", "value": "0.50", "hint": "Benchmark input: 0.50%, equivalent to model parameter a = 0.005."},
+                    {"name": "lattice_steps_per_period", "label": "Tree Refinement / Steps per Coupon Period", "type": "number", "step": "1", "value": "5"},
+                    {
+                        "name": "tree_generation",
+                        "label": "Tree Generation",
+                        "type": "select",
+                        "value": "maturity",
+                        "options": [
+                            ("maturity", "To Instrument Maturity Date"),
+                            ("last_callable_date", "Truncated at Last Callable Date"),
+                        ],
+                    },
+                    {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "1"},
+                    {"name": "coupon_schedule", "label": "Coupon Schedule", "type": "hidden", "value": ""},
+                    {"name": "principal_schedule", "label": "Principal Schedule", "type": "hidden", "value": ""},
+                    {"name": "fixed_payment_schedule", "label": "Fixed Payment Schedule", "type": "hidden", "value": ""},
+                    {"name": "fixed_payment_treatment", "label": "Fixed Payment Treatment", "type": "hidden", "value": "principal_redemption"},
+                    {
+                        "name": "cashflow_schedule",
+                        "label": "Payment Schedule",
+                        "type": "hidden",
+                        "value": "2020-12-20|100|0.0500|0|0;2022-06-20|100|0.0550|0|20;2022-12-20|80|0.0550|0|0;2025-06-20|80|0.0550|0|80",
+                    },
+                    {
+                        "name": "exercise_schedule",
+                        "label": "Exercise Schedule",
+                        "type": "hidden",
+                        "value": "2019-09-24|2020-09-24|100|0;2020-09-24|2021-09-24|100|0;2021-09-24|2022-09-24|102|0;2022-09-24|2024-09-24|105|0",
+                    },
+                ],
+            },
+        ],
+        "curve_defaults": {
+            "discount_curve_input_type": "discount_factors",
+            "interpolation_method": "linear_discount",
+        },
     },
     "callable-putable-bond": {
         "title": "Callable / Putable Bond",
@@ -499,8 +640,19 @@ FIXED_INCOME_EXTENSION_CONFIGS = {
 
 
 CURVE_FIELD_DEFAULTS = {
+    "discount_curve_input_type": "zero_rates",
     "discount_curve_tenors": "0.25,0.5,1,2,3,5,7,10",
     "discount_curve_rates": "0.0400,0.0410,0.0420,0.0430,0.0440,0.0450,0.0460,0.0470",
+    "discount_factor_curve": (
+        "2019-09-24|1;2019-09-27|0.99959907;2019-10-01|0.99906474;2019-10-24|0.99599788;"
+        "2019-11-24|0.99187918;2019-12-24|0.98790956;2020-03-16|0.97714014;"
+        "2020-06-15|0.96532608;2020-09-21|0.95276295;2020-12-21|0.94124363;"
+        "2021-03-15|0.93073406;2021-06-21|0.91862120;2021-09-20|0.90751459;"
+        "2021-09-24|0.90702948;2022-09-24|0.86372214;2023-09-24|0.82259251;"
+        "2024-09-24|0.78342144;2025-09-24|0.74611566;2026-09-24|0.71049136;"
+        "2027-09-24|0.67665844;2028-09-24|0.64443661;2029-09-24|0.61374915;"
+        "2030-09-24|0.58444487"
+    ),
     "forward_curve_tenors": "0.25,0.5,1,2,3,5,7,10",
     "forward_curve_rates": "0.0410,0.0420,0.0430,0.0440,0.0450,0.0460,0.0470,0.0480",
 }
@@ -530,9 +682,20 @@ def ask_gpt(question):
             return f"An error occurred while generating the assessment. Please try again. Error details: {error_msg}"
 
 
+def _config_fields(config):
+    if "field_sections" in config:
+        return [
+            field
+            for section in config["field_sections"]
+            for field in section["fields"]
+        ]
+    return config["fields"]
+
+
 def _default_form_data(config):
-    data = {field["name"]: field["value"] for field in config["fields"]}
+    data = {field["name"]: field["value"] for field in _config_fields(config)}
     data.update(CURVE_FIELD_DEFAULTS)
+    data.update(config.get("curve_defaults", {}))
     return data
 
 
@@ -550,6 +713,21 @@ def _float_value(data, key):
 
 def _int_value(data, key):
     return int(float(data[key]))
+
+
+def _discount_curve_from_form(form_data):
+    interpolation_method = form_data.get("interpolation_method", "linear_zero")
+    if form_data.get("discount_curve_input_type") == "discount_factors":
+        return parse_discount_factor_curve(
+            parse_date(form_data["valuation_date"]),
+            form_data.get("discount_factor_curve", ""),
+            interpolation_method,
+        )
+    return parse_curve(
+        form_data["discount_curve_tenors"],
+        form_data["discount_curve_rates"],
+        interpolation_method,
+    )
 
 
 def _add_months_preserve_day(d: dt.date, months: int) -> dt.date:
@@ -576,7 +754,7 @@ def _parse_payment_schedule_for_display(raw):
         if not item:
             continue
         parts = [part.strip() for part in item.split("|")]
-        if len(parts) != 4:
+        if len(parts) not in {4, 5}:
             continue
         rows.append(
             {
@@ -584,9 +762,71 @@ def _parse_payment_schedule_for_display(raw):
                 "opening_notional": parts[1],
                 "coupon_rate": parts[2],
                 "principal": parts[3],
+                "fixed_payment": parts[4] if len(parts) == 5 else "0",
             }
         )
     return rows
+
+
+def _parse_exercise_schedule_for_display(raw):
+    rows = []
+    if not raw:
+        return rows
+    for item in raw.replace("\n", ";").split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        parts = [part.strip() for part in item.split("|")]
+        if len(parts) != 4:
+            continue
+        rows.append(
+            {
+                "start_date": parts[0],
+                "end_date": parts[1],
+                "call_price_pct": parts[2],
+                "put_price_pct": parts[3],
+            }
+        )
+    return rows
+
+
+def _parse_discount_factor_rows_for_display(raw):
+    rows = []
+    if not raw:
+        return rows
+    for item in raw.replace("\n", ";").split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        separator = "|" if "|" in item else ":"
+        parts = [part.strip() for part in item.split(separator, 1)]
+        if len(parts) != 2:
+            continue
+        rows.append({"curve_date": parts[0], "discount_factor": parts[1]})
+    return rows
+
+
+def _parse_zero_curve_rows_for_display(tenors_raw, rates_raw):
+    tenors = [item.strip() for item in (tenors_raw or "").split(",") if item.strip()]
+    rates = [item.strip() for item in (rates_raw or "").split(",") if item.strip()]
+    row_count = max(len(tenors), len(rates))
+    return [
+        {
+            "tenor": tenors[idx] if idx < len(tenors) else "",
+            "zero_rate": rates[idx] if idx < len(rates) else "",
+        }
+        for idx in range(row_count)
+    ]
+
+
+def _parse_holiday_rows_for_display(raw):
+    if not raw:
+        return []
+    return [
+        {"holiday_date": item.strip()}
+        for item in raw.replace("\n", ";").split(";")
+        if item.strip()
+    ]
 
 
 def _structured_amortizing_schedule_rows(form_data):
@@ -631,17 +871,50 @@ def _structured_amortizing_schedule_rows(form_data):
                 "opening_notional": _format_schedule_number(outstanding),
                 "coupon_rate": _format_schedule_number(coupon_rate),
                 "principal": _format_schedule_number(principal),
+                "fixed_payment": "0",
             }
         )
         outstanding -= principal
     return rows
 
 
+def _callable_amortizing_exercise_rows(form_data, payment_rows):
+    existing = _parse_exercise_schedule_for_display(form_data.get("exercise_schedule", ""))
+    if existing:
+        return existing
+
+    try:
+        valuation_date = parse_date(form_data["valuation_date"])
+        first_exercise_date = parse_date(form_data["first_exercise_date"])
+        maturity_date = parse_date(form_data["maturity_date"])
+        exercise_price_pct = _float_value(form_data, "exercise_price_pct")
+        option_rights = form_data.get("option_rights", "callable")
+        exercise_style = form_data.get("exercise_style", "bermudan")
+    except (KeyError, TypeError, ValueError):
+        return []
+
+    rows = []
+    previous_date = valuation_date
+    for payment_row in payment_rows:
+        payment_date = parse_date(payment_row["payment_date"])
+        if payment_date < first_exercise_date or payment_date >= maturity_date:
+            previous_date = payment_date
+            continue
+        start_date = payment_date if exercise_style == "bermudan" else max(previous_date, first_exercise_date)
+        rows.append(
+            {
+                "start_date": start_date.isoformat(),
+                "end_date": payment_date.isoformat(),
+                "call_price_pct": _format_schedule_number(exercise_price_pct if option_rights in {"callable", "callable_putable"} else 0.0),
+                "put_price_pct": _format_schedule_number(exercise_price_pct if option_rights in {"putable", "callable_putable"} else 0.0),
+            }
+        )
+        previous_date = payment_date
+    return rows
+
+
 def _price_fixed_income_extension(product_slug, form_data):
-    discount_curve = parse_curve(
-        form_data["discount_curve_tenors"],
-        form_data["discount_curve_rates"],
-    )
+    discount_curve = _discount_curve_from_form(form_data)
     forward_curve = parse_curve(
         form_data["forward_curve_tenors"],
         form_data["forward_curve_rates"],
@@ -698,6 +971,52 @@ def _price_fixed_income_extension(product_slug, form_data):
                 first_exercise_year=_float_value(form_data, "first_exercise_year"),
                 short_rate_volatility=_float_value(form_data, "short_rate_volatility"),
                 scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+            )
+        )
+
+    if product_slug == "callable-amortizing-bond":
+        schedule_source = form_data.get("schedule_mode", "period_terms")
+        generated_schedule = schedule_source in {"generated_bullet", "generated_straight_line"}
+        amortization_style = {
+            "generated_bullet": "bullet",
+            "generated_straight_line": "straight_line",
+        }.get(schedule_source, "sinking_schedule")
+        return price_callable_amortizing_bond(
+            CallableAmortizingBondTerms(
+                schedule_mode=schedule_source if not generated_schedule else "explicit",
+                effective_date=parse_date(form_data["effective_date"]),
+                valuation_date=parse_date(form_data["valuation_date"]),
+                dated_date=parse_date(form_data["dated_date"]) if form_data.get("dated_date") else None,
+                first_coupon_date=parse_date(form_data["first_coupon_date"]) if form_data.get("first_coupon_date") else None,
+                last_coupon_date=parse_date(form_data["last_coupon_date"]) if form_data.get("last_coupon_date") else None,
+                maturity_date=parse_date(form_data["maturity_date"]),
+                notional=_float_value(form_data, "notional"),
+                coupon_rate=_float_value(form_data, "coupon_rate"),
+                market_clean_price_pct=_float_value(form_data, "market_clean_price_pct"),
+                payments_per_year=_int_value(form_data, "payments_per_year"),
+                day_count=form_data["day_count"],
+                discount_curve=discount_curve,
+                option_rights=form_data["option_rights"],
+                exercise_style=form_data["exercise_style"],
+                first_exercise_date=parse_date(form_data["first_exercise_date"]),
+                exercise_price_pct=_float_value(form_data, "exercise_price_pct"),
+                short_rate_model=form_data.get("short_rate_model", "hull_white"),
+                short_rate_volatility=_float_value(form_data, "short_rate_volatility_pct") / 100.0,
+                short_rate_mean_reversion=_float_value(form_data, "short_rate_mean_reversion_pct") / 100.0,
+                lattice_steps_per_period=_int_value(form_data, "lattice_steps_per_period"),
+                scenario_shock_bp=_float_value(form_data, "scenario_shock_bp"),
+                coupon_schedule=form_data.get("coupon_schedule", ""),
+                principal_schedule=form_data.get("principal_schedule", ""),
+                cashflow_schedule="" if generated_schedule else form_data.get("cashflow_schedule", ""),
+                exercise_schedule=form_data.get("exercise_schedule", "") if form_data.get("exercise_schedule_source", "custom") == "custom" else "",
+                amortization_style=amortization_style,
+                fixed_payment_schedule=form_data.get("fixed_payment_schedule", ""),
+                fixed_payment_treatment=form_data.get("fixed_payment_treatment", "additional_cashflow"),
+                business_day_convention=form_data.get("business_day_convention", "none"),
+                notification_days=_int_value(form_data, "notification_days"),
+                interpolation_method=form_data.get("interpolation_method", "linear"),
+                tree_generation=form_data.get("tree_generation", "maturity"),
+                holiday_dates=form_data.get("holiday_dates", ""),
             )
         )
 
@@ -1637,28 +1956,75 @@ def rates_fixed_income_product(product_slug):
             logger.exception("Fixed income extension pricing failed for %s", product_slug)
             pricing_error = str(exc)
 
-    field_sections = [
-        {"title": "Trade Terms", "fields": deepcopy(config["fields"])},
-        {
-            "title": "Curve Assumptions",
-            "fields": [
-                {
-                    "name": "discount_curve_tenors",
-                    "label": "Discount Curve Tenors (Years)",
-                    "type": "text",
-                    "value": form_data["discount_curve_tenors"],
-                    "hint": "Comma-separated year tenors.",
-                },
-                {
-                    "name": "discount_curve_rates",
-                    "label": "Discount Curve Zero Rates",
-                    "type": "text",
-                    "value": form_data["discount_curve_rates"],
-                    "hint": "Comma-separated continuously compounded zero rates.",
-                },
-            ]
-            + (
-                [
+    if "field_sections" in config:
+        field_sections = deepcopy(config["field_sections"])
+    else:
+        field_sections = [{"title": "Trade Terms", "fields": deepcopy(config["fields"])}]
+
+    if product_slug == "callable-amortizing-bond":
+        curve_fields = [
+            {
+                "name": "discount_curve_input_type",
+                "label": "Discount Curve Input Type",
+                "type": "select",
+                "value": form_data["discount_curve_input_type"],
+                "options": [("zero_rates", "Zero Rates"), ("discount_factors", "Dated Discount Factors")],
+            },
+            {
+                "name": "interpolation_method",
+                "label": "Curve Interpolation",
+                "type": "select",
+                "value": form_data["interpolation_method"],
+                "options": [
+                    ("linear_zero", "Linear Zero / Spot Rate"),
+                    ("exponential", "Exponential / Log Discount Factor"),
+                    ("linear_discount", "Linear Discount Factor"),
+                    ("cubic_spline", "Natural Cubic Spline"),
+                ],
+                "hint": "Benchmark input: linear interpolation applied to dated discount factors.",
+            },
+            {
+                "name": "discount_factor_curve",
+                "label": "Discount Factor Curve",
+                "type": "hidden",
+                "value": form_data["discount_factor_curve"],
+                "hint": "Rows use YYYY-MM-DD|discount_factor separated by semicolons or new lines.",
+            },
+            {
+                "name": "discount_curve_tenors",
+                "label": "Zero Curve Tenors (Years)",
+                "type": "hidden",
+                "value": form_data["discount_curve_tenors"],
+                "hint": "Used when input type is Zero Rates.",
+            },
+            {
+                "name": "discount_curve_rates",
+                "label": "Zero Curve Rates",
+                "type": "hidden",
+                "value": form_data["discount_curve_rates"],
+                "hint": "Used when input type is Zero Rates.",
+            },
+        ]
+    else:
+        curve_fields = [
+            {
+                "name": "discount_curve_tenors",
+                "label": "Discount Curve Tenors (Years)",
+                "type": "text",
+                "value": form_data["discount_curve_tenors"],
+                "hint": "Comma-separated year tenors.",
+            },
+            {
+                "name": "discount_curve_rates",
+                "label": "Discount Curve Zero Rates",
+                "type": "text",
+                "value": form_data["discount_curve_rates"],
+                "hint": "Comma-separated continuously compounded zero rates.",
+            },
+        ]
+    if product_slug in {"fra", "cap-floor", "inflation-linked-bond"}:
+        curve_fields.extend(
+            [
                 {
                     "name": "forward_curve_tenors",
                     "label": "Forward Curve Tenors (Years)",
@@ -1673,12 +2039,17 @@ def rates_fixed_income_product(product_slug):
                     "value": form_data["forward_curve_rates"],
                     "hint": "Used for FRA and cap/floor projected rates.",
                 },
-                ]
-                if product_slug in {"fra", "cap-floor", "inflation-linked-bond"}
-                else []
-            ),
-        },
-    ]
+            ]
+        )
+
+    field_sections.append(
+        {
+            "title": "Curve Assumptions",
+            "description": "Review zero-rate or discount-factor curve assumptions used for projection, discounting, and scenario analysis.",
+            "icon": "C",
+            "fields": curve_fields,
+        }
+    )
 
     for section in field_sections:
         for field in section["fields"]:
@@ -1687,8 +2058,22 @@ def rates_fixed_income_product(product_slug):
             field.setdefault("step", "any")
 
     schedule_rows = []
-    if product_slug == "amortizing-stepup-sinking-bond":
+    exercise_rows = []
+    discount_factor_rows = []
+    zero_curve_rows = []
+    holiday_rows = []
+    if product_slug in {"amortizing-stepup-sinking-bond", "callable-amortizing-bond"}:
         schedule_rows = _structured_amortizing_schedule_rows(form_data)
+    if product_slug == "callable-amortizing-bond":
+        exercise_rows = _callable_amortizing_exercise_rows(form_data, schedule_rows)
+        discount_factor_rows = _parse_discount_factor_rows_for_display(
+            form_data.get("discount_factor_curve", "")
+        )
+        zero_curve_rows = _parse_zero_curve_rows_for_display(
+            form_data.get("discount_curve_tenors", ""),
+            form_data.get("discount_curve_rates", ""),
+        )
+        holiday_rows = _parse_holiday_rows_for_display(form_data.get("holiday_dates", ""))
 
     return render_template(
         "fixed_income_extension_product.html",
@@ -1699,4 +2084,8 @@ def rates_fixed_income_product(product_slug):
         results=results,
         pricing_error=pricing_error,
         schedule_rows=schedule_rows,
+        exercise_rows=exercise_rows,
+        discount_factor_rows=discount_factor_rows,
+        zero_curve_rows=zero_curve_rows,
+        holiday_rows=holiday_rows,
     )

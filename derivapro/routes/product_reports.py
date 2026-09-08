@@ -42,6 +42,7 @@ PRODUCT_REPORT_REGISTRY = {
     "fra": ("Forward Rate Agreement", ["fixed_income_fra"]),
     "cap-floor": ("Cap / Floor", ["fixed_income_cap-floor"]),
     "callable-putable-bond": ("Callable / Putable Bond", ["fixed_income_callable-putable-bond"]),
+    "callable-amortizing-bond": ("Callable Amortizing Bond", ["fixed_income_callable-amortizing-bond"]),
     "level-coupon-bond": ("Level Coupon Bond", ["fixed_income_level-coupon-bond"]),
     "amortizing-stepup-sinking-bond": ("Amortizing / Step-Up / Sinking Bond", ["fixed_income_amortizing-stepup-sinking-bond"]),
     "custom-structured-bond": ("Custom Structured Bond", ["fixed_income_custom-structured-bond"]),

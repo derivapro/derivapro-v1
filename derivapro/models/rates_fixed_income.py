@@ -8,12 +8,43 @@ from .daycount import DayCount
 from .schedule import build_schedule
 
 
-def parse_curve(tenors_raw: str, rates_raw: str) -> Curve:
+def parse_curve(tenors_raw: str, rates_raw: str, interpolation: str = "linear_zero") -> Curve:
     tenors = [float(item.strip()) for item in tenors_raw.split(",") if item.strip()]
     rates = [float(item.strip()) for item in rates_raw.split(",") if item.strip()]
     if len(tenors) != len(rates) or not tenors:
         raise ValueError("Curve tenors and rates must be comma-separated lists with the same nonzero length.")
-    return Curve(tenors, rates, comp="cont")
+    return Curve(tenors, rates, comp="cont", interpolation=interpolation)
+
+
+def parse_discount_factor_curve(
+    valuation_date: dt.date,
+    discount_factors_raw: str,
+    interpolation: str = "linear_zero",
+) -> Curve:
+    tenors = []
+    zero_rates = []
+    for item in discount_factors_raw.replace("\n", ";").split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        if "|" in item:
+            date_raw, df_raw = item.split("|", 1)
+        elif ":" in item:
+            date_raw, df_raw = item.split(":", 1)
+        else:
+            raise ValueError("Discount factor curve rows must use YYYY-MM-DD|df or YYYY-MM-DD:df format.")
+        grid_date = parse_date(date_raw.strip())
+        discount_factor = float(df_raw.strip())
+        if discount_factor <= 0:
+            raise ValueError("Discount factors must be positive.")
+        tenor = DayCount.year_frac(valuation_date, grid_date, "ACT/365")
+        if tenor <= 0:
+            continue
+        tenors.append(tenor)
+        zero_rates.append(-math.log(discount_factor) / tenor)
+    if not tenors:
+        raise ValueError("Discount factor curve must contain at least one future grid date.")
+    return Curve(tenors, zero_rates, comp="cont", interpolation=interpolation)
 
 
 def parse_date(value: str) -> dt.date:
@@ -21,7 +52,12 @@ def parse_date(value: str) -> dt.date:
 
 
 def shifted_curve(curve: Curve, shock_bp: float) -> Curve:
-    return Curve(curve.t, [rate + shock_bp / 10000.0 for rate in curve.z], curve.comp)
+    return Curve(
+        curve.t,
+        [rate + shock_bp / 10000.0 for rate in curve.z],
+        curve.comp,
+        getattr(curve, "interpolation", "linear_zero"),
+    )
 
 
 def _normal_cdf(x: float) -> float:
@@ -181,9 +217,10 @@ def _parse_cashflow_schedule(raw: str | None) -> list[dict[str, Any]]:
         if not item:
             continue
         parts = [part.strip() for part in item.split("|")]
-        if len(parts) != 4:
-            raise ValueError("Payment schedule rows must use date|opening_notional|coupon_rate|principal_payment.")
-        payment_date, opening_notional, coupon_rate, principal_payment = parts
+        if len(parts) not in {4, 5}:
+            raise ValueError("Payment schedule rows must use date|opening_notional|coupon_rate|principal_payment|fixed_payment.")
+        payment_date, opening_notional, coupon_rate, principal_payment = parts[:4]
+        fixed_payment = parts[4] if len(parts) == 5 else "0"
         rate = float(coupon_rate)
         if abs(rate) > 1.0:
             rate = rate / 100.0
@@ -193,9 +230,33 @@ def _parse_cashflow_schedule(raw: str | None) -> list[dict[str, Any]]:
                 "opening_notional": float(opening_notional),
                 "coupon_rate": rate,
                 "principal": float(principal_payment),
+                "fixed_payment": float(fixed_payment or 0.0),
             }
         )
     return sorted(rows, key=lambda row: row["payment_date"])
+
+
+def _parse_exercise_schedule(raw: str | None) -> list[dict[str, Any]]:
+    if not raw:
+        return []
+    rows = []
+    for item in raw.replace("\n", ";").split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        parts = [part.strip() for part in item.split("|")]
+        if len(parts) != 4:
+            raise ValueError("Exercise schedule rows must use start_date|end_date|call_price_pct|put_price_pct.")
+        start_date, end_date, call_price, put_price = parts
+        rows.append(
+            {
+                "start_date": parse_date(start_date),
+                "end_date": parse_date(end_date),
+                "call_price_pct": float(call_price or 0.0),
+                "put_price_pct": float(put_price or 0.0),
+            }
+        )
+    return sorted(rows, key=lambda row: (row["start_date"], row["end_date"]))
 
 
 def _solve_yield_from_cashflows(
@@ -573,6 +634,7 @@ class GenericBondTerms:
     fixed_payment_schedule: str = ""
     cashflow_schedule: str = ""
     amortization_style: str = "bullet"
+    fixed_payment_treatment: str = "additional_cashflow"
     redemption_pct: float = 100.0
     pricing_basis: str = "curve"
     yield_to_maturity: float | None = None
@@ -624,7 +686,11 @@ def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict
         yield_period_exponent = max(idx - 1 + first_period_fraction, 0.0)
         risk_time = yield_period_exponent / terms.payments_per_year if pricing_basis == "yield" else calendar_t
         accrual = _period_accrual(previous_coupon_date, pay_date, terms.day_count, terms.payments_per_year)
-        opening_notional = outstanding
+        opening_notional = (
+            schedule_row["opening_notional"]
+            if schedule_row and terms.fixed_payment_treatment == "principal_redemption"
+            else outstanding
+        )
         coupon_rate = schedule_row["coupon_rate"] if schedule_row else _value_effective_on(coupon_schedule, pay_date, terms.coupon_rate)
         coupon = opening_notional * coupon_rate * accrual
 
@@ -638,13 +704,24 @@ def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict
         elif pay_date == pay_dates[-1]:
             principal = terms.notional * terms.redemption_pct / 100.0
 
-        if pay_date == pay_dates[-1] and (
-            terms.amortization_style in {"straight_line", "sinking_schedule"}
-            or (schedule_row and terms.amortization_style == "bullet")
+        if (
+            pay_date == pay_dates[-1]
+            and terms.fixed_payment_treatment != "principal_redemption"
+            and (
+                terms.amortization_style in {"straight_line", "sinking_schedule"}
+                or (schedule_row and terms.amortization_style == "bullet")
+            )
         ):
             principal = min(max(outstanding, 0.0), max(principal, outstanding))
         principal = min(max(principal, 0.0), max(outstanding, 0.0))
-        fixed_payment = _fixed_payments_between(fixed_schedule, previous_coupon_date, pay_date)
+        fixed_payment = (
+            schedule_row["fixed_payment"]
+            if schedule_row and "fixed_payment" in schedule_row
+            else _fixed_payments_between(fixed_schedule, previous_coupon_date, pay_date)
+        )
+        principal_reduction = principal
+        if terms.fixed_payment_treatment == "principal_redemption":
+            principal_reduction = min(max(fixed_payment, 0.0), max(opening_notional, 0.0))
         cashflow = coupon + principal + fixed_payment
         if pricing_basis == "yield":
             df = _yield_discount_factor(
@@ -696,7 +773,7 @@ def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict
                 "discounted_pv": pv,
             }
         )
-        outstanding -= principal
+        outstanding = max(opening_notional - principal_reduction, 0.0)
         previous_coupon_date = pay_date
 
     market_price = terms.notional * terms.market_clean_price_pct / 100.0
@@ -758,6 +835,301 @@ def price_generic_bond(terms: GenericBondTerms) -> dict[str, Any]:
         "summary": (
             "Bond PV is calculated as the discounted value of generated coupon, principal, sinking, and fixed-payment "
             "cash flows. Yield is solved against the supplied market clean-price reference."
+        ),
+    }
+
+
+@dataclass
+class CallableAmortizingBondTerms:
+    valuation_date: dt.date
+    maturity_date: dt.date
+    notional: float
+    coupon_rate: float
+    market_clean_price_pct: float
+    payments_per_year: int
+    day_count: str
+    discount_curve: Curve
+    option_rights: str
+    exercise_style: str
+    first_exercise_date: dt.date
+    exercise_price_pct: float
+    short_rate_model: str
+    short_rate_volatility: float
+    short_rate_mean_reversion: float
+    lattice_steps_per_period: int
+    scenario_shock_bp: float
+    coupon_schedule: str = ""
+    principal_schedule: str = ""
+    cashflow_schedule: str = ""
+    exercise_schedule: str = ""
+    amortization_style: str = "straight_line"
+    fixed_payment_schedule: str = ""
+    fixed_payment_treatment: str = "additional_cashflow"
+    business_day_convention: str = "none"
+    notification_days: int = 0
+    interpolation_method: str = "linear"
+    tree_generation: str = "maturity"
+    holiday_dates: str = ""
+    schedule_mode: str = "explicit"
+    effective_date: dt.date | None = None
+    dated_date: dt.date | None = None
+    first_coupon_date: dt.date | None = None
+    last_coupon_date: dt.date | None = None
+
+
+def _callable_amortizing_generic_terms(terms: CallableAmortizingBondTerms, curve: Curve) -> GenericBondTerms:
+    return GenericBondTerms(
+        valuation_date=terms.valuation_date,
+        maturity_date=terms.maturity_date,
+        notional=terms.notional,
+        coupon_rate=terms.coupon_rate,
+        payments_per_year=terms.payments_per_year,
+        day_count=terms.day_count,
+        discount_curve=curve,
+        market_clean_price_pct=terms.market_clean_price_pct,
+        scenario_shock_bp=terms.scenario_shock_bp,
+        coupon_schedule=terms.coupon_schedule,
+        principal_schedule=terms.principal_schedule,
+        fixed_payment_schedule=terms.fixed_payment_schedule,
+        cashflow_schedule=terms.cashflow_schedule,
+        amortization_style=terms.amortization_style,
+        fixed_payment_treatment=terms.fixed_payment_treatment,
+        pricing_basis="curve",
+        dated_date=terms.dated_date,
+        first_coupon_date=terms.first_coupon_date,
+        last_coupon_date=terms.last_coupon_date,
+    )
+
+
+def _solve_oas(
+    price_function,
+    target_clean_price: float,
+    low_bp: float = -1000.0,
+    high_bp: float = 1000.0,
+) -> float | None:
+    low_value = price_function(low_bp) - target_clean_price
+    high_value = price_function(high_bp) - target_clean_price
+    for _ in range(3):
+        if low_value * high_value <= 0:
+            break
+        low_bp *= 2
+        high_bp *= 2
+        low_value = price_function(low_bp) - target_clean_price
+        high_value = price_function(high_bp) - target_clean_price
+    if low_value * high_value > 0:
+        return None
+    for _ in range(80):
+        mid = (low_bp + high_bp) / 2.0
+        mid_value = price_function(mid) - target_clean_price
+        if abs(mid_value) < 1e-7:
+            return mid
+        if low_value * mid_value <= 0:
+            high_bp = mid
+            high_value = mid_value
+        else:
+            low_bp = mid
+            low_value = mid_value
+    return (low_bp + high_bp) / 2.0
+
+
+def price_callable_amortizing_bond(terms: CallableAmortizingBondTerms) -> dict[str, Any]:
+    if terms.maturity_date <= terms.valuation_date:
+        raise ValueError("Maturity date must be after valuation date.")
+    if terms.notional <= 0:
+        raise ValueError("Original face value must be positive.")
+
+    from .callable_bond_schedule import bond_cashflows
+    from .callable_bond_tree import CallableBondTree
+
+    if not math.isfinite(terms.notional) or not math.isfinite(terms.market_clean_price_pct) or terms.market_clean_price_pct <= 0:
+        raise ValueError("Face value and market clean price must be finite and positive.")
+    if terms.coupon_schedule or terms.principal_schedule or terms.fixed_payment_schedule:
+        raise ValueError("Use the coupon table to specify varying coupons and principal payments.")
+    if not 1 <= terms.lattice_steps_per_period <= 200:
+        raise ValueError("Tree refinement must be between 1 and 200 steps per coupon period.")
+    if terms.option_rights not in {"callable", "putable", "callable_putable"}:
+        raise ValueError("Unsupported embedded option rights.")
+    if terms.tree_generation not in {"maturity", "last_callable_date"}:
+        raise ValueError("Unsupported tree generation mode.")
+    if not math.isfinite(terms.scenario_shock_bp) or terms.scenario_shock_bp <= 0:
+        raise ValueError("Scenario shock must be finite and positive.")
+    input_rows = _parse_cashflow_schedule(terms.cashflow_schedule)
+    base_generic = bond_cashflows(terms, input_rows, terms.discount_curve)
+    cashflow_rows = base_generic["cashflows"]
+    if not cashflow_rows:
+        raise ValueError("At least one future payment is required.")
+    exercise_rows = _parse_exercise_schedule(terms.exercise_schedule)
+    if not exercise_rows:
+        exercise_rows = [
+            dict(start_date=parse_date(row["payment_date"]), end_date=parse_date(row["payment_date"]),
+                 call_price_pct=terms.exercise_price_pct if terms.option_rights in {"callable", "callable_putable"} else 0.0,
+                 put_price_pct=terms.exercise_price_pct if terms.option_rights in {"putable", "callable_putable"} else 0.0)
+            for row in cashflow_rows
+            if terms.first_exercise_date <= parse_date(row["payment_date"]) < terms.maturity_date
+        ]
+    engine = CallableBondTree(terms, terms.discount_curve, cashflow_rows, exercise_rows)
+    grid_steps = len(engine.lattice.times) - 1
+    tree_horizon_years = float(engine.lattice.times[
+        engine.exercise_horizon if terms.tree_generation == "last_callable_date" and engine.events else -1
+    ])
+    payment_step_by_date = engine.payment_step_by_date
+    base_lattice = engine.value()
+    shifted_up_curve = shifted_curve(terms.discount_curve, terms.scenario_shock_bp)
+    shifted_down_curve = shifted_curve(terms.discount_curve, -terms.scenario_shock_bp)
+    up_lattice = CallableBondTree(terms, shifted_up_curve, cashflow_rows, exercise_rows).value()
+    down_lattice = CallableBondTree(terms, shifted_down_curve, cashflow_rows, exercise_rows).value()
+    lattice_straight = engine.value(exercise=False)["dirty_value"]
+
+    accrued = base_generic["accrued_interest"]
+    option_dirty = base_lattice["dirty_value"]
+    option_clean = option_dirty - accrued
+    up_clean = up_lattice["dirty_value"] - accrued
+    down_clean = down_lattice["dirty_value"] - accrued
+    straight_clean = base_generic["pv"]
+    option_value = straight_clean - option_clean
+    if terms.option_rights == "putable":
+        option_value = option_clean - straight_clean
+
+    shock_decimal = terms.scenario_shock_bp / 10000.0
+    effective_duration = (
+        (down_clean - up_clean) / (2.0 * max(abs(option_clean), 1e-12) * shock_decimal)
+        if shock_decimal
+        else 0.0
+    )
+    effective_convexity = (
+        (down_clean + up_clean - 2.0 * option_clean) / (max(abs(option_clean), 1e-12) * shock_decimal * shock_decimal)
+        if shock_decimal
+        else 0.0
+    )
+    bpv_up = (up_clean - option_clean if terms.scenario_shock_bp == 1 else
+              CallableBondTree(terms, shifted_curve(terms.discount_curve, 1), cashflow_rows, exercise_rows).value()["dirty_value"] - option_dirty)
+    market_clean_price = terms.notional * terms.market_clean_price_pct / 100.0
+    oas_bp = _solve_oas(lambda spread: engine.value(spread)["dirty_value"] - accrued, market_clean_price)
+
+    yield_rows = []
+    deterministic_cashflows = [(parse_date(row["payment_date"]), float(row["cashflow"])) for row in cashflow_rows]
+    maturity_yield = _solve_yield_from_cashflows(
+        terms.valuation_date,
+        deterministic_cashflows,
+        market_clean_price + accrued,
+        terms.day_count,
+    )
+    if maturity_yield is not None:
+        yield_rows.append(
+            {
+                "case": "Maturity",
+                "date": terms.maturity_date.isoformat(),
+                "yield": maturity_yield,
+                "price_pct": 100.0,
+            }
+        )
+    for event in engine.events:
+        for kind in ("call", "put"):
+            strike = event[kind]
+            if not strike:
+                continue
+            dated_cashflows = [(parse_date(cf["payment_date"]), cf["cashflow"]) for cf in cashflow_rows
+                               if parse_date(cf["payment_date"]) <= event["date"]]
+            dated_cashflows.append((event["date"], event["outstanding"] * strike / 100 + event["accrued"]))
+            solved = _solve_yield_from_cashflows(terms.valuation_date, dated_cashflows,
+                                                 market_clean_price + accrued, terms.day_count)
+            if solved is not None:
+                yield_rows.append(dict(case=kind.title(), date=event["date"].isoformat(),
+                                       yield_value=solved, price_pct=strike))
+                yield_rows[-1]["yield"] = yield_rows[-1].pop("yield_value")
+
+    exercise_diagnostics = []
+    for index, row in enumerate(exercise_rows):
+        call_probability = base_lattice["row_probabilities"].get((index, "call"), 0.0)
+        put_probability = base_lattice["row_probabilities"].get((index, "put"), 0.0)
+        exercise_diagnostics.append(
+            {
+                "start_date": row["start_date"].isoformat(),
+                "end_date": row["end_date"].isoformat(),
+                "notice_date": (row["end_date"] - dt.timedelta(days=terms.notification_days)).isoformat(),
+                "call_price_pct": row["call_price_pct"],
+                "put_price_pct": row["put_price_pct"],
+                "call_probability": call_probability,
+                "put_probability": put_probability,
+            }
+        )
+
+    total_call_probability = sum(base_lattice["call_probability_by_step"].values())
+    total_put_probability = sum(base_lattice["put_probability_by_step"].values())
+    yield_values = [row["yield"] for row in yield_rows]
+
+    annotated_cashflows = []
+    for row in cashflow_rows:
+        payment_date = parse_date(row["payment_date"])
+        step = payment_step_by_date.get(payment_date)
+        annotated_cashflows.append(
+            {
+                "payment_date": row["payment_date"],
+                "opening_notional": row["opening_notional"],
+                "coupon_rate": row["coupon_rate"],
+                "coupon": row["coupon"],
+                "principal": row["principal"],
+                "cashflow": row["cashflow"],
+                "fixed_payment": row.get("fixed_payment", 0.0),
+                "accrual_start": row["accrual_start"],
+                "accrual_end": row["accrual_end"],
+                "accrual_factor": row["accrual_factor"],
+                "discount_factor": row["discount_factor"],
+                "pv": row["pv"],
+                "call_probability": base_lattice["call_probability_by_step"].get(step, 0.0) if step is not None else 0.0,
+                "put_probability": base_lattice["put_probability_by_step"].get(step, 0.0) if step is not None else 0.0,
+            }
+        )
+
+    return {
+        "primary_metrics": [
+            {"label": "Option-Adjusted Clean PV", "value": _money(option_clean)},
+            {"label": "Straight Bond Clean PV", "value": _money(straight_clean)},
+            {"label": "Accrued Interest", "value": _money(accrued)},
+            {"label": "Embedded Option Value", "value": _money(option_value)},
+            {"label": "OAS", "value": f"{oas_bp:.2f} bp" if oas_bp is not None else "n/a"},
+            {"label": "Effective Duration", "value": f"{effective_duration:.4f}"},
+            {"label": "Effective Convexity", "value": f"{effective_convexity:.4f}"},
+            {"label": "Call / Put Probability", "value": f"{total_call_probability * 100:.2f}% / {total_put_probability * 100:.2f}%"},
+            {"label": "Yield to Worst", "value": _pct(min(yield_values)) if yield_values else "n/a"},
+            {"label": "Yield to Best", "value": _pct(max(yield_values)) if yield_values else "n/a"},
+        ],
+        "scenarios": [
+            {"label": "Base", "pv": option_clean},
+            {"label": f"Rates +{terms.scenario_shock_bp:.0f} bp", "pv": up_clean},
+            {"label": f"Rates -{terms.scenario_shock_bp:.0f} bp", "pv": down_clean},
+        ],
+        "cashflows": annotated_cashflows,
+        "diagnostics": exercise_diagnostics,
+        "yield_diagnostics": yield_rows,
+        "benchmark_metrics": [
+            {"label": "Clean Price Including Option", "value": option_clean},
+            {"label": "Dirty Price Including Option and Accrued", "value": option_dirty},
+            {"label": "Straight Bond Clean Price", "value": straight_clean},
+            {"label": "Accrued Interest", "value": accrued},
+            {"label": "Embedded Option Value", "value": option_value},
+            {"label": "OAS", "value": oas_bp},
+            {"label": "Probability of Call", "value": total_call_probability},
+            {"label": "Probability of Put", "value": total_put_probability},
+            {"label": "Probability of No Exercise", "value": base_lattice["maturity_probability"]},
+            {"label": "BPV (+1bp Price Change)", "value": bpv_up},
+            {"label": "Effective Duration", "value": effective_duration},
+            {"label": "Effective Convexity", "value": effective_convexity},
+            {"label": "Tree Steps", "value": grid_steps},
+            {"label": "Maximum Tree Step (Years)", "value": float(max(engine.lattice.times[1:] - engine.lattice.times[:-1]))},
+            {"label": "Maximum Discount Factor Fit Error", "value": engine.lattice.curve_fit_error},
+            {"label": "Straight Bond Tree vs Cashflow PV Error", "value": lattice_straight - base_generic["dirty_pv"]},
+            {"label": "Expected Exercise Time (Conditional Years)", "value": base_lattice["expected_exercise_time"]},
+            {"label": "Tree Horizon Years", "value": tree_horizon_years},
+            {"label": "Notification Days", "value": terms.notification_days},
+            {"label": "Short-Rate Model", "value": terms.short_rate_model},
+            {"label": "Curve Interpolation", "value": getattr(terms.discount_curve, "interpolation", terms.interpolation_method)},
+            {"label": "OAS Status", "value": "Solved" if oas_bp is not None else "No root bracketed within +/-8,000 bp"},
+        ],
+        "summary": (
+            "Callable amortizing bond valuation combines a deterministic coupon/principal schedule with a recombining "
+            "short-rate lattice for issuer call and investor put exercise. Bermudan exercise is tested on scheduled "
+            "exercise dates; American-style exercise is approximated across user-defined exercise windows."
         ),
     }
 
