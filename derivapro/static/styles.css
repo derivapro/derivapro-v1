@@ -2499,6 +2499,13 @@ html[data-theme="dark"] .validation-summary {
     text-align: right;
 }
 
+.schedule-editor-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .schedule-table-wrap {
     width: 100%;
     max-height: 520px;
@@ -2559,6 +2566,12 @@ html[data-theme="dark"] .validation-summary {
 .payment-schedule-table td {
     padding: 8px;
     vertical-align: middle;
+}
+
+.payment-schedule-table th:last-child,
+.payment-schedule-table td:last-child {
+    width: 112px;
+    text-align: center;
 }
 
 .payment-schedule-table input {
@@ -4768,11 +4781,12 @@ html[data-theme="dark"] .results-table tr:nth-child(even) {
 }
 
 .callable-amortizing-form .payment-schedule-table {
-    min-width: 760px;
+    min-width: 860px;
 }
 
 .callable-amortizing-form .exercise-schedule-table {
-    min-width: 900px;
+    min-width: 860px;
+    table-layout: fixed;
 }
 
 .callable-amortizing-form .payment-schedule-table input {

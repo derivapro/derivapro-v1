@@ -48,6 +48,19 @@ def _money_to_float(value: str) -> float:
 
 
 class CallableAmortizingBondTest(unittest.TestCase):
+    def test_methodology_page_is_registered_and_renderable(self):
+        from derivapro import create_app
+        from derivapro.routes.index import METHODOLOGY_DOCS, methodology_doc
+
+        self.assertEqual(
+            METHODOLOGY_DOCS["callable_amortizing_bond"],
+            "callable_amortizing_bond.md",
+        )
+        app = create_app()
+        with app.test_request_context("/methodology/callable_amortizing_bond"):
+            response = methodology_doc("callable_amortizing_bond")
+        self.assertIn("Callable and Putable Amortizing Bonds", response)
+
     def test_disabled_exercise_collapses_to_straight_amortizing_value(self):
         results = price_callable_amortizing_bond(_terms(exercise_schedule="2028-06-20|2028-06-20|0|0"))
 

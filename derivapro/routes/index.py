@@ -19,6 +19,7 @@ METHODOLOGY_DOCS = {
     "credit_linked_note_structured": "credit_linked_note_structured.md",
     "forward_rate_agreement": "forward_rate_agreement.md",
     "cap_floor": "cap_floor.md",
+    "callable_amortizing_bond": "callable_amortizing_bond.md",
     "callable_putable_bond": "callable_putable_bond.md",
     "level_coupon_bond": "level_coupon_bond.md",
     "fixed_rate_bond": "fixed_rate_bond.md",

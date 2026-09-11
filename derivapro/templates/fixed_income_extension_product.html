@@ -172,7 +172,10 @@
             </div>
         </div>
         <div class="schedule-editor-toolbar">
-            <button type="button" class="btn-secondary" id="rebuild-payment-schedule">Rebuild from Terms</button>
+            <div class="schedule-editor-actions">
+                <button type="button" class="btn-secondary" id="add-payment-schedule-row">Add Payment Row</button>
+                <button type="button" class="btn-secondary" id="rebuild-payment-schedule">Rebuild from Terms</button>
+            </div>
             {% if product_slug == "callable-amortizing-bond" %}
             <p>Fixed payments reduce the next row's notional. Generated cashflows and discount factors appear after valuation.</p>
             {% else %}
@@ -190,12 +193,13 @@
                         <th>Principal Payment Amount</th>
                         {% endif %}
                         <th>Fixed Payment Amount</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in schedule_rows %}
                     <tr>
-                        <td><input type="date" class="schedule-date" value="{{ row.payment_date }}"></td>
+                        <td><input type="date" class="schedule-date" value="{{ row.payment_date }}" required></td>
                         <td><input type="number" step="any" min="0" class="schedule-notional" value="{{ row.opening_notional }}" readonly aria-readonly="true" tabindex="-1"></td>
                         <td><input type="number" step="any" class="schedule-coupon" value="{{ row.coupon_rate }}"></td>
                         {% if product_slug == "callable-amortizing-bond" %}
@@ -207,6 +211,7 @@
                         <td><input type="number" step="any" min="0" class="schedule-principal" value="{{ row.principal }}" {% if loop.last %}readonly aria-readonly="true" tabindex="-1"{% endif %}></td>
                         <td><input type="number" step="any" class="schedule-fixed-payment" value="{{ row.fixed_payment|default('0') }}"></td>
                         {% endif %}
+                        <td><button type="button" class="btn-secondary table-row-action remove-payment-row">Remove</button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -225,7 +230,10 @@
             </div>
         </div>
         <div class="schedule-editor-toolbar">
-            <button type="button" class="btn-secondary" id="rebuild-exercise-schedule">Rebuild from Exercise Terms</button>
+            <div class="schedule-editor-actions">
+                <button type="button" class="btn-secondary" id="add-exercise-schedule-row">Add Exercise Row</button>
+                <button type="button" class="btn-secondary" id="rebuild-exercise-schedule">Rebuild from Exercise Terms</button>
+            </div>
             <p>Exercise prices are percentages of outstanding principal. The benchmark screenshot obscures three exercise end dates; the prefilled dates remain provisional until those dates are confirmed.</p>
         </div>
         <div class="schedule-table-wrap">
@@ -236,15 +244,17 @@
                         <th>Exercise End Date</th>
                         <th>Call Price (% Outstanding)</th>
                         <th>Put Price (% Outstanding)</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in exercise_rows %}
                     <tr>
-                        <td><input type="date" class="exercise-start-date" value="{{ row.start_date }}"></td>
-                        <td><input type="date" class="exercise-end-date" value="{{ row.end_date }}"></td>
+                        <td><input type="date" class="exercise-start-date" value="{{ row.start_date }}" required></td>
+                        <td><input type="date" class="exercise-end-date" value="{{ row.end_date }}" required></td>
                         <td><input type="number" step="any" min="0" class="exercise-call-price" value="{{ row.call_price_pct }}"></td>
                         <td><input type="number" step="any" min="0" class="exercise-put-price" value="{{ row.put_price_pct }}"></td>
+                        <td><button type="button" class="btn-secondary table-row-action remove-exercise-row">Remove</button></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -499,9 +509,11 @@
     const form = document.querySelector(".product-standard-form");
     const table = document.getElementById("payment-schedule-table");
     const scheduleInput = document.getElementById("cashflow_schedule");
+    const addPaymentRowButton = document.getElementById("add-payment-schedule-row");
     const rebuildButton = document.getElementById("rebuild-payment-schedule");
     const exerciseTable = document.getElementById("exercise-schedule-table");
     const exerciseScheduleInput = document.getElementById("exercise_schedule");
+    const addExerciseRowButton = document.getElementById("add-exercise-schedule-row");
     const rebuildExerciseButton = document.getElementById("rebuild-exercise-schedule");
     const curveMode = document.getElementById("discount_curve_input_type");
     const discountFactorPanel = document.getElementById("discount-factor-curve-panel");
@@ -579,6 +591,10 @@
             const notionalInput = row.querySelector(".schedule-notional");
             const principalInput = row.querySelector(".schedule-principal");
             const fixedPaymentInput = row.querySelector(".schedule-fixed-payment");
+            const balancingInput = fixedPaymentTreatment === "principal_redemption" ? fixedPaymentInput : principalInput;
+            balancingInput?.removeAttribute("readonly");
+            balancingInput?.removeAttribute("aria-readonly");
+            balancingInput?.removeAttribute("tabindex");
             if (notionalInput) {
                 notionalInput.value = formatAmount(outstanding);
             }
@@ -639,6 +655,30 @@
         exerciseScheduleInput.value = rows.join(";");
     };
 
+    const syncRemoveButtons = (targetTable, selector) => {
+        if (!targetTable) return;
+        const rows = [...targetTable.querySelectorAll("tbody tr")];
+        rows.forEach((row) => {
+            const button = row.querySelector(selector);
+            if (!button) return;
+            button.disabled = rows.length <= 1;
+            button.title = rows.length <= 1 ? "At least one schedule row is required" : "Remove this row";
+        });
+    };
+
+    const releaseTerminalRedemption = () => {
+        const lastRow = table.querySelector("tbody tr:last-child");
+        const selector = fixedPaymentTreatment === "principal_redemption"
+            ? ".schedule-fixed-payment"
+            : ".schedule-principal";
+        const terminalInput = lastRow?.querySelector(selector);
+        if (!terminalInput?.hasAttribute("readonly")) return;
+        terminalInput.value = "0.00";
+        terminalInput.removeAttribute("readonly");
+        terminalInput.removeAttribute("aria-readonly");
+        terminalInput.removeAttribute("tabindex");
+    };
+
     const rebuildSchedule = () => {
         const firstCouponRaw = document.getElementById("first_coupon_date")?.value;
         const maturityRaw = document.getElementById("maturity_date")?.value;
@@ -682,12 +722,13 @@
             principal = Math.max(0, Math.min(principal, outstanding));
             const row = `
                 <tr>
-                    <td><input type="date" class="schedule-date" value="${isoDate(date)}"></td>
+                    <td><input type="date" class="schedule-date" value="${isoDate(date)}" required></td>
                     <td><input type="number" step="any" min="0" class="schedule-notional" value="${formatAmount(outstanding)}" readonly aria-readonly="true" tabindex="-1"></td>
                     <td><input type="number" step="any" class="schedule-coupon" value="${couponRate.toFixed(4)}"></td>
                     ${fixedPaymentTreatment === "principal_redemption"
                         ? `<td><input type="hidden" class="schedule-principal" value="0.00"><input type="number" step="any" class="schedule-fixed-payment" value="${formatAmount(principal)}" ${index === dates.length - 1 ? 'readonly aria-readonly="true" tabindex="-1"' : ""}></td>`
                         : `<td><input type="number" step="any" min="0" class="schedule-principal" value="${formatAmount(principal)}" ${index === dates.length - 1 ? 'readonly aria-readonly="true" tabindex="-1"' : ""}></td><td><input type="number" step="any" class="schedule-fixed-payment" value="0.00"></td>`}
+                    <td><button type="button" class="btn-secondary table-row-action remove-payment-row">Remove</button></td>
                 </tr>
             `;
             outstanding -= principal;
@@ -695,6 +736,7 @@
         });
         table.querySelector("tbody").innerHTML = rows.join("");
         serializeSchedule();
+        syncRemoveButtons(table, ".remove-payment-row");
     };
 
     const rebuildExerciseSchedule = () => {
@@ -724,16 +766,61 @@
             const putPrice = optionRights === "putable" || optionRights === "callable_putable" ? defaultPrice.toFixed(2) : "0.00";
             return `
                 <tr>
-                    <td><input type="date" class="exercise-start-date" value="${isoDate(startDate)}"></td>
-                    <td><input type="date" class="exercise-end-date" value="${paymentRaw}"></td>
+                    <td><input type="date" class="exercise-start-date" value="${isoDate(startDate)}" required></td>
+                    <td><input type="date" class="exercise-end-date" value="${paymentRaw}" required></td>
                     <td><input type="number" step="any" min="0" class="exercise-call-price" value="${callPrice}"></td>
                     <td><input type="number" step="any" min="0" class="exercise-put-price" value="${putPrice}"></td>
+                    <td><button type="button" class="btn-secondary table-row-action remove-exercise-row">Remove</button></td>
                 </tr>
             `;
         }).filter(Boolean);
         exerciseTable.querySelector("tbody").innerHTML = rows.join("");
         serializeExerciseSchedule();
+        syncRemoveButtons(exerciseTable, ".remove-exercise-row");
     };
+
+    addPaymentRowButton?.addEventListener("click", () => {
+        releaseTerminalRedemption();
+        const previousCoupon = table.querySelector("tbody tr:last-child .schedule-coupon")?.value
+            || document.getElementById("coupon_rate")?.value
+            || "0";
+        const paymentCells = fixedPaymentTreatment === "principal_redemption"
+            ? `<td><input type="hidden" class="schedule-principal" value="0.00"><input type="number" step="any" min="0" class="schedule-fixed-payment" value="0.00"></td>`
+            : `<td><input type="number" step="any" min="0" class="schedule-principal" value="0.00"></td><td><input type="number" step="any" class="schedule-fixed-payment" value="0.00"></td>`;
+        appendRow(
+            table.querySelector("tbody"),
+            `<tr>
+                <td><input type="date" class="schedule-date" required></td>
+                <td><input type="number" step="any" min="0" class="schedule-notional" value="0.00" readonly aria-readonly="true" tabindex="-1"></td>
+                <td><input type="number" step="any" class="schedule-coupon" value="${previousCoupon}"></td>
+                ${paymentCells}
+                <td><button type="button" class="btn-secondary table-row-action remove-payment-row">Remove</button></td>
+            </tr>`
+        );
+        serializeSchedule();
+        syncRemoveButtons(table, ".remove-payment-row");
+        table.querySelector("tbody tr:last-child .schedule-date")?.focus();
+    });
+
+    addExerciseRowButton?.addEventListener("click", () => {
+        const optionRights = document.getElementById("option_rights")?.value || "callable";
+        const defaultPrice = parseNumber("exercise_price_pct", 100).toFixed(2);
+        const callPrice = optionRights === "callable" || optionRights === "callable_putable" ? defaultPrice : "0.00";
+        const putPrice = optionRights === "putable" || optionRights === "callable_putable" ? defaultPrice : "0.00";
+        appendRow(
+            exerciseTable?.querySelector("tbody"),
+            `<tr>
+                <td><input type="date" class="exercise-start-date" required></td>
+                <td><input type="date" class="exercise-end-date" required></td>
+                <td><input type="number" step="any" min="0" class="exercise-call-price" value="${callPrice}"></td>
+                <td><input type="number" step="any" min="0" class="exercise-put-price" value="${putPrice}"></td>
+                <td><button type="button" class="btn-secondary table-row-action remove-exercise-row">Remove</button></td>
+            </tr>`
+        );
+        serializeExerciseSchedule();
+        syncRemoveButtons(exerciseTable, ".remove-exercise-row");
+        exerciseTable?.querySelector("tbody tr:last-child .exercise-start-date")?.focus();
+    });
 
     table.addEventListener("input", (event) => {
         if (event.target?.classList?.contains("schedule-principal")) {
@@ -742,6 +829,20 @@
         serializeSchedule();
     });
     exerciseTable?.addEventListener("input", serializeExerciseSchedule);
+    table.addEventListener("click", (event) => {
+        if (!event.target?.classList?.contains("remove-payment-row")) return;
+        if (table.querySelectorAll("tbody tr").length <= 1) return;
+        event.target.closest("tr")?.remove();
+        serializeSchedule();
+        syncRemoveButtons(table, ".remove-payment-row");
+    });
+    exerciseTable?.addEventListener("click", (event) => {
+        if (!event.target?.classList?.contains("remove-exercise-row")) return;
+        if (exerciseTable.querySelectorAll("tbody tr").length <= 1) return;
+        event.target.closest("tr")?.remove();
+        serializeExerciseSchedule();
+        syncRemoveButtons(exerciseTable, ".remove-exercise-row");
+    });
     document.getElementById("notional")?.addEventListener("input", () => {
         recalculateNotionals();
         serializeSchedule();
@@ -808,6 +909,10 @@
             rebuildButton.hidden = !generated;
             rebuildButton.title = generated ? "Rebuild coupon rows from instrument terms" : "The selected table is edited directly";
         }
+        if (addPaymentRowButton) {
+            addPaymentRowButton.disabled = generated;
+            addPaymentRowButton.hidden = generated;
+        }
         const heading = document.getElementById("coupon-date-heading");
         if (heading) heading.textContent = source === "period_terms" ? "Terms Apply Through" : "Payment Date";
         document.querySelector(".field-coupon_rate")?.toggleAttribute("hidden", !generated);
@@ -820,6 +925,10 @@
             rebuildExerciseButton.disabled = !generated;
             rebuildExerciseButton.hidden = !generated;
             rebuildExerciseButton.title = generated ? "Rebuild exercise rows from coupon dates" : "The editable exercise table is the source of truth";
+        }
+        if (addExerciseRowButton) {
+            addExerciseRowButton.disabled = generated;
+            addExerciseRowButton.hidden = generated;
         }
     };
     document.getElementById("schedule_mode")?.addEventListener("change", () => {
@@ -850,6 +959,8 @@
     syncCurveTableVisibility();
     syncScheduleControls();
     syncExerciseControls();
+    syncRemoveButtons(table, ".remove-payment-row");
+    syncRemoveButtons(exerciseTable, ".remove-exercise-row");
 })();
 </script>
 {% endif %}
