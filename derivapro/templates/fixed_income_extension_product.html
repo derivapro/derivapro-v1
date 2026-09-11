@@ -8,7 +8,7 @@
     config.title,
     config.subtitle,
     config.asset_class,
-    "First-Wave Expansion"
+    "Lattice Valuation" if product_slug == "callable-amortizing-bond" else "First-Wave Expansion"
 ) }}
 
 {{ product.description(
@@ -20,8 +20,38 @@
 ) }}
 
 {% call product.section("Pricing", "Enter trade terms and curve assumptions, then run valuation.") %}
-<form method="post" class="european-pricing-form product-standard-form{% if product_slug == 'callable-amortizing-bond' %} callable-amortizing-form{% endif %}">
+<form method="post" class="european-pricing-form product-standard-form{% if product_slug == 'callable-amortizing-bond' %} callable-amortizing-form{% elif product_slug == 'amortizing-stepup-sinking-bond' %} structured-amortizing-form{% endif %}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if product_slug == "callable-amortizing-bond" %}
+    <div class="callable-scenario-toolbar" aria-labelledby="benchmark-scenario-label">
+        <div class="callable-scenario-copy">
+            <span>Benchmark workflow</span>
+            <strong id="benchmark-scenario-label">Load a tested scenario</strong>
+            <p>Loading a scenario replaces the current terms, schedules, model parameters, and curve inputs.</p>
+        </div>
+        <label class="callable-scenario-select" for="benchmark-preset-select">
+            <span>Scenario</span>
+            <select id="benchmark-preset-select" name="benchmark_preset">
+                {% for preset in benchmark_presets %}
+                <option value="{{ preset.id }}" {% if selected_preset == preset.id %}selected{% endif %}>{{ preset.label }} - {{ preset.meta }}</option>
+                {% endfor %}
+                <option value="custom" {% if selected_preset == "custom" %}selected{% endif %}>Custom scenario</option>
+            </select>
+        </label>
+    </div>
+    <div class="pricing-action-row callable-sticky-action-bar">
+        <div class="callable-form-status" aria-live="polite">
+            <span class="callable-form-status-dot" aria-hidden="true"></span>
+            <div>
+                <strong id="callable-form-status-title">{% if results %}Results current{% else %}Ready to value{% endif %}</strong>
+                <small id="callable-form-status-detail">{{ selected_preset_label }}</small>
+            </div>
+        </div>
+        <button type="submit" class="btn-primary">Run Valuation</button>
+        <a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="btn-secondary">Fixed Income Extensions</a>
+    </div>
+    {% endif %}
 
     {% for section in field_sections %}
     <div class="pricing-form-block">
@@ -59,16 +89,19 @@
     </div>
     {% endfor %}
 
-    {% if product_slug == "callable-amortizing-bond" %}
-    <div class="pricing-form-block schedule-editor-block">
-        <div class="pricing-form-heading">
+    {% if product_slug in ["amortizing-stepup-sinking-bond", "callable-amortizing-bond"] %}
+    <details class="pricing-form-block schedule-editor-block advanced-data-disclosure" id="curve-data-disclosure">
+        <summary class="advanced-data-summary">
             <span aria-hidden="true">C</span>
             <div>
-                <strong>Discount Curve Tables</strong>
-                <p>Enter either dated discount factors for benchmark replication or zero-rate tenors for standard curve-based valuation.</p>
+                <strong>Discount Curve Data</strong>
+                <p><span id="curve-data-summary-count">{% if product_slug == "callable-amortizing-bond" and form_data.discount_curve_input_type == "discount_factors" %}{{ discount_factor_rows|length }} dated discount-factor nodes{% else %}{{ zero_curve_rows|length }} zero-rate nodes{% endif %}</span> - Expand to review or edit the complete curve.</p>
             </div>
-        </div>
+            <span class="advanced-data-toggle" aria-hidden="true">Edit</span>
+        </summary>
+        <div class="advanced-data-content">
         <div class="curve-table-panels">
+            {% if product_slug == "callable-amortizing-bond" %}
             <div class="curve-table-panel" id="discount-factor-curve-panel">
                 <div class="schedule-editor-toolbar">
                     <button type="button" class="btn-secondary" id="add-discount-factor-row">Add Discount Factor Row</button>
@@ -95,6 +128,7 @@
                     </table>
                 </div>
             </div>
+            {% endif %}
 
             <div class="curve-table-panel" id="zero-curve-panel">
                 <div class="schedule-editor-toolbar">
@@ -123,16 +157,20 @@
                 </div>
             </div>
         </div>
-    </div>
+        </div>
+    </details>
 
-    <div class="pricing-form-block schedule-editor-block">
-        <div class="pricing-form-heading">
+    {% if product_slug == "callable-amortizing-bond" %}
+    <details class="pricing-form-block schedule-editor-block advanced-data-disclosure" id="holiday-data-disclosure">
+        <summary class="advanced-data-summary">
             <span aria-hidden="true">H</span>
             <div>
                 <strong>Holiday Calendar</strong>
-                <p>Payment dates use these holidays and weekends when a business-day adjustment is selected.</p>
+                <p><span id="holiday-data-summary-count">{{ holiday_rows|length }} custom holiday dates</span> - <span id="holiday-data-summary-status">{% if form_data.business_day_convention == "none" %}Stored but not applied with No Adjustment{% else %}Applied to adjusted payment dates{% endif %}</span>.</p>
             </div>
-        </div>
+            <span class="advanced-data-toggle" aria-hidden="true">Edit</span>
+        </summary>
+        <div class="advanced-data-content">
         <div class="schedule-editor-toolbar">
             <button type="button" class="btn-secondary" id="add-holiday-row">Add Holiday Date</button>
             <p>Holiday dates are calendar conventions, not curve assumptions. They are separated from the discount curve intentionally.</p>
@@ -155,7 +193,9 @@
                 </tbody>
             </table>
         </div>
-    </div>
+        </div>
+    </details>
+    {% endif %}
     {% endif %}
 
     {% if product_slug in ["amortizing-stepup-sinking-bond", "callable-amortizing-bond"] %}
@@ -260,13 +300,16 @@
                 </tbody>
             </table>
         </div>
+        <div class="exercise-schedule-message" id="exercise-schedule-message" role="status" hidden></div>
     </div>
     {% endif %}
 
+    {% if product_slug != "callable-amortizing-bond" %}
     <div class="pricing-action-row">
         <button type="submit" class="btn-primary">Run Valuation</button>
         <a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="btn-secondary">Fixed Income Extensions</a>
     </div>
+    {% endif %}
 </form>
 
 {% if pricing_error %}
@@ -274,7 +317,90 @@
     <p><strong>Run error:</strong> {{ pricing_error }}</p>
 </div>
 {% elif results %}
-<div class="pricing-results-shell">
+<div class="pricing-results-shell" id="valuation-results">
+    {% if product_slug == "callable-amortizing-bond" %}
+    <div class="callable-results-heading">
+        <div>
+            <span>Valuation results</span>
+            <h3>{{ selected_preset_label }}</h3>
+        </div>
+        <p>{% if restored_run %}Latest saved run restored from the report.{% else %}Model value, option decomposition, and risk measures for the submitted scenario.{% endif %}</p>
+    </div>
+    <div class="callable-primary-kpis">
+        {% for metric in results.primary_metrics %}
+        {% if metric.label in ["Option-Adjusted Clean PV", "Straight Bond Clean PV", "Embedded Option Value"] %}
+        <div class="callable-primary-kpi{% if metric.label == 'Option-Adjusted Clean PV' %} callable-primary-kpi-featured{% endif %}">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% if results.price_decomposition %}
+    <div class="price-decomposition" aria-label="Price decomposition">
+        <div class="price-decomposition-item">
+            <span>Straight bond</span>
+            <strong>{{ results.price_decomposition.straight_value }}</strong>
+        </div>
+        <span class="price-decomposition-operator" aria-hidden="true">{{ results.price_decomposition.operator }}</span>
+        <div class="price-decomposition-item">
+            <span>{{ results.price_decomposition.adjustment_label }}</span>
+            <strong>{{ results.price_decomposition.adjustment_value }}</strong>
+        </div>
+        <span class="price-decomposition-operator" aria-hidden="true">=</span>
+        <div class="price-decomposition-item price-decomposition-total">
+            <span>Option-adjusted value</span>
+            <strong>{{ results.price_decomposition.option_adjusted_value }}</strong>
+        </div>
+    </div>
+    {% endif %}
+    <div class="callable-secondary-metrics">
+        {% for metric in results.primary_metrics %}
+        {% if metric.label not in ["Option-Adjusted Clean PV", "Straight Bond Clean PV", "Embedded Option Value"] %}
+        <div class="callable-secondary-metric">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div class="result-context-note">
+        <strong>OAS context</strong>
+        <p>The solved spread reconciles model value to the {{ form_data.market_clean_price_pct }}% clean-price target. A negative result means the target price is above model fair value.</p>
+    </div>
+    {% elif product_slug == "amortizing-stepup-sinking-bond" %}
+    <div class="callable-results-heading">
+        <div>
+            <span>Valuation results</span>
+            <h3>{{ "Yield-based benchmark" if form_data.pricing_basis == "yield" else "Curve-based valuation" }}</h3>
+        </div>
+        <p>{% if restored_run %}Latest saved run restored from the report.{% else %}Clean and dirty value, yield, and rate-risk measures for the submitted principal and coupon schedule.{% endif %}</p>
+    </div>
+    <div class="callable-primary-kpis">
+        {% for metric in results.primary_metrics %}
+        {% if metric.label in ["Fair Value (Clean)", "Accrued Interest", "Fair Value + Accrued"] %}
+        <div class="callable-primary-kpi{% if metric.label == 'Fair Value (Clean)' %} callable-primary-kpi-featured{% endif %}">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div class="callable-secondary-metrics structured-secondary-metrics">
+        {% for metric in results.primary_metrics %}
+        {% if metric.label not in ["Fair Value (Clean)", "Accrued Interest", "Fair Value + Accrued"] %}
+        <div class="callable-secondary-metric">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+    <div class="result-context-note">
+        <strong>Pricing context</strong>
+        <p>{{ "Cashflows are discounted at the supplied yield to maturity." if form_data.pricing_basis == "yield" else "Cashflows are discounted using the supplied continuously compounded zero curve." }} The payment table is the source of coupon and principal timing.</p>
+    </div>
+    {% else %}
     <div class="result-kpi-grid">
         {% for metric in results.primary_metrics %}
         <div class="pricing-summary-card">
@@ -284,6 +410,7 @@
         </div>
         {% endfor %}
     </div>
+    {% endif %}
     <div class="analysis-card">
         <span>Pricing Summary</span>
         <p>{{ results.summary }}</p>
@@ -309,6 +436,8 @@
                             {{ "{:,.4f} bp".format(metric.value) if metric.value is not none else "n/a" }}
                             {% elif "Fit Error" in metric.label %}
                             {{ "{:.3e}".format(metric.value) }}
+                            {% elif "Yield" in metric.label %}
+                            {{ "{:.4%}".format(metric.value) }}
                             {% elif "Years" in metric.label or "Duration" in metric.label or "Convexity" in metric.label %}
                             {{ "{:,.6f}".format(metric.value) }}
                             {% elif "Steps" in metric.label or "Days" in metric.label %}
@@ -339,6 +468,140 @@
 
 {% call product.section("Analysis", "Review standard scenario outputs and cash-flow or period-level diagnostics for the latest run.") %}
 {% if results %}
+{% if product_slug == "callable-amortizing-bond" and results.analysis_visuals %}
+<div class="callable-analysis-visual-grid">
+    <article class="analysis-card callable-analysis-visual">
+        <div class="callable-visual-heading">
+            <div>
+                <span>Rate Sensitivity</span>
+                <h3>Scenario value movement</h3>
+            </div>
+            <strong>Base {{ results.analysis_visuals.scenario_base }}</strong>
+        </div>
+        <div class="analysis-bar-chart callable-scenario-chart">
+            {% for bar in results.analysis_visuals.scenario_bars %}
+            <div class="analysis-bar-row">
+                <small>{{ bar.label }}</small>
+                <div class="analysis-bar-track" title="Change from base: {{ bar.change }}">
+                    <i class="{{ bar.direction }}" style="width: {{ bar.width }}"></i>
+                </div>
+                <strong>{{ bar.value }} <em>{{ bar.change }}</em></strong>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="callable-visual-note">Bar length shows absolute movement from base; the signed amount is the clean-PV change.</p>
+    </article>
+
+    <article class="analysis-card callable-analysis-visual">
+        <div class="callable-visual-heading">
+            <div>
+                <span>Amortization</span>
+                <h3>Outstanding principal runoff</h3>
+            </div>
+        </div>
+        <div class="callable-runoff-chart">
+            {% for bar in results.analysis_visuals.principal_runoff %}
+            <div class="callable-runoff-row">
+                <small>{{ bar.date }}</small>
+                <div class="callable-runoff-track">
+                    <i style="width: {{ bar.width }}"></i>
+                </div>
+                <strong>{{ bar.value }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="callable-visual-note">Outstanding principal immediately after each contractual payment.</p>
+    </article>
+
+    <article class="analysis-card callable-analysis-visual callable-analysis-visual-wide">
+        <div class="callable-visual-heading">
+            <div>
+                <span>Exercise Profile</span>
+                <h3>Exercise probability by scheduled date</h3>
+            </div>
+            <div class="callable-probability-legend" aria-label="Exercise probability legend">
+                <span class="call-legend">Call</span>
+                <span class="put-legend">Put</span>
+                <strong>No exercise {{ results.analysis_visuals.no_exercise_probability }}</strong>
+            </div>
+        </div>
+        <div class="callable-probability-chart">
+            {% for bar in results.analysis_visuals.exercise_probabilities %}
+            <div class="callable-probability-row">
+                <small>{{ bar.date }}</small>
+                <div class="callable-probability-track" title="Call {{ bar.call_probability }}, put {{ bar.put_probability }}">
+                    <i class="call-probability" style="width: {{ bar.call_width }}"></i>
+                    <i class="put-probability" style="width: {{ bar.put_width }}"></i>
+                </div>
+                <strong>{{ bar.total_probability }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+    </article>
+</div>
+{% elif product_slug == "amortizing-stepup-sinking-bond" and results.analysis_visuals %}
+<div class="callable-analysis-visual-grid structured-analysis-visual-grid">
+    <article class="analysis-card callable-analysis-visual">
+        <div class="callable-visual-heading">
+            <div>
+                <span>Rate Sensitivity</span>
+                <h3>Scenario clean-value movement</h3>
+            </div>
+            <strong>Base {{ results.analysis_visuals.scenario_base }}</strong>
+        </div>
+        <div class="analysis-bar-chart callable-scenario-chart">
+            {% for bar in results.analysis_visuals.scenario_bars %}
+            <div class="analysis-bar-row">
+                <small>{{ bar.label }}</small>
+                <div class="analysis-bar-track" title="Change from base: {{ bar.change }}">
+                    <i class="{{ bar.direction }}" style="width: {{ bar.width }}"></i>
+                </div>
+                <strong>{{ bar.value }} <em>{{ bar.change }}</em></strong>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="callable-visual-note">Bar length shows absolute movement from the base clean value under the selected parallel shock.</p>
+    </article>
+
+    <article class="analysis-card callable-analysis-visual">
+        <div class="callable-visual-heading">
+            <div>
+                <span>Principal Profile</span>
+                <h3>Outstanding notional runoff</h3>
+            </div>
+        </div>
+        <div class="callable-runoff-chart">
+            {% for bar in results.analysis_visuals.principal_runoff %}
+            <div class="callable-runoff-row">
+                <small>{{ bar.date }}</small>
+                <div class="callable-runoff-track"><i style="width: {{ bar.width }}"></i></div>
+                <strong>{{ bar.value }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="callable-visual-note">Outstanding principal immediately after each contractual payment.</p>
+    </article>
+
+    <article class="analysis-card callable-analysis-visual callable-analysis-visual-wide">
+        <div class="callable-visual-heading">
+            <div>
+                <span>Coupon Profile</span>
+                <h3>Contractual coupon rate by payment date</h3>
+            </div>
+        </div>
+        <div class="callable-runoff-chart structured-coupon-chart">
+            {% for bar in results.analysis_visuals.coupon_profile %}
+            <div class="callable-runoff-row">
+                <small>{{ bar.date }}</small>
+                <div class="callable-runoff-track structured-coupon-track"><i style="width: {{ bar.width }}"></i></div>
+                <strong>{{ bar.value }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        <p class="callable-visual-note">The profile makes step-up and step-down coupon changes visible independently from principal amortization.</p>
+    </article>
+</div>
+{% else %}
 <div class="analysis-grid">
     <article class="analysis-card">
         <span>Scenario PV</span>
@@ -364,8 +627,13 @@
         <p>Recommended next additions are key-rate DV01, curve twist scenarios, convexity diagnostics, calibration checks, and portfolio aggregation hooks.</p>
     </article>
 </div>
+{% endif %}
 
 {% if results.cashflows %}
+{% if product_slug in ["amortizing-stepup-sinking-bond", "callable-amortizing-bond"] %}
+<details class="analysis-data-disclosure">
+    <summary>Cashflow diagnostics <span>{{ results.cashflows|length }} rows</span></summary>
+{% endif %}
 <div class="results-table-wrap">
     <table class="results-table compact-results-table">
         <thead>
@@ -392,9 +660,14 @@
         </tbody>
     </table>
 </div>
+{% if product_slug in ["amortizing-stepup-sinking-bond", "callable-amortizing-bond"] %}</details>{% endif %}
 {% endif %}
 
 {% if results.diagnostics %}
+{% if product_slug == "callable-amortizing-bond" %}
+<details class="analysis-data-disclosure">
+    <summary>Exercise diagnostics <span>{{ results.diagnostics|length }} rows</span></summary>
+{% endif %}
 <div class="results-table-wrap">
     <table class="results-table compact-results-table">
         <thead>
@@ -421,9 +694,14 @@
         </tbody>
     </table>
 </div>
+{% if product_slug == "callable-amortizing-bond" %}</details>{% endif %}
 {% endif %}
 
 {% if results.yield_diagnostics %}
+{% if product_slug == "callable-amortizing-bond" %}
+<details class="analysis-data-disclosure">
+    <summary>Yield diagnostics <span>{{ results.yield_diagnostics|length }} cases</span></summary>
+{% endif %}
 <div class="results-table-wrap">
     <table class="results-table compact-results-table">
         <thead>
@@ -450,6 +728,7 @@
         </tbody>
     </table>
 </div>
+{% if product_slug == "callable-amortizing-bond" %}</details>{% endif %}
 {% endif %}
 {% else %}
 <div class="available-analysis-grid">
@@ -526,6 +805,16 @@
     const zeroRatesInput = document.getElementById("discount_curve_rates");
     const holidayDatesInput = document.getElementById("holiday_dates");
     const fixedPaymentTreatment = document.getElementById("fixed_payment_treatment")?.value || "additional_cashflow";
+    const benchmarkPresets = {{ benchmark_presets | default([]) | tojson }};
+    const presetSelect = document.getElementById("benchmark-preset-select");
+    const statusTitle = document.getElementById("callable-form-status-title");
+    const statusDetail = document.getElementById("callable-form-status-detail");
+    const stickyActionBar = document.querySelector(".callable-sticky-action-bar");
+    const runButton = stickyActionBar?.querySelector('button[type="submit"]');
+    const exerciseScheduleMessage = document.getElementById("exercise-schedule-message");
+    const initialHasResults = {{ (results is not none) | tojson }};
+    let applyingPreset = false;
+    let isDirty = false;
     if (!form || !table || !scheduleInput) return;
 
     const parseNumber = (id, fallback = 0) => {
@@ -548,6 +837,64 @@
     const appendRow = (tbody, html) => {
         if (!tbody) return;
         tbody.insertAdjacentHTML("beforeend", html);
+    };
+
+    const paymentRowMarkup = (values) => {
+        const [date = "", notional = "0", coupon = "0", principal = "0", fixedPayment = "0"] = values;
+        const paymentCells = fixedPaymentTreatment === "principal_redemption"
+            ? `<td><input type="hidden" class="schedule-principal" value="${principal}"><input type="number" step="any" min="0" class="schedule-fixed-payment" value="${fixedPayment}"></td>`
+            : `<td><input type="number" step="any" min="0" class="schedule-principal" value="${principal}"></td><td><input type="number" step="any" class="schedule-fixed-payment" value="${fixedPayment}"></td>`;
+        return `<tr>
+            <td><input type="date" class="schedule-date" value="${date}" required></td>
+            <td><input type="number" step="any" min="0" class="schedule-notional" value="${notional}" readonly aria-readonly="true" tabindex="-1"></td>
+            <td><input type="number" step="any" class="schedule-coupon" value="${coupon}"></td>
+            ${paymentCells}
+            <td><button type="button" class="btn-secondary table-row-action remove-payment-row">Remove</button></td>
+        </tr>`;
+    };
+
+    const exerciseRowMarkup = (values) => {
+        const [startDate = "", endDate = "", callPrice = "0", putPrice = "0"] = values;
+        return `<tr>
+            <td><input type="date" class="exercise-start-date" value="${startDate}" required></td>
+            <td><input type="date" class="exercise-end-date" value="${endDate}" required></td>
+            <td><input type="number" step="any" min="0" class="exercise-call-price" value="${callPrice}"></td>
+            <td><input type="number" step="any" min="0" class="exercise-put-price" value="${putPrice}"></td>
+            <td><button type="button" class="btn-secondary table-row-action remove-exercise-row">Remove</button></td>
+        </tr>`;
+    };
+
+    const renderDelimitedRows = (raw, targetTable, rowMarkup) => {
+        if (!targetTable) return;
+        const rows = String(raw || "").split(";").map((row) => row.trim()).filter(Boolean);
+        targetTable.querySelector("tbody").innerHTML = rows.map((row) => rowMarkup(row.split("|"))).join("");
+    };
+
+    const renderDiscountFactorRows = (raw) => {
+        if (!discountFactorTable) return;
+        const rows = String(raw || "").split(";").map((row) => row.trim()).filter(Boolean);
+        discountFactorTable.querySelector("tbody").innerHTML = rows.map((row) => {
+            const [date = "", factor = ""] = row.split("|");
+            return `<tr><td><input type="date" class="curve-date" value="${date}"></td><td><input type="number" step="any" min="0" class="curve-discount-factor" value="${factor}"></td><td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td></tr>`;
+        }).join("");
+    };
+
+    const renderZeroCurveRows = (tenorsRaw, ratesRaw) => {
+        if (!zeroCurveTable) return;
+        const tenors = String(tenorsRaw || "").split(",").map((value) => value.trim());
+        const rates = String(ratesRaw || "").split(",").map((value) => value.trim());
+        zeroCurveTable.querySelector("tbody").innerHTML = tenors.map((tenor, index) => {
+            if (!tenor || !rates[index]) return "";
+            return `<tr><td><input type="number" step="any" min="0" class="zero-curve-tenor" value="${tenor}"></td><td><input type="number" step="any" class="zero-curve-rate" value="${rates[index]}"></td><td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td></tr>`;
+        }).join("");
+    };
+
+    const renderHolidayRows = (raw) => {
+        if (!holidayTable) return;
+        const dates = String(raw || "").split(";").map((date) => date.trim()).filter(Boolean);
+        holidayTable.querySelector("tbody").innerHTML = dates.map((date) => (
+            `<tr><td><input type="date" class="holiday-date" value="${date}"></td><td><button type="button" class="btn-secondary table-row-action remove-table-row">Remove</button></td></tr>`
+        )).join("");
     };
 
     const syncCurveTableVisibility = () => {
@@ -898,13 +1245,15 @@
         serializeCurveTables();
     });
     const syncScheduleControls = () => {
-        const source = document.getElementById("schedule_mode")?.value || "explicit";
+        const scheduleModeControl = document.getElementById("schedule_mode");
+        if (!scheduleModeControl) return;
+        const source = scheduleModeControl.value || "explicit";
         const style = document.getElementById("amortization_style");
         const generated = source.startsWith("generated_");
         if (style) {
             style.value = source === "generated_bullet" ? "bullet" : source === "generated_straight_line" ? "straight_line" : "sinking_schedule";
         }
-        if (rebuildButton && document.getElementById("schedule_mode")) {
+        if (rebuildButton) {
             rebuildButton.disabled = !generated;
             rebuildButton.hidden = !generated;
             rebuildButton.title = generated ? "Rebuild coupon rows from instrument terms" : "The selected table is edited directly";
@@ -931,6 +1280,160 @@
             addExerciseRowButton.hidden = generated;
         }
     };
+
+    const updateDisclosureSummaries = () => {
+        const useDiscountFactors = curveMode?.value === "discount_factors";
+        const curveRows = useDiscountFactors
+            ? discountFactorTable?.querySelectorAll("tbody tr").length || 0
+            : zeroCurveTable?.querySelectorAll("tbody tr").length || 0;
+        const curveSummary = document.getElementById("curve-data-summary-count");
+        if (curveSummary) {
+            curveSummary.textContent = useDiscountFactors
+                ? `${curveRows} dated discount-factor nodes`
+                : `${curveRows} zero-rate nodes`;
+        }
+        const holidayRows = holidayTable?.querySelectorAll("tbody tr").length || 0;
+        const holidaySummary = document.getElementById("holiday-data-summary-count");
+        if (holidaySummary) holidaySummary.textContent = `${holidayRows} custom holiday dates`;
+        const convention = document.getElementById("business_day_convention")?.value || "none";
+        const holidayStatus = document.getElementById("holiday-data-summary-status");
+        if (holidayStatus) {
+            holidayStatus.textContent = convention === "none"
+                ? "Stored but not applied with No Adjustment"
+                : "Applied to adjusted payment dates";
+        }
+    };
+
+    const syncExerciseRights = () => {
+        if (!exerciseTable) return;
+        const rights = document.getElementById("option_rights")?.value || "callable";
+        const callActive = rights === "callable" || rights === "callable_putable";
+        const putActive = rights === "putable" || rights === "callable_putable";
+        exerciseTable.classList.toggle("exercise-call-inactive", !callActive);
+        exerciseTable.classList.toggle("exercise-put-inactive", !putActive);
+        exerciseTable.querySelectorAll(".exercise-call-price").forEach((input) => {
+            input.disabled = !callActive;
+            input.setAttribute("aria-disabled", String(!callActive));
+        });
+        exerciseTable.querySelectorAll(".exercise-put-price").forEach((input) => {
+            input.disabled = !putActive;
+            input.setAttribute("aria-disabled", String(!putActive));
+        });
+    };
+
+    const validateFormState = () => {
+        if (!stickyActionBar) return true;
+        syncExerciseRights();
+        updateDisclosureSummaries();
+        const errors = [];
+        const exerciseErrors = [];
+        const valuationDate = document.getElementById("valuation_date")?.value || "";
+        const maturityDate = document.getElementById("maturity_date")?.value || "";
+        if (!valuationDate || !maturityDate || maturityDate <= valuationDate) {
+            errors.push("Maturity must be after the settlement date.");
+        }
+        if (parseNumber("notional", 0) <= 0) {
+            errors.push("Original face value must be positive.");
+        }
+        const paymentRows = [...table.querySelectorAll("tbody tr")];
+        if (!paymentRows.length || paymentRows.some((row) => !row.querySelector(".schedule-date")?.value)) {
+            errors.push("Every payment row requires a date.");
+        }
+        const useDiscountFactors = curveMode?.value === "discount_factors";
+        const validCurveRows = useDiscountFactors
+            ? [...(discountFactorTable?.querySelectorAll("tbody tr") || [])].filter((row) => row.querySelector(".curve-date")?.value && Number(row.querySelector(".curve-discount-factor")?.value) > 0).length
+            : [...(zeroCurveTable?.querySelectorAll("tbody tr") || [])].filter((row) => row.querySelector(".zero-curve-tenor")?.value && row.querySelector(".zero-curve-rate")?.value !== "").length;
+        if (validCurveRows < 2) errors.push("The selected curve requires at least two complete rows.");
+
+        const rights = document.getElementById("option_rights")?.value || "callable";
+        const rows = [...(exerciseTable?.querySelectorAll("tbody tr") || [])];
+        if (!rows.length) exerciseErrors.push("Add at least one exercise row.");
+        if (rows.some((row) => {
+            const start = row.querySelector(".exercise-start-date")?.value || "";
+            const end = row.querySelector(".exercise-end-date")?.value || "";
+            return !start || !end || end < start;
+        })) {
+            exerciseErrors.push("Each exercise window needs valid dates in chronological order.");
+        }
+        const hasCallPrice = rows.some((row) => Number(row.querySelector(".exercise-call-price")?.value) > 0);
+        const hasPutPrice = rows.some((row) => Number(row.querySelector(".exercise-put-price")?.value) > 0);
+        if ((rights === "callable" || rights === "callable_putable") && !hasCallPrice) {
+            exerciseErrors.push("Callable rights require at least one positive call price.");
+        }
+        if ((rights === "putable" || rights === "callable_putable") && !hasPutPrice) {
+            exerciseErrors.push("Putable rights require at least one positive put price.");
+        }
+        errors.push(...exerciseErrors);
+
+        if (exerciseScheduleMessage) {
+            const inactiveLabel = rights === "callable" ? "Put prices are inactive for this callable-only scenario."
+                : rights === "putable" ? "Call prices are inactive for this puttable-only scenario."
+                : "Both call and put prices are active.";
+            exerciseScheduleMessage.hidden = false;
+            exerciseScheduleMessage.classList.toggle("is-error", exerciseErrors.length > 0);
+            exerciseScheduleMessage.textContent = exerciseErrors[0] || inactiveLabel;
+        }
+
+        const selectedLabel = presetSelect?.selectedOptions[0]?.textContent?.trim() || "Custom scenario";
+        stickyActionBar.dataset.state = errors.length ? "invalid" : isDirty ? "dirty" : initialHasResults ? "current" : "ready";
+        if (statusTitle) {
+            statusTitle.textContent = errors.length ? "Review input errors" : isDirty ? "Inputs changed" : initialHasResults ? "Results current" : "Ready to value";
+        }
+        if (statusDetail) statusDetail.textContent = errors[0] || selectedLabel;
+        if (runButton) runButton.disabled = errors.length > 0;
+        return errors.length === 0;
+    };
+
+    const loadBenchmarkPreset = (presetId) => {
+        const preset = benchmarkPresets.find((item) => item.id === presetId);
+        if (!preset) {
+            isDirty = true;
+            validateFormState();
+            return;
+        }
+        applyingPreset = true;
+        Object.entries(preset.values).forEach(([id, value]) => {
+            const input = document.getElementById(id);
+            if (input) input.value = value;
+        });
+        renderDelimitedRows(preset.values.cashflow_schedule, table, paymentRowMarkup);
+        renderDelimitedRows(preset.values.exercise_schedule, exerciseTable, exerciseRowMarkup);
+        renderDiscountFactorRows(preset.values.discount_factor_curve);
+        renderZeroCurveRows(preset.values.discount_curve_tenors, preset.values.discount_curve_rates);
+        renderHolidayRows(preset.values.holiday_dates);
+        syncCurveTableVisibility();
+        syncScheduleControls();
+        syncExerciseControls();
+        serializeSchedule();
+        serializeExerciseSchedule();
+        serializeCurveTables();
+        serializeHolidayDates();
+        syncRemoveButtons(table, ".remove-payment-row");
+        syncRemoveButtons(exerciseTable, ".remove-exercise-row");
+        if (presetSelect) presetSelect.value = presetId;
+        applyingPreset = false;
+        isDirty = true;
+        validateFormState();
+    };
+
+    const markFormDirty = (event) => {
+        if (applyingPreset || event.target === presetSelect) return;
+        isDirty = true;
+        if (presetSelect) presetSelect.value = "custom";
+        validateFormState();
+    };
+
+    presetSelect?.addEventListener("change", () => loadBenchmarkPreset(presetSelect.value));
+    form.addEventListener("input", markFormDirty);
+    form.addEventListener("change", markFormDirty);
+    form.addEventListener("click", (event) => {
+        if (!event.target?.closest?.(".schedule-editor-block button")) return;
+        queueMicrotask(() => {
+            isDirty = true;
+            if (presetSelect) presetSelect.value = "custom";
+            validateFormState();
+        });
+    });
     document.getElementById("schedule_mode")?.addEventListener("change", () => {
         syncScheduleControls();
         if (document.getElementById("schedule_mode")?.value.startsWith("generated_")) rebuildSchedule();
@@ -946,11 +1449,12 @@
     });
     rebuildButton?.addEventListener("click", rebuildSchedule);
     rebuildExerciseButton?.addEventListener("click", rebuildExerciseSchedule);
-    form.addEventListener("submit", () => {
+    form.addEventListener("submit", (event) => {
         serializeSchedule();
         serializeExerciseSchedule();
         serializeCurveTables();
         serializeHolidayDates();
+        if (!validateFormState()) event.preventDefault();
     });
     serializeSchedule();
     serializeExerciseSchedule();
@@ -961,6 +1465,7 @@
     syncExerciseControls();
     syncRemoveButtons(table, ".remove-payment-row");
     syncRemoveButtons(exerciseTable, ".remove-exercise-row");
+    validateFormState();
 })();
 </script>
 {% endif %}

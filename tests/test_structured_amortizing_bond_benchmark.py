@@ -80,6 +80,77 @@ class StructuredAmortizingBondBenchmarkTest(unittest.TestCase):
         self.assertEqual(_metric(results, "Fair Value (Clean)"), "$943,393.01")
         self.assertEqual(results["cashflows"][1]["opening_notional"], 966666.6666666666)
 
+    def test_analysis_visuals_follow_scenarios_and_contractual_schedule(self):
+        results = price_generic_bond(_benchmark_terms("straight_line"))
+        visuals = results["analysis_visuals"]
+
+        self.assertEqual(len(visuals["scenario_bars"]), 2)
+        self.assertEqual(len(visuals["principal_runoff"]), len(results["cashflows"]))
+        self.assertEqual(len(visuals["coupon_profile"]), len(results["cashflows"]))
+        self.assertEqual(visuals["principal_runoff"][-1]["value"], "$0.00")
+        for collection in ("scenario_bars", "principal_runoff", "coupon_profile"):
+            for row in visuals[collection]:
+                width = float(row["width"].removesuffix("%"))
+                self.assertGreaterEqual(width, 0.0)
+                self.assertLessEqual(width, 100.0)
+
+    def test_report_content_reconciles_internal_checks_and_external_benchmark(self):
+        from derivapro.routes.bonds import FIXED_INCOME_EXTENSION_CONFIGS, _default_form_data, _price_fixed_income_extension
+        from derivapro.services.product_reports import _structured_amortizing_report_content
+
+        params = _default_form_data(FIXED_INCOME_EXTENSION_CONFIGS["amortizing-stepup-sinking-bond"])
+        results = _price_fixed_income_extension("amortizing-stepup-sinking-bond", params)
+        content = _structured_amortizing_report_content(params, results)
+
+        self.assertEqual(len(content["testing_results"]), 4)
+        self.assertTrue(all(row[-1] == "Pass" for row in content["testing_results"]))
+        self.assertIn("Math/GenericBonds.html", content["methodology_references"])
+        self.assertEqual(len(content["benchmark_comparison"]), 7)
+        self.assertTrue(all(row[-1] == "Reconciled" for row in content["benchmark_comparison"]))
+
+    def test_report_return_restores_latest_structured_bond_run(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from flask_login import login_user
+
+        from derivapro import create_app
+        from derivapro.models.db_models import User
+        from derivapro.routes.bonds import (
+            FIXED_INCOME_EXTENSION_CONFIGS,
+            _default_form_data,
+            _price_fixed_income_extension,
+            rates_fixed_income_product,
+        )
+
+        params = _default_form_data(FIXED_INCOME_EXTENSION_CONFIGS["amortizing-stepup-sinking-bond"])
+        results = _price_fixed_income_extension("amortizing-stepup-sinking-bond", params)
+        latest = SimpleNamespace(
+            instrument=SimpleNamespace(params_json=params),
+            result_json=results,
+        )
+        user = User(
+            id=999998,
+            username="structured-report-return-test",
+            password_hash="unused",
+            accepted_terms=True,
+        )
+        app = create_app()
+        with app.test_request_context(
+            "/noncallable-bonds/rates-fixed-income/amortizing-stepup-sinking-bond?restore=latest"
+        ):
+            login_user(user)
+            with patch(
+                "derivapro.routes.bonds.get_latest_pricing_result_for_user",
+                return_value=latest,
+            ):
+                html = rates_fixed_income_product("amortizing-stepup-sinking-bond")
+
+        self.assertIn("Latest saved run restored from the report.", html)
+        self.assertIn('id="valuation-results"', html)
+        self.assertIn("$943,393.01", html)
+        self.assertIn("Contractual coupon rate by payment date", html)
+
 
 if __name__ == "__main__":
     unittest.main()

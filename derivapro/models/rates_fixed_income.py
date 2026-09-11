@@ -759,6 +759,7 @@ def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict
                 terms.payments_per_year,
                 terms.day_count,
             )
+        closing_notional = max(opening_notional - principal_reduction, 0.0)
         rows.append(
             {
                 "period": f"{previous_coupon_date.isoformat()} to {pay_date.isoformat()}",
@@ -771,9 +772,10 @@ def _generic_bond_run(terms: GenericBondTerms, curve: Curve, label: str) -> dict
                 "cashflow": cashflow,
                 "discount_factor": df,
                 "discounted_pv": pv,
+                "closing_notional": closing_notional,
             }
         )
-        outstanding = max(opening_notional - principal_reduction, 0.0)
+        outstanding = closing_notional
         previous_coupon_date = pay_date
 
     market_price = terms.notional * terms.market_clean_price_pct / 100.0
@@ -816,6 +818,18 @@ def price_generic_bond(terms: GenericBondTerms) -> dict[str, Any]:
         up = _generic_bond_run(terms, shifted_curve(terms.discount_curve, terms.scenario_shock_bp), f"Rates +{terms.scenario_shock_bp:.0f} bp")
         down = _generic_bond_run(terms, shifted_curve(terms.discount_curve, -terms.scenario_shock_bp), f"Rates -{terms.scenario_shock_bp:.0f} bp")
 
+    scenario_visual_values = [(up["label"], up["pv"]), (down["label"], down["pv"])]
+    max_scenario_change = max(
+        (abs(value - base["pv"]) for _, value in scenario_visual_values),
+        default=0.0,
+    )
+    max_scenario_change = max(max_scenario_change, 1e-12)
+    max_coupon_rate = max(
+        (abs(row["coupon_rate"]) for row in base["cashflows"]),
+        default=0.0,
+    )
+    max_coupon_rate = max(max_coupon_rate, 1e-12)
+
     return {
         "primary_metrics": [
             {"label": "Fair Value (Clean)", "value": _money(base["pv"])},
@@ -831,7 +845,46 @@ def price_generic_bond(terms: GenericBondTerms) -> dict[str, Any]:
             {"label": "Convexity", "value": f"{base['convexity']:.4f}"},
         ],
         "scenarios": [base, up, down],
+        "analysis_visuals": {
+            "scenario_base": _money(base["pv"]),
+            "scenario_bars": [
+                {
+                    "label": label,
+                    "value": _money(value),
+                    "change": f"{value - base['pv']:+,.2f}",
+                    "direction": "positive" if value >= base["pv"] else "negative",
+                    "width": f"{100.0 * abs(value - base['pv']) / max_scenario_change:.2f}%",
+                }
+                for label, value in scenario_visual_values
+            ],
+            "principal_runoff": [
+                {
+                    "date": row["payment_date"],
+                    "value": _money(row["closing_notional"]),
+                    "width": f"{100.0 * max(0.0, min(row['closing_notional'], terms.notional)) / terms.notional:.2f}%",
+                }
+                for row in base["cashflows"]
+            ],
+            "coupon_profile": [
+                {
+                    "date": row["payment_date"],
+                    "value": f"{row['coupon_rate'] * 100:.3f}%",
+                    "width": f"{100.0 * abs(row['coupon_rate']) / max_coupon_rate:.2f}%",
+                }
+                for row in base["cashflows"]
+            ],
+        },
         "cashflows": base["cashflows"],
+        "benchmark_metrics": [
+            {"label": "Fair Value (Clean)", "value": base["pv"]},
+            {"label": "Accrued Interest", "value": base["accrued_interest"]},
+            {"label": "Fair Value + Accrued", "value": base["dirty_pv"]},
+            {"label": "Yield to Maturity", "value": terms.yield_to_maturity if terms.pricing_basis == "yield" else base["ytm"]},
+            {"label": "Duration", "value": base["duration"]},
+            {"label": "Modified Duration", "value": base["modified_duration"]},
+            {"label": "BPV (+1bp Price Change)", "value": base["bpv"]},
+            {"label": "Convexity", "value": base["convexity"]},
+        ],
         "summary": (
             "Bond PV is calculated as the discounted value of generated coupon, principal, sinking, and fixed-payment "
             "cash flows. Yield is solved against the supplied market clean-price reference."
@@ -1057,6 +1110,13 @@ def price_callable_amortizing_bond(terms: CallableAmortizingBondTerms) -> dict[s
     total_call_probability = sum(base_lattice["call_probability_by_step"].values())
     total_put_probability = sum(base_lattice["put_probability_by_step"].values())
     yield_values = [row["yield"] for row in yield_rows]
+    option_adjustment = option_clean - straight_clean
+    if terms.option_rights == "callable":
+        adjustment_label = "Issuer call option"
+    elif terms.option_rights == "putable":
+        adjustment_label = "Investor put option"
+    else:
+        adjustment_label = "Net option adjustment"
 
     annotated_cashflows = []
     for row in cashflow_rows:
@@ -1081,7 +1141,53 @@ def price_callable_amortizing_bond(terms: CallableAmortizingBondTerms) -> dict[s
             }
         )
 
+    scenario_visual_values = [
+        (f"Rates +{terms.scenario_shock_bp:.0f} bp", up_clean),
+        (f"Rates -{terms.scenario_shock_bp:.0f} bp", down_clean),
+    ]
+    max_scenario_change = max(
+        (abs(value - option_clean) for _, value in scenario_visual_values),
+        default=0.0,
+    )
+    max_scenario_change = max(max_scenario_change, 1e-12)
+    scenario_visuals = [
+        {
+            "label": label,
+            "value": _money(value),
+            "change": f"{value - option_clean:+.4f}",
+            "direction": "positive" if value >= option_clean else "negative",
+            "width": f"{100.0 * abs(value - option_clean) / max_scenario_change:.2f}%",
+        }
+        for label, value in scenario_visual_values
+    ]
+    principal_runoff = [
+        {
+            "date": row["payment_date"],
+            "value": _money(row["closing_notional"]),
+            "width": f"{100.0 * max(0.0, min(row['closing_notional'], terms.notional)) / terms.notional:.2f}%",
+        }
+        for row in cashflow_rows
+    ]
+    exercise_probability_visuals = [
+        {
+            "date": row["end_date"],
+            "call_probability": f"{row['call_probability'] * 100:.2f}%",
+            "put_probability": f"{row['put_probability'] * 100:.2f}%",
+            "call_width": f"{row['call_probability'] * 100:.4f}%",
+            "put_width": f"{row['put_probability'] * 100:.4f}%",
+            "total_probability": f"{(row['call_probability'] + row['put_probability']) * 100:.2f}%",
+        }
+        for row in exercise_diagnostics
+    ]
+
     return {
+        "price_decomposition": {
+            "straight_value": _money(straight_clean),
+            "adjustment_value": _money(abs(option_adjustment)),
+            "adjustment_label": adjustment_label,
+            "operator": "+" if option_adjustment >= 0 else "-",
+            "option_adjusted_value": _money(option_clean),
+        },
         "primary_metrics": [
             {"label": "Option-Adjusted Clean PV", "value": _money(option_clean)},
             {"label": "Straight Bond Clean PV", "value": _money(straight_clean)},
@@ -1099,6 +1205,13 @@ def price_callable_amortizing_bond(terms: CallableAmortizingBondTerms) -> dict[s
             {"label": f"Rates +{terms.scenario_shock_bp:.0f} bp", "pv": up_clean},
             {"label": f"Rates -{terms.scenario_shock_bp:.0f} bp", "pv": down_clean},
         ],
+        "analysis_visuals": {
+            "scenario_base": _money(option_clean),
+            "scenario_bars": scenario_visuals,
+            "principal_runoff": principal_runoff,
+            "exercise_probabilities": exercise_probability_visuals,
+            "no_exercise_probability": f"{base_lattice['maturity_probability'] * 100:.2f}%",
+        },
         "cashflows": annotated_cashflows,
         "diagnostics": exercise_diagnostics,
         "yield_diagnostics": yield_rows,

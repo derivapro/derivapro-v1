@@ -61,6 +61,102 @@ class CallableAmortizingBondTest(unittest.TestCase):
             response = methodology_doc("callable_amortizing_bond")
         self.assertIn("Callable and Putable Amortizing Bonds", response)
 
+    def test_callable_report_includes_methodology_and_run_validation(self):
+        from dataclasses import fields
+        from flask import render_template
+
+        from derivapro import create_app
+        from derivapro.routes.bonds import (
+            FIXED_INCOME_EXTENSION_CONFIGS,
+            _callable_amortizing_benchmark_presets,
+            _price_fixed_income_extension,
+        )
+        from derivapro.services.product_reports import _callable_amortizing_report_content
+        from derivapro.services.report_builder import ProductReport, render_product_report_pdf
+
+        config = FIXED_INCOME_EXTENSION_CONFIGS["callable-amortizing-bond"]
+        preset = _callable_amortizing_benchmark_presets(config)[0]
+        params = dict(preset["values"], benchmark_preset=preset["id"])
+        results = _price_fixed_income_extension("callable-amortizing-bond", params)
+        content = _callable_amortizing_report_content(params, results)
+
+        self.assertEqual(len(content["testing_results"]), 4)
+        self.assertTrue(all(row[-1] == "Pass" for row in content["testing_results"]))
+        self.assertIn("Math/Callablebond.html", content["methodology_references"])
+        straight_row = next(
+            row for row in content["benchmark_comparison"]
+            if row[0] == "Straight Bond Clean Price"
+        )
+        self.assertEqual(straight_row[-1], "Reconciled")
+
+        valid_fields = {field.name for field in fields(ProductReport)}
+        report = ProductReport(
+            title="Callable Amortizing Bond",
+            inputs=[("Scenario", preset["label"])],
+            results=[("Option-Adjusted Clean PV", "$73.23")],
+            **{key: value for key, value in content.items() if key in valid_fields},
+        )
+        app = create_app()
+        with app.test_request_context("/reports/callable-amortizing-bond/preview"):
+            html = render_template(
+                "generic_report_preview.html",
+                report=report,
+                title=report.title,
+                pricing_url="/noncallable-bonds/rates-fixed-income/callable-amortizing-bond?restore=latest#valuation-results",
+            )
+        self.assertIn("Testing Scope", html)
+        self.assertIn("External Benchmark", html)
+        self.assertIn("DerivaPro methodology note", html)
+        self.assertIn("Back to Pricing", html)
+        self.assertIn("restore=latest#valuation-results", html)
+
+        pdf = render_product_report_pdf(report, app.static_folder)
+        self.assertTrue(pdf.startswith(b"%PDF"))
+
+    def test_report_return_restores_latest_callable_run(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from flask_login import login_user
+
+        from derivapro import create_app
+        from derivapro.models.db_models import User
+        from derivapro.routes.bonds import (
+            FIXED_INCOME_EXTENSION_CONFIGS,
+            _callable_amortizing_benchmark_presets,
+            _price_fixed_income_extension,
+            rates_fixed_income_product,
+        )
+
+        config = FIXED_INCOME_EXTENSION_CONFIGS["callable-amortizing-bond"]
+        preset = _callable_amortizing_benchmark_presets(config)[0]
+        params = dict(preset["values"], benchmark_preset=preset["id"])
+        results = _price_fixed_income_extension("callable-amortizing-bond", params)
+        latest = SimpleNamespace(
+            instrument=SimpleNamespace(params_json=params),
+            result_json=results,
+        )
+        user = User(
+            id=999999,
+            username="report-return-test",
+            password_hash="unused",
+            accepted_terms=True,
+        )
+        app = create_app()
+        with app.test_request_context(
+            "/noncallable-bonds/rates-fixed-income/callable-amortizing-bond?restore=latest"
+        ):
+            login_user(user)
+            with patch(
+                "derivapro.routes.bonds.get_latest_pricing_result_for_user",
+                return_value=latest,
+            ):
+                html = rates_fixed_income_product("callable-amortizing-bond")
+
+        self.assertIn("Latest saved run restored from the report.", html)
+        self.assertIn('id="valuation-results"', html)
+        self.assertIn("$73.23", html)
+
     def test_disabled_exercise_collapses_to_straight_amortizing_value(self):
         results = price_callable_amortizing_bond(_terms(exercise_schedule="2028-06-20|2028-06-20|0|0"))
 
@@ -80,6 +176,19 @@ class CallableAmortizingBondTest(unittest.TestCase):
         option_adjusted = _money_to_float(_metric(results, "Option-Adjusted Clean PV"))
         straight = _money_to_float(_metric(results, "Straight Bond Clean PV"))
         self.assertGreaterEqual(option_adjusted, straight)
+        self.assertEqual(results["price_decomposition"]["operator"], "+")
+        self.assertEqual(results["price_decomposition"]["adjustment_label"], "Investor put option")
+
+    def test_callable_price_decomposition_reconciles(self):
+        results = price_callable_amortizing_bond(_terms("callable"))
+        decomposition = results["price_decomposition"]
+
+        straight = _money_to_float(decomposition["straight_value"])
+        option = _money_to_float(decomposition["adjustment_value"])
+        option_adjusted = _money_to_float(decomposition["option_adjusted_value"])
+        self.assertEqual(decomposition["operator"], "-")
+        self.assertEqual(decomposition["adjustment_label"], "Issuer call option")
+        self.assertAlmostEqual(straight - option, option_adjusted, places=2)
 
     def test_fixed_payment_column_is_included_in_cashflows(self):
         terms = _terms(exercise_schedule="2028-06-20|2028-06-20|0|0")
@@ -234,6 +343,57 @@ class CallableAmortizingBondTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["Straight Bond Clean Price"], 101.7476542, delta=1e-6)
         self.assertLess(abs(metrics["Straight Bond Tree vs Cashflow PV Error"]), 1e-8)
         self.assertAlmostEqual(sum(metrics[k] for k in ("Probability of Call", "Probability of Put", "Probability of No Exercise")), 1, places=12)
+
+    def test_showcase_presets_preserve_shared_benchmark_inputs(self):
+        from derivapro.routes.bonds import (
+            FIXED_INCOME_EXTENSION_CONFIGS,
+            _callable_amortizing_benchmark_presets,
+        )
+
+        presets = _callable_amortizing_benchmark_presets(
+            FIXED_INCOME_EXTENSION_CONFIGS["callable-amortizing-bond"]
+        )
+        by_id = {preset["id"]: preset["values"] for preset in presets}
+
+        self.assertEqual(set(by_id), {"callable_benchmark", "putable_benchmark", "faster_amortization"})
+        for values in by_id.values():
+            self.assertEqual(values["valuation_date"], "2019-09-24")
+            self.assertEqual(values["maturity_date"], "2024-09-24")
+            self.assertEqual(values["discount_curve_input_type"], "discount_factors")
+            self.assertEqual(values["short_rate_mean_reversion_pct"], "0.50")
+        self.assertEqual(by_id["callable_benchmark"]["short_rate_volatility_pct"], "20.00")
+        self.assertEqual(by_id["putable_benchmark"]["short_rate_volatility_pct"], "10.00")
+        self.assertIn("|0|105", by_id["putable_benchmark"]["exercise_schedule"])
+        self.assertEqual(by_id["faster_amortization"]["short_rate_volatility_pct"], "15.00")
+        self.assertIn("2025-06-20|25|0.0550|0|25", by_id["faster_amortization"]["cashflow_schedule"])
+
+    def test_analysis_visuals_are_consistent_and_bounded(self):
+        results = price_callable_amortizing_bond(_terms("callable"))
+        visuals = results["analysis_visuals"]
+
+        self.assertEqual(len(visuals["scenario_bars"]), 2)
+        self.assertEqual(
+            len(visuals["exercise_probabilities"]),
+            len(results["diagnostics"]),
+        )
+        self.assertEqual(
+            len(visuals["principal_runoff"]),
+            len(results["cashflows"]),
+        )
+        self.assertEqual(visuals["principal_runoff"][-1]["value"], "$0.00")
+        self.assertTrue(visuals["no_exercise_probability"].endswith("%"))
+
+        width_fields = (
+            (visuals["scenario_bars"], ("width",)),
+            (visuals["principal_runoff"], ("width",)),
+            (visuals["exercise_probabilities"], ("call_width", "put_width")),
+        )
+        for rows, fields in width_fields:
+            for row in rows:
+                for field in fields:
+                    width = float(row[field].removesuffix("%"))
+                    self.assertGreaterEqual(width, 0.0)
+                    self.assertLessEqual(width, 100.0)
 
     def test_notice_period_reduces_issuer_option_and_event_dates_are_exact(self):
         from derivapro.models.callable_bond_schedule import bond_cashflows

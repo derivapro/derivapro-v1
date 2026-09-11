@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>{{ title }}</h1>
-    <p>Pricing report preview.</p>
+<div class="page-title compact report-preview-header">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>Pricing report preview.</p>
+    </div>
+    {% if pricing_url %}
+    <a href="{{ pricing_url }}" class="btn btn-secondary report-back-button">&larr; Back to Pricing</a>
+    {% endif %}
 </div>
 
 {% if report %}
@@ -48,6 +53,99 @@
             <img src="{{ url_for('static', filename=report.plot_filename) }}" alt="Analysis plot">
         </div>
         {% endif %}
+        {% endif %}
+
+        {% if report.methodology_summary %}
+        <section class="report-evidence-section">
+            <div class="report-evidence-heading">
+                <span>Model Framework</span>
+                <h3>Methodology</h3>
+            </div>
+            <p>{{ report.methodology_summary }}</p>
+            {% if report.methodology_steps %}
+            <table class="results-table history-table report-evidence-table">
+                <thead><tr><th>Stage</th><th>Implementation</th></tr></thead>
+                <tbody>
+                    {% for stage, implementation in report.methodology_steps %}
+                    <tr><td>{{ stage }}</td><td>{{ implementation }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+            {% if report.methodology_references %}
+            <p class="report-reference-note">
+                <strong>References:</strong>
+                <a href="{{ url_for('index.methodology_doc', doc_name=report.methodology_doc) }}" target="_blank" rel="noopener">DerivaPro methodology note</a>;
+                {{ report.methodology_references[1:]|join('; ') }}
+            </p>
+            {% endif %}
+        </section>
+        {% endif %}
+
+        {% if report.testing_scope %}
+        <section class="report-evidence-section">
+            <div class="report-evidence-heading">
+                <span>Validation Coverage</span>
+                <h3>Testing Scope</h3>
+            </div>
+            <table class="results-table history-table report-evidence-table">
+                <thead><tr><th>Test Area</th><th>Coverage</th></tr></thead>
+                <tbody>
+                    {% for area, coverage in report.testing_scope %}
+                    <tr><td>{{ area }}</td><td>{{ coverage }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
+
+        {% if report.testing_results %}
+        <section class="report-evidence-section">
+            <div class="report-evidence-heading">
+                <span>Latest Run</span>
+                <h3>Testing Results</h3>
+            </div>
+            <table class="results-table history-table report-evidence-table">
+                <thead><tr><th>Check</th><th>Observed</th><th>Acceptance Criterion</th><th>Status</th></tr></thead>
+                <tbody>
+                    {% for check, observed, criterion, status in report.testing_results %}
+                    <tr>
+                        <td>{{ check }}</td>
+                        <td>{{ observed }}</td>
+                        <td>{{ criterion }}</td>
+                        <td><span class="report-test-status report-test-status-{{ status|lower }}">{{ status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if report.testing_note %}<p class="report-reference-note">{{ report.testing_note }}</p>{% endif %}
+        </section>
+        {% endif %}
+
+        {% if report.benchmark_comparison %}
+        <section class="report-evidence-section">
+            <div class="report-evidence-heading">
+                <span>Reference Comparison</span>
+                <h3>External Benchmark</h3>
+                {% if report.benchmark_name %}<p>{{ report.benchmark_name }}</p>{% endif %}
+            </div>
+            <div class="results-table-wrap">
+                <table class="results-table history-table report-evidence-table">
+                    <thead><tr><th>Metric</th><th>DerivaPro</th><th>External</th><th>Difference</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for metric, deriva, external, difference, status in report.benchmark_comparison %}
+                        <tr>
+                            <td>{{ metric }}</td>
+                            <td>{{ deriva }}</td>
+                            <td>{{ external }}</td>
+                            <td>{{ difference }}</td>
+                            <td><span class="report-test-status report-test-status-{{ status|lower }}">{{ status }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
         {% endif %}
 
         <h3>Limitations</h3>

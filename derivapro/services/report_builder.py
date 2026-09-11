@@ -16,6 +16,7 @@ import io
 import os
 from dataclasses import dataclass, field
 from typing import Any, Optional
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -23,6 +24,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
     Image,
+    KeepTogether,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -115,8 +117,25 @@ def _fmt(value: Any) -> str:
     return str(value)
 
 
-def _styled_table(data: list) -> Table:
-    table = Table(data, hAlign="LEFT")
+def _styled_table(data: list, col_widths=None) -> Table:
+    wrapped = []
+    for row_index, row in enumerate(data):
+        style = ParagraphStyle(
+            f"ReportTable{row_index}",
+            parent=_STYLES["Normal"],
+            fontName="Helvetica-Bold" if row_index == 0 else "Helvetica",
+            fontSize=8,
+            leading=10,
+        )
+        wrapped.append(
+            [
+                value
+                if isinstance(value, Paragraph)
+                else Paragraph(escape(_fmt(value)).replace("\n", "<br/>"), style)
+                for value in row
+            ]
+        )
+    table = Table(wrapped, hAlign="LEFT", colWidths=col_widths, repeatRows=1)
     table.setStyle(
         TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f2f2f2")),
@@ -296,6 +315,15 @@ class ProductReport:
     results: list = field(default_factory=list)  # [(label, value), ...]
     plot_filename: Optional[str] = None
     analysis_note: str = ""
+    methodology_doc: str = ""
+    methodology_summary: str = ""
+    methodology_steps: list = field(default_factory=list)
+    methodology_references: list = field(default_factory=list)
+    testing_scope: list = field(default_factory=list)
+    testing_results: list = field(default_factory=list)
+    testing_note: str = ""
+    benchmark_name: str = ""
+    benchmark_comparison: list = field(default_factory=list)
     limitations: str = (
         "This report reflects a single pricing run under the stated assumptions. "
         "Model outputs should be independently reviewed before use in production "
@@ -327,14 +355,14 @@ def render_product_report_pdf(report: ProductReport, static_dir: str) -> bytes:
     story.append(Paragraph("Inputs", _HEADING_STYLE))
     if report.inputs:
         rows = [["Field", "Value"]] + [[label, _fmt(value)] for label, value in report.inputs]
-        story.append(_styled_table(rows))
+        story.append(_styled_table(rows, [2.15 * inch, 4.35 * inch]))
     else:
         story.append(Paragraph("No inputs recorded.", _BODY_STYLE))
 
     story.append(Paragraph("Results", _HEADING_STYLE))
     if report.results:
         rows = [["Metric", "Value"]] + [[label, _fmt(value)] for label, value in report.results]
-        story.append(_styled_table(rows))
+        story.append(_styled_table(rows, [3.25 * inch, 3.25 * inch]))
     else:
         story.append(Paragraph("No results recorded.", _BODY_STYLE))
 
@@ -344,6 +372,59 @@ def render_product_report_pdf(report: ProductReport, static_dir: str) -> bytes:
             story.append(Paragraph(report.analysis_note, _BODY_STYLE))
         if report.plot_filename:
             _add_plot(story, report.plot_filename, static_dir)
+
+    if report.methodology_summary or report.testing_scope or report.testing_results:
+        story.append(PageBreak())
+
+    if report.methodology_summary:
+        story.append(Paragraph("Methodology", _HEADING_STYLE))
+        story.append(Paragraph(report.methodology_summary, _BODY_STYLE))
+        if report.methodology_steps:
+            rows = [["Stage", "Implementation"]] + [list(row) for row in report.methodology_steps]
+            story.append(_styled_table(rows, [1.55 * inch, 4.95 * inch]))
+            story.append(Spacer(1, 8))
+        if report.methodology_references:
+            references = ", ".join(report.methodology_references)
+            story.append(Paragraph(f"<b>References:</b> {escape(references)}", _BODY_STYLE))
+
+    if report.testing_scope:
+        story.append(Paragraph("Testing Scope", _HEADING_STYLE))
+        rows = [["Test Area", "Coverage"]] + [list(row) for row in report.testing_scope]
+        story.append(_styled_table(rows, [1.55 * inch, 4.95 * inch]))
+
+    if report.testing_results:
+        story.append(Paragraph("Testing Results", _HEADING_STYLE))
+        rows = [["Check", "Observed", "Acceptance Criterion", "Status"]] + [
+            list(row) for row in report.testing_results
+        ]
+        story.append(
+            _styled_table(
+                rows,
+                [1.55 * inch, 1.7 * inch, 2.35 * inch, 0.9 * inch],
+            )
+        )
+        if report.testing_note and not report.benchmark_comparison:
+            story.append(Spacer(1, 6))
+            story.append(Paragraph(report.testing_note, _BODY_STYLE))
+
+    if report.benchmark_comparison:
+        benchmark_story = []
+        if report.testing_note:
+            benchmark_story.append(Spacer(1, 6))
+            benchmark_story.append(Paragraph(report.testing_note, _BODY_STYLE))
+        benchmark_story.append(Paragraph("External Benchmark Comparison", _HEADING_STYLE))
+        if report.benchmark_name:
+            benchmark_story.append(Paragraph(report.benchmark_name, _BODY_STYLE))
+        rows = [["Metric", "DerivaPro", "External", "Difference", "Status"]] + [
+            list(row) for row in report.benchmark_comparison
+        ]
+        benchmark_story.append(
+            _styled_table(
+                rows,
+                [1.75 * inch, 1.15 * inch, 1.15 * inch, 1.25 * inch, 1.2 * inch],
+            )
+        )
+        story.append(KeepTogether(benchmark_story))
 
     story.append(Paragraph("Limitations", _HEADING_STYLE))
     story.append(Paragraph(report.limitations, _BODY_STYLE))

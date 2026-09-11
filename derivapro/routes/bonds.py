@@ -13,6 +13,7 @@ from ..extensions import db
 from ..models.db_models import Instrument, PricingResult
 from ..utils.lazy_imports import LazyAttribute
 from ..services.validation import check_positive
+from .result_state import get_latest_pricing_result_for_user
 from ..models.rates_fixed_income import (
     AssetSwapTerms,
     BondForwardTreasuryLockTerms,
@@ -360,49 +361,63 @@ FIXED_INCOME_EXTENSION_CONFIGS = {
             "It supports yield-based clean-price benchmarks, straight-line amortization, bullet principal, and explicit sinking schedules."
         ),
         "chips": ["Amortizing", "Step-up coupon", "Sinking fund", "Clean/dirty price"],
-        "fields": [
-            {"name": "valuation_date", "label": "Settlement / Value Date", "type": "date", "value": "2026-08-30"},
-            {"name": "dated_date", "label": "Dated Date", "type": "date", "value": "2026-06-20"},
-            {"name": "first_coupon_date", "label": "First Coupon Date", "type": "date", "value": "2026-12-20"},
-            {"name": "last_coupon_date", "label": "Last Coupon Before Maturity", "type": "date", "value": "2040-12-20"},
-            {"name": "maturity_date", "label": "Maturity Date", "type": "date", "value": "2041-06-20"},
-            {"name": "notional", "label": "Original Face Value", "type": "number", "step": "1000", "value": "1000000"},
-            {"name": "coupon_rate", "label": "Base Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0500"},
+        "field_sections": [
             {
-                "name": "pricing_basis",
-                "label": "Pricing Basis",
-                "type": "select",
-                "value": "yield",
-                "options": [("yield", "Price from Yield"), ("curve", "Price from Curve")],
-                "hint": "Use Price from Yield for clean-price benchmarking against external calculators.",
-            },
-            {"name": "yield_to_maturity", "label": "Yield to Maturity", "type": "number", "step": "0.0001", "value": "0.0600"},
-            {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00"},
-            {
-                "name": "amortization_style",
-                "label": "Principal Schedule Type",
-                "type": "select",
-                "value": "straight_line",
-                "options": [("bullet", "Bullet"), ("straight_line", "Straight-Line Amortization"), ("sinking_schedule", "Sinking Schedule")],
-            },
-            {"name": "coupon_schedule", "label": "Coupon Schedule", "type": "hidden", "value": ""},
-            {"name": "principal_schedule", "label": "Sinking Schedule", "type": "hidden", "value": ""},
-            {"name": "cashflow_schedule", "label": "Payment Schedule", "type": "hidden", "value": ""},
-            {
-                "name": "payments_per_year",
-                "label": "Coupon Frequency",
-                "type": "select",
-                "value": "2",
-                "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+                "title": "Contract Dates",
+                "description": "Define settlement, accrual anchors, coupon boundaries, and contractual maturity.",
+                "icon": "D",
+                "fields": [
+                    {"name": "valuation_date", "label": "Settlement / Value Date", "type": "date", "value": "2026-08-30"},
+                    {"name": "dated_date", "label": "Dated Date / Accrual Start", "type": "date", "value": "2026-06-20"},
+                    {"name": "first_coupon_date", "label": "First Coupon Date", "type": "date", "value": "2026-12-20"},
+                    {"name": "last_coupon_date", "label": "Penultimate Coupon Date", "type": "date", "value": "2040-12-20"},
+                    {"name": "maturity_date", "label": "Maturity / Final Payment Date", "type": "date", "value": "2041-06-20"},
+                ],
             },
             {
-                "name": "day_count",
-                "label": "Accrual Method",
-                "type": "select",
-                "value": "ACT/ACT ISMA",
-                "options": [("ACT/ACT ISMA", "Actual/Actual (ISMA)"), ("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+                "title": "Economics & Conventions",
+                "description": "Set the pricing basis, principal profile, coupon convention, and parallel-rate scenario.",
+                "icon": "T",
+                "fields": [
+                    {"name": "notional", "label": "Original Face Value", "type": "number", "step": "1000", "value": "1000000"},
+                    {"name": "coupon_rate", "label": "Base Coupon Rate", "type": "number", "step": "0.0001", "value": "0.0500"},
+                    {
+                        "name": "pricing_basis",
+                        "label": "Pricing Basis",
+                        "type": "select",
+                        "value": "yield",
+                        "options": [("yield", "Price from Yield"), ("curve", "Price from Curve")],
+                        "hint": "Use Price from Yield for clean-price benchmarking against external calculators.",
+                    },
+                    {"name": "yield_to_maturity", "label": "Yield to Maturity", "type": "number", "step": "0.0001", "value": "0.0600"},
+                    {"name": "market_clean_price_pct", "label": "Market Clean Price (% of Par)", "type": "number", "step": "0.01", "value": "100.00"},
+                    {
+                        "name": "amortization_style",
+                        "label": "Principal Schedule Type",
+                        "type": "select",
+                        "value": "straight_line",
+                        "options": [("bullet", "Bullet"), ("straight_line", "Straight-Line Amortization"), ("sinking_schedule", "Sinking Schedule")],
+                    },
+                    {"name": "coupon_schedule", "label": "Coupon Schedule", "type": "hidden", "value": ""},
+                    {"name": "principal_schedule", "label": "Sinking Schedule", "type": "hidden", "value": ""},
+                    {"name": "cashflow_schedule", "label": "Payment Schedule", "type": "hidden", "value": ""},
+                    {
+                        "name": "payments_per_year",
+                        "label": "Coupon Frequency",
+                        "type": "select",
+                        "value": "2",
+                        "options": [("1", "Annual"), ("2", "Semiannual"), ("4", "Quarterly")],
+                    },
+                    {
+                        "name": "day_count",
+                        "label": "Accrual Method",
+                        "type": "select",
+                        "value": "ACT/ACT ISMA",
+                        "options": [("ACT/ACT ISMA", "Actual/Actual (ISMA)"), ("30/360", "30/360"), ("ACT/360", "ACT/360"), ("ACT/365", "ACT/365")],
+                    },
+                    {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
+                ],
             },
-            {"name": "scenario_shock_bp", "label": "Scenario Shock (bp)", "type": "number", "step": "1", "value": "25"},
         ],
     },
     "custom-structured-bond": {
@@ -697,6 +712,53 @@ def _default_form_data(config):
     data.update(CURVE_FIELD_DEFAULTS)
     data.update(config.get("curve_defaults", {}))
     return data
+
+
+def _callable_amortizing_benchmark_presets(config):
+    base = _default_form_data(config)
+    presets = [
+        {
+            "id": "callable_benchmark",
+            "label": "Callable benchmark",
+            "meta": "20% volatility",
+            "description": "External callable-bond benchmark with the original sinking schedule.",
+            "values": base,
+        },
+        {
+            "id": "putable_benchmark",
+            "label": "Puttable benchmark",
+            "meta": "10% volatility",
+            "description": "Same bond and curve with investor put rights replacing issuer calls.",
+            "values": {
+                **base,
+                "option_rights": "putable",
+                "short_rate_volatility_pct": "10.00",
+                "exercise_schedule": (
+                    "2019-09-24|2020-09-24|0|100;"
+                    "2020-09-24|2021-09-24|0|100;"
+                    "2021-09-24|2022-09-24|0|102;"
+                    "2022-09-24|2024-09-24|0|105"
+                ),
+            },
+        },
+        {
+            "id": "faster_amortization",
+            "label": "Faster amortization",
+            "meta": "15% volatility",
+            "description": "Callable benchmark with four 25-point principal redemptions.",
+            "values": {
+                **base,
+                "short_rate_volatility_pct": "15.00",
+                "cashflow_schedule": (
+                    "2020-12-20|100|0.0500|0|25;"
+                    "2022-06-20|75|0.0550|0|25;"
+                    "2022-12-20|50|0.0550|0|25;"
+                    "2025-06-20|25|0.0550|0|25"
+                ),
+            },
+        },
+    ]
+    return presets
 
 
 def _extension_form_data(config):
@@ -1911,7 +1973,38 @@ def rates_fixed_income_product(product_slug):
     form_data = _extension_form_data(config)
     results = None
     pricing_error = None
+    restored_run = False
+    if (
+        product_slug in {"amortizing-stepup-sinking-bond", "callable-amortizing-bond"}
+        and request.method == "GET"
+        and request.args.get("restore") == "latest"
+        and current_user.is_authenticated
+    ):
+        latest_result = get_latest_pricing_result_for_user(
+            f"fixed_income_{product_slug}",
+            current_user.id,
+        )
+        if latest_result and latest_result.instrument:
+            form_data.update(latest_result.instrument.params_json or {})
+            results = latest_result.result_json or None
+            restored_run = results is not None
 
+    benchmark_presets = []
+    selected_preset = ""
+    selected_preset_label = "Custom scenario"
+    if product_slug == "callable-amortizing-bond":
+        benchmark_presets = _callable_amortizing_benchmark_presets(config)
+        preset_ids = {preset["id"] for preset in benchmark_presets}
+        requested_preset = request.form.get(
+            "benchmark_preset",
+            form_data.get("benchmark_preset", "callable_benchmark"),
+        )
+        selected_preset = requested_preset if requested_preset in preset_ids else "custom"
+        if selected_preset != "custom":
+            selected_preset_label = next(
+                preset["label"] for preset in benchmark_presets if preset["id"] == selected_preset
+            )
+        form_data["benchmark_preset"] = selected_preset
     if request.method == "POST":
         try:
             results = _price_fixed_income_extension(product_slug, form_data)
@@ -1921,6 +2014,15 @@ def rates_fixed_income_product(product_slug):
                 scenarios = results.get("scenarios") if isinstance(results, dict) else None
                 if scenarios and isinstance(scenarios[0], dict):
                     raw_price = scenarios[0].get("pv") or scenarios[0].get("price")
+
+                omitted_params = {
+                    "discount_curve_tenors",
+                    "discount_curve_rates",
+                    "forward_curve_tenors",
+                    "forward_curve_rates",
+                }
+                if product_slug in {"amortizing-stepup-sinking-bond", "callable-amortizing-bond"}:
+                    omitted_params -= {"discount_curve_tenors", "discount_curve_rates"}
 
                 instrument = Instrument(
                     user_id=current_user.id,
@@ -1932,8 +2034,7 @@ def rates_fixed_income_product(product_slug):
                     params_json={
                         key: value
                         for key, value in form_data.items()
-                        if key not in {"discount_curve_tenors", "discount_curve_rates",
-                                       "forward_curve_tenors", "forward_curve_rates"}
+                        if key not in omitted_params
                     },
                 )
                 db.session.add(instrument)
@@ -2005,6 +2106,23 @@ def rates_fixed_income_product(product_slug):
                 "hint": "Used when input type is Zero Rates.",
             },
         ]
+    elif product_slug == "amortizing-stepup-sinking-bond":
+        curve_fields = [
+            {
+                "name": "discount_curve_tenors",
+                "label": "Discount Curve Tenors (Years)",
+                "type": "hidden",
+                "value": form_data["discount_curve_tenors"],
+                "hint": "Enter tenor and continuously compounded zero-rate pairs in the curve table.",
+            },
+            {
+                "name": "discount_curve_rates",
+                "label": "Discount Curve Zero Rates",
+                "type": "hidden",
+                "value": form_data["discount_curve_rates"],
+                "hint": "Used when Pricing Basis is Price from Curve.",
+            },
+        ]
     else:
         curve_fields = [
             {
@@ -2074,6 +2192,11 @@ def rates_fixed_income_product(product_slug):
             form_data.get("discount_curve_rates", ""),
         )
         holiday_rows = _parse_holiday_rows_for_display(form_data.get("holiday_dates", ""))
+    elif product_slug == "amortizing-stepup-sinking-bond":
+        zero_curve_rows = _parse_zero_curve_rows_for_display(
+            form_data.get("discount_curve_tenors", ""),
+            form_data.get("discount_curve_rates", ""),
+        )
 
     return render_template(
         "fixed_income_extension_product.html",
@@ -2088,4 +2211,8 @@ def rates_fixed_income_product(product_slug):
         discount_factor_rows=discount_factor_rows,
         zero_curve_rows=zero_curve_rows,
         holiday_rows=holiday_rows,
+        benchmark_presets=benchmark_presets,
+        selected_preset=selected_preset,
+        selected_preset_label=selected_preset_label,
+        restored_run=restored_run,
     )

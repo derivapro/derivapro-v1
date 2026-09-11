@@ -10,7 +10,7 @@ import io
 import os
 import uuid
 
-from flask import Blueprint, abort, render_template, send_file
+from flask import Blueprint, abort, render_template, send_file, url_for
 from flask_login import current_user, login_required
 
 from ..extensions import db
@@ -44,7 +44,7 @@ PRODUCT_REPORT_REGISTRY = {
     "callable-putable-bond": ("Callable / Putable Bond", ["fixed_income_callable-putable-bond"]),
     "callable-amortizing-bond": ("Callable Amortizing Bond", ["fixed_income_callable-amortizing-bond"]),
     "level-coupon-bond": ("Level Coupon Bond", ["fixed_income_level-coupon-bond"]),
-    "amortizing-stepup-sinking-bond": ("Amortizing / Step-Up / Sinking Bond", ["fixed_income_amortizing-stepup-sinking-bond"]),
+    "amortizing-stepup-sinking-bond": ("Structured Amortizing Bonds", ["fixed_income_amortizing-stepup-sinking-bond"]),
     "custom-structured-bond": ("Custom Structured Bond", ["fixed_income_custom-structured-bond"]),
     "bond-series": ("Bond Series", ["fixed_income_bond-series"]),
     "loan-lease-annuity": ("Loan / Lease / Annuity", ["fixed_income_loan-lease-annuity"]),
@@ -66,7 +66,20 @@ def _resolve(product_key):
 def preview(product_key):
     title, product_types = _resolve(product_key)
     report = build_product_report(product_types, title)
-    return render_template("generic_report_preview.html", report=report, title=title)
+    pricing_url = None
+    if product_key in {"amortizing-stepup-sinking-bond", "callable-amortizing-bond"}:
+        pricing_url = url_for(
+            "nc_bonds.rates_fixed_income_product",
+            product_slug=product_key,
+            restore="latest",
+            _anchor="valuation-results",
+        )
+    return render_template(
+        "generic_report_preview.html",
+        report=report,
+        title=title,
+        pricing_url=pricing_url,
+    )
 
 
 @product_reports_bp.route("/reports/<product_key>/download", methods=["GET"])
