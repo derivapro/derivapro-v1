@@ -101,6 +101,9 @@ def get_latest_analysis_result(product_types: Iterable[str]) -> Optional[Analysi
             AnalysisResult.user_id == current_user.id,
             Instrument.user_id == current_user.id,
             Instrument.product_type.in_(list(product_types)),
+            # Saved AI assessments are commentary, not an analysis run; they
+            # should not replace the scenario/plot note in the report.
+            AnalysisResult.analysis_type != "ai_assessment",
         )
         .order_by(AnalysisResult.created_at.desc())
         .first()

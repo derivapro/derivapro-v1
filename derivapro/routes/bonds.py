@@ -13,6 +13,14 @@ from ..extensions import db
 from ..models.db_models import Instrument, PricingResult
 from ..utils.lazy_imports import LazyAttribute
 from ..services.validation import check_positive
+from ..services.ai_assessment import (
+    AssessmentProductSpec,
+    get_assessment_product,
+    labels_from_field_sections,
+    options_from_field_sections,
+    register_assessment_product,
+    schedule_input_formatter,
+)
 from .result_state import get_latest_pricing_result_for_user
 from ..models.rates_fixed_income import (
     AssetSwapTerms,
@@ -695,6 +703,243 @@ def ask_gpt(question):
         else:
             logger.error("Unexpected error in LLM provider call")
             return f"An error occurred while generating the assessment. Please try again. Error details: {error_msg}"
+
+
+# ---------------------------------------------------------------------------
+# AI Assessment registration for fixed-income extension products
+# ---------------------------------------------------------------------------
+
+_CURVE_INPUT_LABELS = {
+    "discount_curve_input_type": "Discount Curve Input Type",
+    "discount_curve_tenors": "Discount Curve Tenors (Years)",
+    "discount_curve_rates": "Discount Curve Zero Rates (cont. comp.)",
+    "discount_factor_curve": "Discount Factor Curve",
+    "interpolation_method": "Curve Interpolation",
+    "forward_curve_tenors": "Forward Curve Tenors (Years)",
+    "forward_curve_rates": "Forward Curve Zero Rates",
+}
+
+# Hidden form fields that duplicate the payment table or are UI plumbing.
+_FIXED_INCOME_ASSESSMENT_SKIP = frozenset({"coupon_schedule", "principal_schedule", "benchmark_preset"})
+
+
+def _register_fixed_income_assessment(product_slug, focus="", schedule_fields=None, input_filter=None):
+    """Register an AI Assessment spec for one ``FIXED_INCOME_EXTENSION_CONFIGS`` entry.
+
+    ``schedule_fields`` maps ``a|b;a|b`` hidden fields to column headers so the
+    model sees them as tables. ``input_filter(inputs) -> inputs`` can drop
+    fields that are irrelevant for the submitted configuration.
+    """
+    config = FIXED_INCOME_EXTENSION_CONFIGS[product_slug]
+    labels = labels_from_field_sections(config)
+    labels.update(_CURVE_INPUT_LABELS)
+    spec = AssessmentProductSpec(
+        key=product_slug,
+        title=config["title"],
+        product_type=f"fixed_income_{product_slug}",
+        input_labels=labels,
+        input_options=options_from_field_sections(config),
+        skip_inputs=frozenset(AssessmentProductSpec.skip_inputs) | _FIXED_INCOME_ASSESSMENT_SKIP,
+        focus=focus,
+    )
+    base_formatter = schedule_input_formatter(spec, schedule_fields or {})
+    if input_filter is None:
+        spec.input_formatter = base_formatter
+    else:
+
+        def filtered_formatter(inputs):
+            return base_formatter(input_filter(dict(inputs or {})))
+
+        spec.input_formatter = filtered_formatter
+    return register_assessment_product(spec)
+
+
+# Products whose pricer actually reads the forward curve. Every other page only
+# carries the forward-curve fields as shared form defaults.
+_FORWARD_CURVE_PRODUCTS = frozenset({"fra", "cap-floor", "inflation-linked-bond"})
+
+_ZERO_CURVE_INPUT_KEYS = ("discount_curve_tenors", "discount_curve_rates")
+_DISCOUNT_FACTOR_INPUT_KEYS = ("discount_factor_curve",)
+
+_PAYMENT_SCHEDULE_HEADERS = (
+    "Payment Date",
+    "Opening Notional",
+    "Coupon Rate",
+    "Principal Payment",
+    "Fixed Payment",
+)
+
+
+def _drop_unused_curve_inputs(product_slug, inputs):
+    """Keep only the curve inputs the pricer reads, mirroring ``_discount_curve_from_form``.
+
+    Every page carries the full ``CURVE_FIELD_DEFAULTS`` block, but a product only
+    uses one discount-curve representation and most never read the forward curve.
+    """
+    if product_slug not in _FORWARD_CURVE_PRODUCTS:
+        inputs.pop("forward_curve_tenors", None)
+        inputs.pop("forward_curve_rates", None)
+    if inputs.get("discount_curve_input_type") == "discount_factors":
+        for key in _ZERO_CURVE_INPUT_KEYS:
+            inputs.pop(key, None)
+    else:
+        for key in _DISCOUNT_FACTOR_INPUT_KEYS:
+            inputs.pop(key, None)
+        # "zero_rates" is the implicit default; only worth stating on pages that offer a choice.
+        if product_slug != "callable-amortizing-bond":
+            inputs.pop("discount_curve_input_type", None)
+            inputs.pop("interpolation_method", None)
+    return inputs
+
+
+def _curve_inputs_filter(product_slug):
+    def _filter(inputs):
+        return _drop_unused_curve_inputs(product_slug, inputs)
+
+    return _filter
+
+
+def _structured_amortizing_assessment_inputs(inputs):
+    """Only send the curve when it is used, and only send the yield when it is used."""
+    _drop_unused_curve_inputs("amortizing-stepup-sinking-bond", inputs)
+    if inputs.get("pricing_basis", "curve") == "yield":
+        for key in _ZERO_CURVE_INPUT_KEYS + _DISCOUNT_FACTOR_INPUT_KEYS + ("discount_curve_input_type", "interpolation_method"):
+            inputs.pop(key, None)
+    else:
+        inputs.pop("yield_to_maturity", None)
+    return inputs
+
+
+def _callable_amortizing_assessment_inputs(inputs):
+    """Send only the curve representation, schedule source and exercise source actually used."""
+    _drop_unused_curve_inputs("callable-amortizing-bond", inputs)
+    if inputs.get("schedule_mode", "period_terms") in {"generated_bullet", "generated_straight_line"}:
+        inputs.pop("cashflow_schedule", None)
+    if inputs.get("exercise_schedule_source", "custom") == "custom":
+        inputs.pop("first_exercise_date", None)
+        inputs.pop("exercise_price_pct", None)
+    else:
+        inputs.pop("exercise_schedule", None)
+    return inputs
+
+
+_COMMON_BOND_FOCUS = (
+    "Check that the clean price relative to par is consistent with the coupon versus the discount curve, that "
+    "accrued interest and the clean/dirty split are plausible for the settlement date and accrual method, that "
+    "duration, convexity and DV01 are mutually consistent and of the right magnitude for the maturity, and that "
+    "the up and down rate scenarios are asymmetric in the direction implied by positive convexity."
+)
+
+_FIXED_INCOME_ASSESSMENT_FOCUS = {
+    "fra": (
+        "This is a single-period forward rate agreement. Check that the projected forward rate is consistent with "
+        "the forward curve over the accrual period, that the sign of the PV follows from the forward rate versus the "
+        "contract rate and the stated position (pay fixed gains when forwards rise), that the payoff is discounted to "
+        "the valuation date with the discount curve, that the accrual fraction matches the day count, and that the "
+        "scenario shock moves PV approximately linearly with notional times accrual fraction times discount factor."
+    ),
+    "cap-floor": (
+        "This is a strip of caplets or floorlets valued with a Black-style approximation. Check that each period's "
+        "forward rate versus the strike explains which caplets carry intrinsic value, that total value rises with "
+        "volatility (positive vega), that a cap gains and a floor loses when rates shift up, that the maturity and "
+        "payment frequency produce the expected number of reset periods, and comment on the limitations of a flat "
+        "user-entered volatility across the strip."
+    ),
+    "callable-amortizing-bond": (
+        "This is a callable and/or putable amortizing bond valued on a curve-fitted short-rate lattice. Check that "
+        "the embedded option value has the right sign (a call lowers value to the investor, a put raises it) and that "
+        "option-adjusted PV equals straight PV adjusted by that option value, that OAS is consistent with the target "
+        "clean price (near zero when fair value is close to the target), that exercise probabilities are plausible "
+        "given coupon versus curve and the exercise price schedule, that effective duration is shorter than the "
+        "straight-bond duration for a callable, that the amortizing payment schedule and any step-up coupons are "
+        "reflected in the cash flows, and comment on sensitivity to the supplied volatility, mean reversion and "
+        "lattice refinement."
+    ),
+    "callable-putable-bond": (
+        "This is a fixed-rate bond with an embedded call or put valued on a short-rate lattice approximation. Check "
+        "that the option value has the right sign for the option type, that option-adjusted value lies on the correct "
+        "side of the straight-bond PV, that yield-to-worst is at or below yield-to-maturity for a callable (and "
+        "yield-to-best at or above for a putable), that the exercise price and first exercise year make the quoted "
+        "exercise-date yields plausible, and comment on the sensitivity to short-rate volatility."
+    ),
+    "level-coupon-bond": "This is a plain bullet fixed-rate bond. " + _COMMON_BOND_FOCUS,
+    "amortizing-stepup-sinking-bond": (
+        "This is an amortizing / step-up / sinking-fund bond. Check that the clean price relative to par is "
+        "consistent with the coupon versus the yield (or curve), that duration is shorter than a bullet of the "
+        "same maturity given the principal runoff in the payment schedule, that step-up or step-down coupon "
+        "changes in the schedule are reflected in the cash flows, that accrued interest is plausible for the "
+        "dated date, settlement date, first coupon date and accrual method, and that the up and down rate "
+        "scenarios are asymmetric in the direction implied by positive convexity."
+    ),
+    "custom-structured-bond": (
+        "This is a user-defined structured bond built from coupon, principal and fixed-payment schedules. Check that "
+        "the coupon schedule steps are applied from their effective dates, that principal paydowns sum to the original "
+        "face by maturity, that the fixed payments appear in the cash flows and PV, that duration reflects the "
+        "shortened weighted-average life from early principal, and that the clean price versus par is consistent "
+        "with the blended coupon versus the curve."
+    ),
+    "bond-series": (
+        "This is a serial bond program. Check that the aggregate PV equals the sum of the individual maturities, that "
+        "the weighted-average maturity lies between the shortest and longest maturity and is weighted toward the "
+        "larger principals, that the series-level yield falls within the range of the individual yields, that each "
+        "maturity's price versus par is consistent with its coupon versus the curve, and that the scenario exposure "
+        "is dominated by the longest maturities."
+    ),
+    "loan-lease-annuity": (
+        "This is a scheduled loan, lease or annuity cash-flow stream. Check that the periodic payment is consistent "
+        "with the payment structure (level payment, equal principal or interest only) at the contract rate, that the "
+        "outstanding balance amortizes to zero at maturity, that total interest is plausible for the term and rate, "
+        "that PV is close to the financed amount when the discount curve is near the contract rate and moves in the "
+        "expected direction otherwise, and that duration reflects the amortizing profile."
+    ),
+    "asset-swap": (
+        "This is a par asset swap on a fixed-rate bond. Check that the par asset-swap spread has the right sign "
+        "relative to the bond price (a bond trading below par implies a positive spread, all else equal), that the "
+        "implied spread is comparable to the quoted spread and comment on the relative-value signal, that the "
+        "bond-leg PV and swap-leg PV are consistent with the coupon versus the par swap rate, and that the rate and "
+        "spread scenarios move the position in the expected directions."
+    ),
+    "inflation-linked-bond": (
+        "This is an inflation-linked bond. Check that the index ratio equals current CPI over base CPI after the "
+        "indexation lag, that projected coupons and redemption scale with the projected inflation path, that the "
+        "principal floor only binds when cumulative inflation is negative, that the real yield and nominal yield are "
+        "approximately related by the Fisher relation, and that the real-rate and inflation shocks move value in "
+        "opposite directions with the expected magnitudes."
+    ),
+    "bond-forward-treasury-lock": (
+        "This is a bond forward with a treasury-lock overlay. Check that the forward dirty price equals the spot dirty "
+        "price grossed up at the financing rate less the coupon carry to delivery, that the implied forward yield is "
+        "consistent with the forward price and the bond coupon, that the treasury-lock PV has the right sign for the "
+        "stated position given the implied forward yield versus the locked yield, that the duration-based PV "
+        "approximation is reasonable for the shock size, and note the limitations of ignoring convexity."
+    ),
+}
+
+_FIXED_INCOME_ASSESSMENT_SCHEDULES = {
+    "callable-amortizing-bond": {
+        "cashflow_schedule": _PAYMENT_SCHEDULE_HEADERS,
+        "exercise_schedule": ("Window Start", "Window End", "Call Price (% Outstanding)", "Put Price (% Outstanding)"),
+        "discount_factor_curve": ("Date", "Discount Factor"),
+        "holiday_dates": ("Holiday",),
+    },
+    "amortizing-stepup-sinking-bond": {
+        "cashflow_schedule": _PAYMENT_SCHEDULE_HEADERS,
+    },
+}
+
+_FIXED_INCOME_ASSESSMENT_INPUT_FILTERS = {
+    "callable-amortizing-bond": _callable_amortizing_assessment_inputs,
+    "amortizing-stepup-sinking-bond": _structured_amortizing_assessment_inputs,
+}
+
+for _slug in FIXED_INCOME_EXTENSION_CONFIGS:
+    _register_fixed_income_assessment(
+        _slug,
+        focus=_FIXED_INCOME_ASSESSMENT_FOCUS.get(_slug, ""),
+        schedule_fields=_FIXED_INCOME_ASSESSMENT_SCHEDULES.get(_slug),
+        input_filter=_FIXED_INCOME_ASSESSMENT_INPUT_FILTERS.get(_slug) or _curve_inputs_filter(_slug),
+    )
+del _slug
 
 
 def _config_fields(config):
@@ -2215,4 +2460,5 @@ def rates_fixed_income_product(product_slug):
         selected_preset=selected_preset,
         selected_preset_label=selected_preset_label,
         restored_run=restored_run,
+        ai_assessment_enabled=get_assessment_product(product_slug) is not None,
     )

@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from .llm_provider import LLMProvider
 
@@ -11,26 +11,46 @@ except ImportError:  # pragma: no cover
 
 
 class AzureOpenAIProvider(LLMProvider):
+    """Azure OpenAI / Atlas gateway adapter.
+
+    Two authentication modes:
+
+    * **API key** (default): ``api_key`` is sent as the Azure ``api-key`` header and,
+      when ``auth_header_name`` is given, also as that APIM subscription header.
+    * **Entra ID**: pass ``token_provider`` (see :mod:`derivapro.llm.atlas_auth`). The
+      SDK then sends ``Authorization: Bearer <token>`` on every call and ``api_key``
+      is only used for the subscription-key header in ``default_headers``.
+    """
+
     def __init__(
         self,
         api_key: str,
         endpoint: str,
         api_version: Optional[str] = None,
         auth_header_name: Optional[str] = None,
+        token_provider: Optional[Callable[[], str]] = None,
+        default_headers: Optional[Dict[str, str]] = None,
     ):
         if AzureOpenAI is None:
             raise RuntimeError("openai package is required for AzureOpenAIProvider")
 
-        default_headers = None
-        if auth_header_name and api_key:
-            default_headers = {auth_header_name: api_key}
+        headers: Dict[str, str] = dict(default_headers or {})
+        if auth_header_name and api_key and auth_header_name not in headers:
+            headers[auth_header_name] = api_key
 
-        self.client = AzureOpenAI(
-            api_key=api_key,
-            api_version=api_version,
-            default_headers=default_headers,
-            azure_endpoint=endpoint,
-        )
+        client_kwargs: Dict[str, Any] = {
+            "azure_endpoint": endpoint,
+            "api_version": api_version,
+            "default_headers": headers or None,
+        }
+        if token_provider is not None:
+            client_kwargs["azure_ad_token_provider"] = token_provider
+            self.auth_mode = "entra_id"
+        else:
+            client_kwargs["api_key"] = api_key
+            self.auth_mode = "api_key"
+
+        self.client = AzureOpenAI(**client_kwargs)
         self.endpoint = endpoint
 
     def chat_completion(
@@ -58,7 +78,7 @@ class AzureOpenAIProvider(LLMProvider):
         return response.choices[0].message.content
 
     def get_model_info(self) -> Dict[str, Any]:
-        return {"provider": "azure", "endpoint": self.endpoint}
+        return {"provider": "azure", "endpoint": self.endpoint, "auth_mode": self.auth_mode}
 
 
 class OpenAIProvider(LLMProvider):

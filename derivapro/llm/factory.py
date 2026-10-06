@@ -1,4 +1,4 @@
-import os
+import logging
 from typing import Any, Optional
 
 from .adapters import (
@@ -9,14 +9,15 @@ from .adapters import (
     OllamaProvider,
     TogetherProvider,
 )
+from .atlas_auth import (
+    atlas_default_headers,
+    atlas_env_present,
+    atlas_settings,
+    build_token_provider,
+    env_value as _get_env_value,
+)
 
-
-def _get_env_value(*names: str, default: Optional[str] = None) -> Optional[str]:
-    for name in names:
-        value = os.getenv(name)
-        if value is not None and value != "":
-            return value.strip()
-    return default
+logger = logging.getLogger(__name__)
 
 
 def get_llm_provider() -> Any:
@@ -30,7 +31,27 @@ def get_llm_provider() -> Any:
         "LLM_AUTH_HEADER_NAME", "Auth_headers", default=None
     )
 
-    if provider_name in {"azure", "azure_openai"}:
+    if provider_name in {"azure", "azure_openai", "atlas"}:
+        if atlas_env_present():
+            # Atlas gateway: Entra ID bearer token + subscription-key header.
+            settings = atlas_settings()
+            logger.info("Using Entra ID authentication for Atlas endpoint %s", settings["endpoint"])
+            return AzureOpenAIProvider(
+                api_key=settings["subscription_key"] or api_key,
+                endpoint=settings["endpoint"] or base_url,
+                api_version=settings["api_version"] or api_version,
+                auth_header_name=settings["subscription_header"] or auth_header_name,
+                token_provider=build_token_provider(prime=True),
+                default_headers=atlas_default_headers(),
+            )
+        if not api_key or not base_url:
+            raise RuntimeError(
+                "No Azure/Atlas LLM credentials found. Set LLM_API_KEY and LLM_BASE_URL "
+                "(or OpenAI_API_Key / Base_URL), and for the Atlas gateway also "
+                "ATLAS_TENANT_ID, ATLAS_CLIENT_ID and ATLAS_TOKEN_SCOPE. If you edited .env "
+                "while the server was running, stop it and start it again; the auto-reloader "
+                "does not re-read .env."
+            )
         return AzureOpenAIProvider(
             api_key=api_key,
             endpoint=base_url,

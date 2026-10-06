@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
+{% import "components/ai_assessment.html" as ai %}
 
 {% block title %}DerivaPro | {{ config.title }}{% endblock %}
 
@@ -759,6 +760,15 @@
 </div>
 {% endif %}
 {% endcall %}
+
+{% if ai_assessment_enabled %}
+{{ ai.panel(
+    product_slug,
+    inputs=form_data,
+    outputs=results if not pricing_error else none,
+    subtitle="Send the submitted " ~ config.title ~ " terms, schedules, and the valuation outputs above to the configured AI model for an assessment of whether the results are reasonable given the inputs."
+) }}
+{% endif %}
 
 {% call product.section("Run Summary", "Current model framework and methodology reference.") %}
 <div class="run-summary-grid">

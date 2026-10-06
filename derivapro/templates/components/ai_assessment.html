@@ -1,0 +1,212 @@
+{#
+  Reusable "AI Assessment" panel.
+
+  Usage on any product page whose product_key has been registered with
+  derivapro.services.ai_assessment.register_assessment_product():
+
+      {% import "components/ai_assessment.html" as ai %}
+      {{ ai.panel("amortizing-stepup-sinking-bond", inputs=form_data, outputs=results) }}
+
+  - `inputs`  : dict of the parameters the user submitted (usually form_data)
+  - `outputs` : dict produced by the pricing engine (usually results); when
+                falsy the button renders disabled with a "run a valuation" hint.
+
+  The panel posts {inputs, outputs} to /api/ai-assessment/<product_key>, shows
+  the returned assessment, and on page load restores the latest saved
+  assessment for the current run. CSRF is handled by the global fetch wrapper
+  in base.html.
+#}
+
+{% macro panel(product_key, inputs=None, outputs=None, title="AI Assessment", subtitle=None, button_label="Get AI Assessment", section_class="") -%}
+<section class="product-section-card ai-assessment-section {{ section_class }}"
+         data-ai-assessment
+         data-product-key="{{ product_key }}"
+         data-generate-url="{{ url_for('ai_assessment.generate', product_key=product_key) }}"
+         data-latest-url="{{ url_for('ai_assessment.latest', product_key=product_key) }}"
+         data-has-outputs="{{ 'true' if outputs else 'false' }}">
+    <div class="product-section-header">
+        <h2>{{ title }}</h2>
+        <p>{{ subtitle or "Send the submitted parameters and the latest model outputs to the configured AI model for an independent read on whether the results make sense." }}</p>
+    </div>
+    <div class="product-section-body">
+        <div class="ai-assessment-toolbar">
+            <button type="button" class="btn-primary ai-assessment-run" {% if not outputs %}disabled{% endif %}>
+                <span class="ai-assessment-run-label">{{ button_label }}</span>
+            </button>
+            <span class="ai-assessment-status" role="status" aria-live="polite">
+                {% if outputs %}Uses the valuation currently shown on this page.{% else %}Run a valuation first to enable the assessment.{% endif %}
+            </span>
+        </div>
+
+        <div class="ai-assessment-result" hidden>
+            <div class="ai-assessment-result-heading">
+                <strong>Assessment</strong>
+                <small class="ai-assessment-meta"></small>
+            </div>
+            <div class="ai-assessment-text"></div>
+        </div>
+
+        <div class="info-box error-box ai-assessment-error" role="alert" hidden></div>
+
+        <p class="ai-assessment-disclaimer">
+            AI-generated commentary is an aid to review, not a validation conclusion. Verify figures against the results above before relying on it.
+        </p>
+    </div>
+    <script type="application/json" class="ai-assessment-context">{{ {"inputs": inputs or {}, "outputs": outputs or {}} | tojson }}</script>
+</section>
+{{ script() }}
+{%- endmacro %}
+
+
+{% macro script() -%}
+<script>
+(() => {
+    if (window.DerivaProAiAssessment) {
+        window.DerivaProAiAssessment.init();
+        return;
+    }
+
+    const renderText = (container, text) => {
+        container.innerHTML = "";
+        const blocks = String(text || "").replace(/\r\n/g, "\n").split(/\n{2,}/);
+        blocks.forEach((block) => {
+            const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+            if (!lines.length) return;
+            const bulletLike = lines.every((line) => /^([-*\u2022]|\d+[.)])\s+/.test(line));
+            if (bulletLike) {
+                const list = document.createElement("ul");
+                lines.forEach((line) => {
+                    const item = document.createElement("li");
+                    item.textContent = line.replace(/^([-*\u2022]|\d+[.)])\s+/, "");
+                    list.appendChild(item);
+                });
+                container.appendChild(list);
+            } else {
+                const paragraph = document.createElement("p");
+                paragraph.textContent = lines.join(" ");
+                container.appendChild(paragraph);
+            }
+        });
+    };
+
+    const describeMeta = (data, restored) => {
+        const bits = [];
+        if (data.model) bits.push(`Model: ${data.model}`);
+        if (data.provider) bits.push(`Provider: ${data.provider}`);
+        if (restored) bits.push("Restored from the last saved assessment for this run");
+        else if (data.saved) bits.push("Saved with this run");
+        return bits.join(" \u00b7 ");
+    };
+
+    const setup = (panel) => {
+        if (panel.dataset.aiAssessmentReady === "true") return;
+        panel.dataset.aiAssessmentReady = "true";
+
+        const button = panel.querySelector(".ai-assessment-run");
+        const buttonLabel = panel.querySelector(".ai-assessment-run-label");
+        const status = panel.querySelector(".ai-assessment-status");
+        const resultBox = panel.querySelector(".ai-assessment-result");
+        const resultText = panel.querySelector(".ai-assessment-text");
+        const meta = panel.querySelector(".ai-assessment-meta");
+        const errorBox = panel.querySelector(".ai-assessment-error");
+        const contextNode = panel.querySelector(".ai-assessment-context");
+        const idleLabel = buttonLabel ? buttonLabel.textContent : "Get AI Assessment";
+        const hasOutputs = panel.dataset.hasOutputs === "true";
+
+        let context = { inputs: {}, outputs: {} };
+        try {
+            context = JSON.parse(contextNode?.textContent || "{}");
+        } catch (error) {
+            console.error("AI assessment context could not be parsed", error);
+        }
+
+        const showError = (message) => {
+            if (!errorBox) return;
+            errorBox.textContent = message;
+            errorBox.hidden = false;
+        };
+        const clearError = () => {
+            if (errorBox) {
+                errorBox.hidden = true;
+                errorBox.textContent = "";
+            }
+        };
+        const showResult = (data, restored) => {
+            renderText(resultText, data.assessment);
+            if (meta) meta.textContent = describeMeta(data, restored);
+            resultBox.hidden = false;
+        };
+        const setBusy = (busy) => {
+            if (!button) return;
+            button.disabled = busy || !hasOutputs;
+            button.classList.toggle("is-busy", busy);
+            if (buttonLabel) buttonLabel.textContent = busy ? "Generating assessment\u2026" : idleLabel;
+        };
+
+        const run = async () => {
+            clearError();
+            setBusy(true);
+            if (status) status.textContent = "Contacting the AI service. This usually takes a few seconds.";
+            try {
+                const response = await fetch(panel.dataset.generateUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                    body: JSON.stringify(context),
+                });
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    data = {};
+                }
+                if (!response.ok || !data.ok) {
+                    showError(data.error || `The assessment request failed (HTTP ${response.status}).`);
+                    if (status) status.textContent = "Assessment not generated.";
+                    return;
+                }
+                showResult(data, false);
+                if (status) status.textContent = data.saved
+                    ? "Assessment generated and saved with this run."
+                    : "Assessment generated.";
+            } catch (error) {
+                console.error("AI assessment request failed", error);
+                showError("The assessment request could not be completed. Check your connection and try again.");
+                if (status) status.textContent = "Assessment not generated.";
+            } finally {
+                setBusy(false);
+            }
+        };
+
+        const restoreLatest = async () => {
+            if (!hasOutputs || !panel.dataset.latestUrl) return;
+            try {
+                const response = await fetch(panel.dataset.latestUrl, { headers: { "Accept": "application/json" } });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (data && data.found && data.assessment) {
+                    showResult(data, true);
+                    if (status) status.textContent = "Showing the saved assessment for this run. Generate again to refresh it.";
+                }
+            } catch (error) {
+                /* Restoring is best-effort; the button still works. */
+            }
+        };
+
+        button?.addEventListener("click", run);
+        restoreLatest();
+    };
+
+    window.DerivaProAiAssessment = {
+        init() {
+            document.querySelectorAll("[data-ai-assessment]").forEach(setup);
+        },
+    };
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", () => window.DerivaProAiAssessment.init());
+    } else {
+        window.DerivaProAiAssessment.init();
+    }
+})();
+</script>
+{%- endmacro %}
