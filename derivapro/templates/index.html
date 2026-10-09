@@ -5,16 +5,16 @@
 {% block content %}
 <section class="platform-hero">
     <div class="platform-hero-copy">
-        <p class="eyebrow"><span aria-hidden="true">📊</span> DerivaPro analytics workspace</p>
-        <h1>Enterprise-style pricing and risk analytics in the browser.</h1>
+        <p class="eyebrow">DerivaPro analytics workspace</p>
+        <h1>Transparent pricing, risk, and model validation.</h1>
         <p class="hero-lede">
-            DerivaPro brings instrument valuation, model diagnostics, sensitivities, market assumptions, and
-            portfolio context into one controlled quantitative finance workspace.
+            DerivaPro connects instrument valuation, model diagnostics, sensitivities, benchmark evidence, and
+            reporting in one controlled quantitative finance workspace.
         </p>
         <div class="landing-actions">
             {% if current_user.is_authenticated %}
-            <a href="{{ url_for('index.products') }}" class="landing-button primary">Open Product Workspace</a>
-            <a href="{{ url_for('portfolios.portfolios') }}" class="landing-button secondary">Review Portfolios</a>
+            <a href="#featured-workflows" class="landing-button primary">Explore Featured Workflows</a>
+            <a href="{{ url_for('index.products') }}" class="landing-button secondary">Open Full Product Workspace</a>
             {% else %}
             <a href="{{ url_for('auth.register') }}" class="landing-button primary">Create Free Account</a>
             <a href="{{ url_for('vanilla_options.european_options') }}" class="landing-button secondary">Try European Option Preview</a>
@@ -24,7 +24,7 @@
 
     <aside class="platform-status-panel" aria-label="Platform status summary">
         <div class="status-header">
-            <span><span aria-hidden="true">🔐</span> Access Status</span>
+            <span>Platform status</span>
             <strong>{% if current_user.is_authenticated %}Workspace Enabled{% else %}Preview Mode{% endif %}</strong>
         </div>
         <div class="status-grid">
@@ -44,9 +44,75 @@
     </aside>
 </section>
 
+<section class="featured-workflows" id="featured-workflows" aria-labelledby="featured-workflows-title">
+    <div class="featured-workflows-heading">
+        <div>
+            <p class="section-kicker">Featured Workflows</p>
+            <h2 id="featured-workflows-title">Representative end-to-end valuation workflows</h2>
+        </div>
+        <p>Open a documented reference scenario, review its assumptions, run the model, inspect risk, and produce validation-ready reporting.</p>
+    </div>
+    <div class="featured-workflow-grid">
+        <article class="featured-workflow-card featured-workflow-card-primary">
+            <div class="featured-workflow-topline">
+                <span>01</span>
+                <em>Signature workflow</em>
+            </div>
+            <h3>Callable Amortizing Bond</h3>
+            <p>Schedule-driven cashflows and issuer exercise valued with a curve-fitted short-rate lattice.</p>
+            <ul class="featured-workflow-meta">
+                <li>Hull-White lattice</li>
+                <li>OAS and exercise probability</li>
+                <li>Benchmark report</li>
+            </ul>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='callable_benchmark') }}">Open reference scenario</a>
+            {% else %}
+            <a href="{{ url_for('auth.login') }}">Sign in to open</a>
+            {% endif %}
+        </article>
+        <article class="featured-workflow-card">
+            <div class="featured-workflow-topline">
+                <span>02</span>
+                <em>Cashflow architecture</em>
+            </div>
+            <h3>Structured Amortizing Bond</h3>
+            <p>Flexible coupon and principal schedules with clean/dirty value, rate risk, and principal-runoff analysis.</p>
+            <ul class="featured-workflow-meta">
+                <li>Editable schedules</li>
+                <li>Yield or curve valuation</li>
+                <li>External reconciliation</li>
+            </ul>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='amortizing-stepup-sinking-bond', preset='straight_line_benchmark') }}">Open reference scenario</a>
+            {% else %}
+            <a href="{{ url_for('auth.login') }}">Sign in to open</a>
+            {% endif %}
+        </article>
+        <article class="featured-workflow-card">
+            <div class="featured-workflow-topline">
+                <span>03</span>
+                <em>Investor optionality</em>
+            </div>
+            <h3>Puttable Bond</h3>
+            <p>The callable reference bond reframed with investor put rights to demonstrate reusable exercise logic.</p>
+            <ul class="featured-workflow-meta">
+                <li>Put exercise schedule</li>
+                <li>Option decomposition</li>
+                <li>Scenario comparison</li>
+            </ul>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='putable_benchmark') }}">Open reference scenario</a>
+            {% else %}
+            <a href="{{ url_for('auth.login') }}">Sign in to open</a>
+            {% endif %}
+        </article>
+    </div>
+</section>
+
 <section class="workflow-grid" aria-label="DerivaPro capabilities">
     <article class="workflow-card">
-        <span class="workflow-icon" aria-hidden="true">📈</span>
+        <span class="workflow-icon" aria-hidden="true">V</span>
         <span class="workflow-label">Valuation</span>
         <h3>Product-level pricing</h3>
         <p>
@@ -54,7 +120,7 @@
         </p>
     </article>
     <article class="workflow-card">
-        <span class="workflow-icon" aria-hidden="true">🧮</span>
+        <span class="workflow-icon" aria-hidden="true">I</span>
         <span class="workflow-label">Assumptions</span>
         <h3>Market and model inputs</h3>
         <p>
@@ -62,7 +128,7 @@
         </p>
     </article>
     <article class="workflow-card">
-        <span class="workflow-icon" aria-hidden="true">🧭</span>
+        <span class="workflow-icon" aria-hidden="true">A</span>
         <span class="workflow-label">Risk Review</span>
         <h3>Sensitivities and diagnostics</h3>
         <p>
@@ -70,7 +136,7 @@
         </p>
     </article>
     <article class="workflow-card">
-        <span class="workflow-icon" aria-hidden="true">📁</span>
+        <span class="workflow-icon" aria-hidden="true">R</span>
         <span class="workflow-label">Workspace</span>
         <h3>Saved analysis and reports</h3>
         <p>
@@ -81,7 +147,7 @@
 
 <section class="platform-section platform-operating-model">
     <div>
-        <p class="section-kicker"><span aria-hidden="true">🏛️</span> Operating Model</p>
+        <p class="section-kicker">Operating Model</p>
         <h2>Built for disciplined analysis, not isolated calculator outputs.</h2>
     </div>
     <div class="operating-list">
@@ -102,7 +168,7 @@
 
 <section class="platform-disclaimer">
     <div>
-        <p class="section-kicker"><span aria-hidden="true">⚠️</span> Use Limitation</p>
+        <p class="section-kicker">Use Limitation</p>
         <h2>Research and evaluation only.</h2>
     </div>
     <p>

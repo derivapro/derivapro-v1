@@ -48,6 +48,19 @@ def _money_to_float(value: str) -> float:
 
 
 class CallableAmortizingBondTest(unittest.TestCase):
+    def test_featured_workflows_use_neutral_presentation_language(self):
+        from derivapro import create_app
+        from derivapro.routes.index import index
+
+        app = create_app()
+        with app.test_request_context("/"):
+            html = index()
+
+        self.assertIn("Featured Workflows", html)
+        self.assertIn("Callable Amortizing Bond", html)
+        self.assertIn("Puttable Bond", html)
+        self.assertNotIn("Leadership Demo", html)
+
     def test_methodology_page_is_registered_and_renderable(self):
         from derivapro import create_app
         from derivapro.routes.index import METHODOLOGY_DOCS, methodology_doc
@@ -71,7 +84,10 @@ class CallableAmortizingBondTest(unittest.TestCase):
             _callable_amortizing_benchmark_presets,
             _price_fixed_income_extension,
         )
-        from derivapro.services.product_reports import _callable_amortizing_report_content
+        from derivapro.services.product_reports import (
+            _callable_amortizing_report_content,
+            summarize_reference_validation,
+        )
         from derivapro.services.report_builder import ProductReport, render_product_report_pdf
 
         config = FIXED_INCOME_EXTENSION_CONFIGS["callable-amortizing-bond"]
@@ -88,6 +104,13 @@ class CallableAmortizingBondTest(unittest.TestCase):
             if row[0] == "Straight Bond Clean Price"
         )
         self.assertEqual(straight_row[-1], "Reconciled")
+        summary = summarize_reference_validation(
+            "callable-amortizing-bond",
+            params,
+            results,
+        )
+        self.assertEqual(summary["label"], "Reference comparison available")
+        self.assertEqual(summary["tone"], "info")
 
         valid_fields = {field.name for field in fields(ProductReport)}
         report = ProductReport(
@@ -366,6 +389,20 @@ class CallableAmortizingBondTest(unittest.TestCase):
         self.assertIn("|0|105", by_id["putable_benchmark"]["exercise_schedule"])
         self.assertEqual(by_id["faster_amortization"]["short_rate_volatility_pct"], "15.00")
         self.assertIn("2025-06-20|25|0.0550|0|25", by_id["faster_amortization"]["cashflow_schedule"])
+
+    def test_puttable_reference_query_populates_the_product_form(self):
+        from derivapro import create_app
+        from derivapro.routes.bonds import rates_fixed_income_product
+
+        app = create_app()
+        with app.test_request_context(
+            "/noncallable-bonds/rates-fixed-income/callable-amortizing-bond?preset=putable_benchmark"
+        ):
+            html = rates_fixed_income_product("callable-amortizing-bond")
+
+        self.assertIn("Puttable benchmark", html)
+        self.assertIn('<option value="putable" selected>Putable</option>', html)
+        self.assertIn('value="10.00"', html)
 
     def test_analysis_visuals_are_consistent_and_bounded(self):
         results = price_callable_amortizing_bond(_terms("callable"))

@@ -7,8 +7,7 @@
     <p class="section-kicker">Product workspace</p>
     <h1>Instrument coverage and analytics workflows</h1>
     <p>
-        DerivaPro groups pricing tools by asset class and workflow. Registered users can open the full product
-        workspace from the left navigation; public visitors can use the European option preview.
+        Start with a featured end-to-end workflow or browse the full product catalog by asset class.
     </p>
 </div>
 
@@ -26,6 +25,42 @@
 </div>
 {% endif %}
 
+{% if current_user.is_authenticated %}
+<section class="featured-workflows featured-workflows-compact" id="featured-workflows" aria-labelledby="workspace-featured-title">
+    <div class="featured-workflows-heading">
+        <div>
+            <p class="section-kicker">Featured Workflows</p>
+            <h2 id="workspace-featured-title">Start with a tested reference scenario</h2>
+        </div>
+        <p>These workflows demonstrate the complete path from contractual inputs through valuation, analysis, validation, and reporting.</p>
+    </div>
+    <div class="featured-workflow-grid">
+        <article class="featured-workflow-card featured-workflow-card-primary">
+            <div class="featured-workflow-topline"><span>01</span><em>Signature workflow</em></div>
+            <h3>Callable Amortizing Bond</h3>
+            <p>Short-rate lattice valuation with OAS, embedded-option decomposition, risk, and exercise diagnostics.</p>
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='callable_benchmark') }}">Open reference scenario</a>
+        </article>
+        <article class="featured-workflow-card">
+            <div class="featured-workflow-topline"><span>02</span><em>Cashflow architecture</em></div>
+            <h3>Structured Amortizing Bond</h3>
+            <p>Editable principal schedules with yield-based benchmarking and transparent cashflow analytics.</p>
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='amortizing-stepup-sinking-bond', preset='straight_line_benchmark') }}">Open reference scenario</a>
+        </article>
+        <article class="featured-workflow-card">
+            <div class="featured-workflow-topline"><span>03</span><em>Investor optionality</em></div>
+            <h3>Puttable Bond</h3>
+            <p>A tested investor-put configuration using the shared lattice, curve, and schedule framework.</p>
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='putable_benchmark') }}">Open reference scenario</a>
+        </article>
+    </div>
+</section>
+{% endif %}
+
+<div class="workspace-catalog-heading">
+    <p class="section-kicker">Full Product Workspace</p>
+    <h2>Browse by asset class</h2>
+</div>
 <section class="product-workspace-grid">
     <article class="product-workspace-card">
         <span>Equity & Options</span>

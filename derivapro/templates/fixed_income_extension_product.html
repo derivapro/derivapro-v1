@@ -24,15 +24,15 @@
 <form method="post" class="european-pricing-form product-standard-form{% if product_slug == 'callable-amortizing-bond' %} callable-amortizing-form{% elif product_slug == 'amortizing-stepup-sinking-bond' %} structured-amortizing-form{% endif %}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    {% if product_slug == "callable-amortizing-bond" %}
+    {% if product_slug in ["callable-amortizing-bond", "amortizing-stepup-sinking-bond"] %}
     <div class="callable-scenario-toolbar" aria-labelledby="benchmark-scenario-label">
         <div class="callable-scenario-copy">
-            <span>Benchmark workflow</span>
-            <strong id="benchmark-scenario-label">Load a tested scenario</strong>
-            <p>Loading a scenario replaces the current terms, schedules, model parameters, and curve inputs.</p>
+            <span>Reference scenarios</span>
+            <strong id="benchmark-scenario-label">Start from a tested configuration</strong>
+            <p>Choose a documented reference scenario, then review or adjust any input before valuation.</p>
         </div>
         <label class="callable-scenario-select" for="benchmark-preset-select">
-            <span>Scenario</span>
+            <span>Reference scenario</span>
             <select id="benchmark-preset-select" name="benchmark_preset">
                 {% for preset in benchmark_presets %}
                 <option value="{{ preset.id }}" {% if selected_preset == preset.id %}selected{% endif %}>{{ preset.label }} - {{ preset.meta }}</option>
@@ -305,7 +305,7 @@
     </div>
     {% endif %}
 
-    {% if product_slug != "callable-amortizing-bond" %}
+    {% if product_slug not in ["callable-amortizing-bond", "amortizing-stepup-sinking-bond"] %}
     <div class="pricing-action-row">
         <button type="submit" class="btn-primary">Run Valuation</button>
         <a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="btn-secondary">Fixed Income Extensions</a>
@@ -326,6 +326,27 @@
             <h3>{{ selected_preset_label }}</h3>
         </div>
         <p>{% if restored_run %}Latest saved run restored from the report.{% else %}Model value, option decomposition, and risk measures for the submitted scenario.{% endif %}</p>
+    </div>
+    <div class="valuation-context-strip" aria-label="Valuation context">
+        <div class="valuation-context-validation">
+            <span>Validation status</span>
+            <strong class="validation-status-pill {{ validation_summary.tone if validation_summary else 'info' }}">
+                {{ validation_summary.label if validation_summary else "Validation evidence available" }}
+            </strong>
+            {% if validation_summary %}<small>{{ validation_summary.detail }}</small>{% endif %}
+        </div>
+        <div>
+            <span>Model</span>
+            <strong>{{ "Hull-White one-factor" if form_data.short_rate_model == "hull_white" else "Black-Karasinski one-factor" }}</strong>
+        </div>
+        <div>
+            <span>Valuation date</span>
+            <strong>{{ form_data.valuation_date }}</strong>
+        </div>
+        <div>
+            <span>Reference scenario</span>
+            <strong>{{ selected_preset_label }}</strong>
+        </div>
     </div>
     <div class="callable-primary-kpis">
         {% for metric in results.primary_metrics %}
@@ -376,6 +397,27 @@
             <h3>{{ "Yield-based benchmark" if form_data.pricing_basis == "yield" else "Curve-based valuation" }}</h3>
         </div>
         <p>{% if restored_run %}Latest saved run restored from the report.{% else %}Clean and dirty value, yield, and rate-risk measures for the submitted principal and coupon schedule.{% endif %}</p>
+    </div>
+    <div class="valuation-context-strip" aria-label="Valuation context">
+        <div class="valuation-context-validation">
+            <span>Validation status</span>
+            <strong class="validation-status-pill {{ validation_summary.tone if validation_summary else 'info' }}">
+                {{ validation_summary.label if validation_summary else "Validation evidence available" }}
+            </strong>
+            {% if validation_summary %}<small>{{ validation_summary.detail }}</small>{% endif %}
+        </div>
+        <div>
+            <span>Pricing method</span>
+            <strong>{{ "Yield-based cashflow valuation" if form_data.pricing_basis == "yield" else "Zero-curve cashflow valuation" }}</strong>
+        </div>
+        <div>
+            <span>Valuation date</span>
+            <strong>{{ form_data.valuation_date }}</strong>
+        </div>
+        <div>
+            <span>Reference scenario</span>
+            <strong>{{ selected_preset_label }}</strong>
+        </div>
     </div>
     <div class="callable-primary-kpis">
         {% for metric in results.primary_metrics %}

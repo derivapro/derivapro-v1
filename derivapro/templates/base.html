@@ -85,6 +85,7 @@
                             <li><a href="{{ url_for('index.index') }}" class="nav-link">Overview</a></li>
                             <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">Free Preview: European Option</a></li>
                             {% if current_user.is_authenticated %}
+                            <li><a href="{{ url_for('index.index') }}#featured-workflows" class="nav-link nav-callout">Featured Workflows</a></li>
                             <li><a href="{{ url_for('index.products') }}" class="nav-link">Product Workspace</a></li>
                             {% else %}
                             <li><a href="{{ url_for('auth.login') }}" class="nav-link">Sign In</a></li>

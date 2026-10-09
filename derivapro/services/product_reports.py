@@ -463,6 +463,48 @@ def _structured_amortizing_report_content(params: dict, result_json: dict) -> di
     }
 
 
+def summarize_reference_validation(product_slug: str, params: dict, result_json: dict | None) -> dict | None:
+    """Return a compact, truthful validation status for pricing result headers."""
+    if not result_json:
+        return None
+
+    if product_slug == "callable-amortizing-bond":
+        content = _callable_amortizing_report_content(params, result_json)
+    elif product_slug == "amortizing-stepup-sinking-bond":
+        content = _structured_amortizing_report_content(params, result_json)
+    else:
+        return None
+
+    testing_results = content.get("testing_results", [])
+    benchmark_rows = content.get("benchmark_comparison", [])
+    checks_passed = sum(1 for row in testing_results if row[-1] == "Pass")
+    all_checks_pass = bool(testing_results) and checks_passed == len(testing_results)
+
+    if benchmark_rows and all(row[-1] == "Reconciled" for row in benchmark_rows):
+        return {
+            "label": "Reference benchmark reconciled",
+            "detail": f"{len(benchmark_rows)} benchmark measures and {checks_passed} internal checks passed.",
+            "tone": "success",
+        }
+    if benchmark_rows and all_checks_pass:
+        return {
+            "label": "Reference comparison available",
+            "detail": f"{checks_passed} internal checks passed; option-sensitive differences remain visible in the report.",
+            "tone": "info",
+        }
+    if all_checks_pass:
+        return {
+            "label": "Internal checks passed",
+            "detail": f"{checks_passed} run-specific validation checks passed for this custom scenario.",
+            "tone": "success",
+        }
+    return {
+        "label": "Validation review required",
+        "detail": f"{checks_passed} of {len(testing_results)} internal checks passed. Review the report evidence.",
+        "tone": "warning",
+    }
+
+
 def build_product_report(product_types: Iterable[str], title: str) -> Optional[ProductReport]:
     """Assemble a :class:`ProductReport` from the latest run, or ``None`` if
     the user has never priced this product (so the caller can show an empty

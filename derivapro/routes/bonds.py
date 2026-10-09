@@ -21,6 +21,7 @@ from ..services.ai_assessment import (
     register_assessment_product,
     schedule_input_formatter,
 )
+from ..services.product_reports import summarize_reference_validation
 from .result_state import get_latest_pricing_result_for_user
 from ..models.rates_fixed_income import (
     AssetSwapTerms,
@@ -1006,6 +1007,21 @@ def _callable_amortizing_benchmark_presets(config):
     return presets
 
 
+def _serialize_payment_schedule_rows(rows):
+    return ";".join(
+        "|".join(
+            [
+                row["payment_date"],
+                row["opening_notional"],
+                row["coupon_rate"],
+                row["principal"],
+                row["fixed_payment"],
+            ]
+        )
+        for row in rows
+    )
+
+
 def _extension_form_data(config):
     data = _default_form_data(config)
     if request.method == "POST":
@@ -1183,6 +1199,41 @@ def _structured_amortizing_schedule_rows(form_data):
         )
         outstanding -= principal
     return rows
+
+
+def _structured_amortizing_benchmark_presets(config):
+    base = _default_form_data(config)
+    presets = []
+    for preset_id, label, meta, style, description in (
+        (
+            "straight_line_benchmark",
+            "Straight-line benchmark",
+            "External reference",
+            "straight_line",
+            "Level-coupon bond with equal principal repayment across all payment dates.",
+        ),
+        (
+            "bullet_benchmark",
+            "Bullet benchmark",
+            "External reference",
+            "bullet",
+            "Level-coupon bond with principal repaid at contractual maturity.",
+        ),
+    ):
+        values = {**base, "amortization_style": style}
+        values["cashflow_schedule"] = _serialize_payment_schedule_rows(
+            _structured_amortizing_schedule_rows(values)
+        )
+        presets.append(
+            {
+                "id": preset_id,
+                "label": label,
+                "meta": meta,
+                "description": description,
+                "values": values,
+            }
+        )
+    return presets
 
 
 def _callable_amortizing_exercise_rows(form_data, payment_rows):
@@ -2239,16 +2290,31 @@ def rates_fixed_income_product(product_slug):
     selected_preset_label = "Custom scenario"
     if product_slug == "callable-amortizing-bond":
         benchmark_presets = _callable_amortizing_benchmark_presets(config)
+        default_preset = "callable_benchmark"
+    elif product_slug == "amortizing-stepup-sinking-bond":
+        benchmark_presets = _structured_amortizing_benchmark_presets(config)
+        default_preset = "straight_line_benchmark"
+
+    if benchmark_presets:
         preset_ids = {preset["id"] for preset in benchmark_presets}
-        requested_preset = request.form.get(
-            "benchmark_preset",
-            form_data.get("benchmark_preset", "callable_benchmark"),
-        )
+        if request.method == "POST":
+            requested_preset = request.form.get(
+                "benchmark_preset",
+                form_data.get("benchmark_preset", default_preset),
+            )
+        else:
+            requested_preset = request.args.get(
+                "preset",
+                form_data.get("benchmark_preset", default_preset),
+            )
         selected_preset = requested_preset if requested_preset in preset_ids else "custom"
         if selected_preset != "custom":
-            selected_preset_label = next(
-                preset["label"] for preset in benchmark_presets if preset["id"] == selected_preset
+            selected = next(
+                preset for preset in benchmark_presets if preset["id"] == selected_preset
             )
+            selected_preset_label = selected["label"]
+            if request.method == "GET" and request.args.get("preset"):
+                form_data.update(selected["values"])
         form_data["benchmark_preset"] = selected_preset
     if request.method == "POST":
         try:
@@ -2443,6 +2509,12 @@ def rates_fixed_income_product(product_slug):
             form_data.get("discount_curve_rates", ""),
         )
 
+    validation_summary = summarize_reference_validation(
+        product_slug,
+        form_data,
+        results,
+    )
+
     return render_template(
         "fixed_income_extension_product.html",
         config=config,
@@ -2461,4 +2533,5 @@ def rates_fixed_income_product(product_slug):
         selected_preset_label=selected_preset_label,
         restored_run=restored_run,
         ai_assessment_enabled=get_assessment_product(product_slug) is not None,
+        validation_summary=validation_summary,
     )

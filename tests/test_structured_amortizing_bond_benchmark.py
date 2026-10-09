@@ -39,6 +39,21 @@ def _metric(results: dict, label: str) -> str:
 
 
 class StructuredAmortizingBondBenchmarkTest(unittest.TestCase):
+    def test_reference_presets_generate_complete_payment_schedules(self):
+        from derivapro.routes.bonds import (
+            FIXED_INCOME_EXTENSION_CONFIGS,
+            _structured_amortizing_benchmark_presets,
+        )
+
+        config = FIXED_INCOME_EXTENSION_CONFIGS["amortizing-stepup-sinking-bond"]
+        presets = _structured_amortizing_benchmark_presets(config)
+        by_id = {preset["id"]: preset["values"] for preset in presets}
+
+        self.assertEqual(set(by_id), {"straight_line_benchmark", "bullet_benchmark"})
+        self.assertEqual(len(by_id["straight_line_benchmark"]["cashflow_schedule"].split(";")), 30)
+        self.assertEqual(len(by_id["bullet_benchmark"]["cashflow_schedule"].split(";")), 30)
+        self.assertTrue(by_id["bullet_benchmark"]["cashflow_schedule"].endswith("|1000000|0"))
+
     def test_bullet_bond_matches_external_calculator_benchmark(self):
         results = price_generic_bond(_benchmark_terms("bullet"))
 
@@ -107,6 +122,16 @@ class StructuredAmortizingBondBenchmarkTest(unittest.TestCase):
         self.assertIn("Math/GenericBonds.html", content["methodology_references"])
         self.assertEqual(len(content["benchmark_comparison"]), 7)
         self.assertTrue(all(row[-1] == "Reconciled" for row in content["benchmark_comparison"]))
+
+        from derivapro.services.product_reports import summarize_reference_validation
+
+        summary = summarize_reference_validation(
+            "amortizing-stepup-sinking-bond",
+            params,
+            results,
+        )
+        self.assertEqual(summary["label"], "Reference benchmark reconciled")
+        self.assertEqual(summary["tone"], "success")
 
     def test_report_return_restores_latest_structured_bond_run(self):
         from types import SimpleNamespace
