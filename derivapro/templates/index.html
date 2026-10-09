@@ -50,7 +50,7 @@
             <p class="section-kicker">Featured Workflows</p>
             <h2 id="featured-workflows-title">Representative end-to-end valuation workflows</h2>
         </div>
-        <p>Open a documented reference scenario, review its assumptions, run the model, inspect risk, and produce validation-ready reporting.</p>
+        <p>Select a tested workflow, review its assumptions, run the model, inspect risk, and produce validation-ready reporting.</p>
     </div>
     <div class="featured-workflow-grid">
         <article class="featured-workflow-card featured-workflow-card-primary">
@@ -66,9 +66,9 @@
                 <li>Benchmark report</li>
             </ul>
             {% if current_user.is_authenticated %}
-            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='callable_benchmark') }}">Open reference scenario</a>
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='callable_benchmark') }}">Launch workflow</a>
             {% else %}
-            <a href="{{ url_for('auth.login') }}">Sign in to open</a>
+            <a href="{{ url_for('auth.login') }}">Sign in to launch</a>
             {% endif %}
         </article>
         <article class="featured-workflow-card">
@@ -84,9 +84,9 @@
                 <li>External reconciliation</li>
             </ul>
             {% if current_user.is_authenticated %}
-            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='amortizing-stepup-sinking-bond', preset='straight_line_benchmark') }}">Open reference scenario</a>
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='amortizing-stepup-sinking-bond', preset='straight_line_benchmark') }}">Launch workflow</a>
             {% else %}
-            <a href="{{ url_for('auth.login') }}">Sign in to open</a>
+            <a href="{{ url_for('auth.login') }}">Sign in to launch</a>
             {% endif %}
         </article>
         <article class="featured-workflow-card">
@@ -102,9 +102,9 @@
                 <li>Scenario comparison</li>
             </ul>
             {% if current_user.is_authenticated %}
-            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='putable_benchmark') }}">Open reference scenario</a>
+            <a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond', preset='putable_benchmark') }}">Launch workflow</a>
             {% else %}
-            <a href="{{ url_for('auth.login') }}">Sign in to open</a>
+            <a href="{{ url_for('auth.login') }}">Sign in to launch</a>
             {% endif %}
         </article>
     </div>

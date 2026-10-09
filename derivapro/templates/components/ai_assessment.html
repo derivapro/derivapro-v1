@@ -1,23 +1,6 @@
-{#
-  Reusable "AI Assessment" panel.
+{# Reusable task-oriented AI analysis panel. #}
 
-  Usage on any product page whose product_key has been registered with
-  derivapro.services.ai_assessment.register_assessment_product():
-
-      {% import "components/ai_assessment.html" as ai %}
-      {{ ai.panel("amortizing-stepup-sinking-bond", inputs=form_data, outputs=results) }}
-
-  - `inputs`  : dict of the parameters the user submitted (usually form_data)
-  - `outputs` : dict produced by the pricing engine (usually results); when
-                falsy the button renders disabled with a "run a valuation" hint.
-
-  The panel posts {inputs, outputs} to /api/ai-assessment/<product_key>, shows
-  the returned assessment, and on page load restores the latest saved
-  assessment for the current run. CSRF is handled by the global fetch wrapper
-  in base.html.
-#}
-
-{% macro panel(product_key, inputs=None, outputs=None, title="AI Assessment", subtitle=None, button_label="Get AI Assessment", section_class="") -%}
+{% macro panel(product_key, inputs=None, outputs=None, title="AI Analysis Assistant", subtitle=None, section_class="") -%}
 <section class="product-section-card ai-assessment-section {{ section_class }}"
          data-ai-assessment
          data-product-key="{{ product_key }}"
@@ -26,21 +9,50 @@
          data-has-outputs="{{ 'true' if outputs else 'false' }}">
     <div class="product-section-header">
         <h2>{{ title }}</h2>
-        <p>{{ subtitle or "Send the submitted parameters and the latest model outputs to the configured AI model for an independent read on whether the results make sense." }}</p>
+        <p>{{ subtitle or "Use the current product inputs and valuation results to explain outcomes, design a scenario, prepare report commentary, or examine the documented methodology." }}</p>
     </div>
     <div class="product-section-body">
+        <div class="ai-task-grid" role="group" aria-label="AI analysis action">
+            <button type="button" class="ai-task-option is-selected" data-ai-task="explain_results"
+                    data-requires-outputs="true" aria-pressed="true" {% if not outputs %}disabled{% endif %}>
+                <strong>Explain results</strong>
+                <span>Interpret valuation and risk drivers</span>
+            </button>
+            <button type="button" class="ai-task-option" data-ai-task="create_scenario"
+                    data-requires-outputs="false" aria-pressed="false">
+                <strong>Create a scenario</strong>
+                <span>Propose a controlled stress setup</span>
+            </button>
+            <button type="button" class="ai-task-option" data-ai-task="draft_report_commentary"
+                    data-requires-outputs="true" aria-pressed="false" {% if not outputs %}disabled{% endif %}>
+                <strong>Draft report commentary</strong>
+                <span>Prepare neutral review language</span>
+            </button>
+            <button type="button" class="ai-task-option" data-ai-task="ask_methodology"
+                    data-requires-outputs="false" aria-pressed="false">
+                <strong>Ask about methodology</strong>
+                <span>Query the repository methodology note</span>
+            </button>
+        </div>
+
+        <div class="ai-task-detail" hidden>
+            <label for="ai-task-detail-{{ product_key }}">Scenario objective</label>
+            <textarea id="ai-task-detail-{{ product_key }}" rows="3" maxlength="1200"></textarea>
+            <small>Optional. Describe the market move or risk question you want the scenario to address.</small>
+        </div>
+
         <div class="ai-assessment-toolbar">
             <button type="button" class="btn-primary ai-assessment-run" {% if not outputs %}disabled{% endif %}>
-                <span class="ai-assessment-run-label">{{ button_label }}</span>
+                <span class="ai-assessment-run-label">Explain results</span>
             </button>
             <span class="ai-assessment-status" role="status" aria-live="polite">
-                {% if outputs %}Uses the valuation currently shown on this page.{% else %}Run a valuation first to enable the assessment.{% endif %}
+                {% if outputs %}Uses the inputs and valuation currently shown on this page.{% else %}Create a scenario or ask about methodology without running a valuation.{% endif %}
             </span>
         </div>
 
         <div class="ai-assessment-result" hidden>
             <div class="ai-assessment-result-heading">
-                <strong>Assessment</strong>
+                <strong class="ai-assessment-result-title">Explain results</strong>
                 <small class="ai-assessment-meta"></small>
             </div>
             <div class="ai-assessment-text"></div>
@@ -49,7 +61,7 @@
         <div class="info-box error-box ai-assessment-error" role="alert" hidden></div>
 
         <p class="ai-assessment-disclaimer">
-            AI-generated commentary is an aid to review, not a validation conclusion. Verify figures against the results above before relying on it.
+            AI-generated content supports review and drafting; it does not replace independent valuation, validation, or approval. Verify all figures before use.
         </p>
     </div>
     <script type="application/json" class="ai-assessment-context">{{ {"inputs": inputs or {}, "outputs": outputs or {}} | tojson }}</script>
@@ -65,6 +77,43 @@
         window.DerivaProAiAssessment.init();
         return;
     }
+
+    const TASKS = {
+        explain_results: {
+            label: "Explain results",
+            requiresOutputs: true,
+            showDetail: false,
+            requiresDetail: false,
+            status: "Interpret the current valuation, key drivers, and follow-up items.",
+        },
+        create_scenario: {
+            label: "Create a scenario",
+            requiresOutputs: false,
+            showDetail: true,
+            requiresDetail: false,
+            detailLabel: "Scenario objective",
+            placeholder: "Example: Design a parallel +100 bp curve shock with a moderate volatility increase.",
+            help: "Optional. Describe the market move or risk question the scenario should address.",
+            status: "Propose input changes and expected directional impacts; this does not reprice automatically.",
+        },
+        draft_report_commentary: {
+            label: "Draft report commentary",
+            requiresOutputs: true,
+            showDetail: false,
+            requiresDetail: false,
+            status: "Draft concise valuation, risk, and limitation commentary from the current run.",
+        },
+        ask_methodology: {
+            label: "Ask about methodology",
+            requiresOutputs: false,
+            showDetail: true,
+            requiresDetail: true,
+            detailLabel: "Methodology question",
+            placeholder: "Example: How are exercise decisions and discount-curve interpolation handled?",
+            help: "Required. The answer is grounded in the repository methodology note for this product.",
+            status: "Ask a specific question about formulas, assumptions, conventions, or limitations.",
+        },
+    };
 
     const renderText = (container, text) => {
         container.innerHTML = "";
@@ -93,7 +142,7 @@
         const bits = [];
         if (data.model) bits.push(`Model: ${data.model}`);
         if (data.provider) bits.push(`Provider: ${data.provider}`);
-        if (restored) bits.push("Restored from the last saved assessment for this run");
+        if (restored) bits.push("Restored from this run");
         else if (data.saved) bits.push("Saved with this run");
         return bits.join(" \u00b7 ");
     };
@@ -102,28 +151,40 @@
         if (panel.dataset.aiAssessmentReady === "true") return;
         panel.dataset.aiAssessmentReady = "true";
 
-        const button = panel.querySelector(".ai-assessment-run");
-        const buttonLabel = panel.querySelector(".ai-assessment-run-label");
+        const actionButtons = Array.from(panel.querySelectorAll(".ai-task-option"));
+        const runButton = panel.querySelector(".ai-assessment-run");
+        const runLabel = panel.querySelector(".ai-assessment-run-label");
         const status = panel.querySelector(".ai-assessment-status");
+        const detailBox = panel.querySelector(".ai-task-detail");
+        const detailLabel = detailBox?.querySelector("label");
+        const detailInput = detailBox?.querySelector("textarea");
+        const detailHelp = detailBox?.querySelector("small");
         const resultBox = panel.querySelector(".ai-assessment-result");
+        const resultTitle = panel.querySelector(".ai-assessment-result-title");
         const resultText = panel.querySelector(".ai-assessment-text");
         const meta = panel.querySelector(".ai-assessment-meta");
         const errorBox = panel.querySelector(".ai-assessment-error");
         const contextNode = panel.querySelector(".ai-assessment-context");
-        const idleLabel = buttonLabel ? buttonLabel.textContent : "Get AI Assessment";
         const hasOutputs = panel.dataset.hasOutputs === "true";
+        let busy = false;
+        let selectedTask = hasOutputs ? "explain_results" : "create_scenario";
+        const taskDetails = {};
 
         let context = { inputs: {}, outputs: {} };
         try {
             context = JSON.parse(contextNode?.textContent || "{}");
         } catch (error) {
-            console.error("AI assessment context could not be parsed", error);
+            console.error("AI analysis context could not be parsed", error);
         }
 
-        const showError = (message) => {
-            if (!errorBox) return;
-            errorBox.textContent = message;
-            errorBox.hidden = false;
+        const selectedConfig = () => TASKS[selectedTask] || TASKS.explain_results;
+        const canRun = () => {
+            const config = selectedConfig();
+            if (busy || (config.requiresOutputs && !hasOutputs)) return false;
+            return !config.requiresDetail || Boolean(detailInput?.value.trim());
+        };
+        const refreshRunState = () => {
+            if (runButton) runButton.disabled = !canRun();
         };
         const clearError = () => {
             if (errorBox) {
@@ -131,27 +192,67 @@
                 errorBox.textContent = "";
             }
         };
+        const showError = (message) => {
+            if (!errorBox) return;
+            errorBox.textContent = message;
+            errorBox.hidden = false;
+        };
+        const selectTask = (task) => {
+            const config = TASKS[task];
+            const button = actionButtons.find((item) => item.dataset.aiTask === task);
+            if (!config || button?.disabled) return;
+            if (detailInput && selectedTask) taskDetails[selectedTask] = detailInput.value;
+            selectedTask = task;
+            actionButtons.forEach((item) => {
+                const selected = item.dataset.aiTask === task;
+                item.classList.toggle("is-selected", selected);
+                item.setAttribute("aria-pressed", selected ? "true" : "false");
+            });
+            if (detailBox) detailBox.hidden = !config.showDetail;
+            if (detailLabel && config.detailLabel) detailLabel.textContent = config.detailLabel;
+            if (detailInput) {
+                detailInput.value = taskDetails[task] || "";
+                detailInput.placeholder = config.placeholder || "";
+                detailInput.required = Boolean(config.requiresDetail);
+            }
+            if (detailHelp && config.help) detailHelp.textContent = config.help;
+            if (runLabel) runLabel.textContent = config.label;
+            if (status) status.textContent = config.status;
+            clearError();
+            refreshRunState();
+        };
         const showResult = (data, restored) => {
             renderText(resultText, data.assessment);
+            const task = TASKS[data.task] || selectedConfig();
+            if (resultTitle) resultTitle.textContent = task.label;
             if (meta) meta.textContent = describeMeta(data, restored);
             resultBox.hidden = false;
         };
-        const setBusy = (busy) => {
-            if (!button) return;
-            button.disabled = busy || !hasOutputs;
-            button.classList.toggle("is-busy", busy);
-            if (buttonLabel) buttonLabel.textContent = busy ? "Generating assessment\u2026" : idleLabel;
+        const setBusy = (value) => {
+            busy = value;
+            actionButtons.forEach((button) => {
+                const requiresOutputs = button.dataset.requiresOutputs === "true";
+                button.disabled = value || (requiresOutputs && !hasOutputs);
+            });
+            runButton?.classList.toggle("is-busy", value);
+            if (runLabel) runLabel.textContent = value ? "Generating..." : selectedConfig().label;
+            refreshRunState();
         };
 
         const run = async () => {
+            if (!canRun()) return;
             clearError();
             setBusy(true);
-            if (status) status.textContent = "Contacting the AI service. This usually takes a few seconds.";
+            if (status) status.textContent = "Contacting the AI service. This may take a few seconds.";
             try {
                 const response = await fetch(panel.dataset.generateUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                    body: JSON.stringify(context),
+                    body: JSON.stringify({
+                        ...context,
+                        task: selectedTask,
+                        instruction: detailInput?.value.trim() || "",
+                    }),
                 });
                 let data = {};
                 try {
@@ -160,18 +261,18 @@
                     data = {};
                 }
                 if (!response.ok || !data.ok) {
-                    showError(data.error || `The assessment request failed (HTTP ${response.status}).`);
-                    if (status) status.textContent = "Assessment not generated.";
+                    showError(data.error || `The AI request failed (HTTP ${response.status}).`);
+                    if (status) status.textContent = "AI action not completed.";
                     return;
                 }
                 showResult(data, false);
                 if (status) status.textContent = data.saved
-                    ? "Assessment generated and saved with this run."
-                    : "Assessment generated.";
+                    ? "AI response generated and saved with this run."
+                    : "AI response generated.";
             } catch (error) {
-                console.error("AI assessment request failed", error);
-                showError("The assessment request could not be completed. Check your connection and try again.");
-                if (status) status.textContent = "Assessment not generated.";
+                console.error("AI analysis request failed", error);
+                showError("The AI request could not be completed. Check the service configuration and try again.");
+                if (status) status.textContent = "AI action not completed.";
             } finally {
                 setBusy(false);
             }
@@ -184,15 +285,21 @@
                 if (!response.ok) return;
                 const data = await response.json();
                 if (data && data.found && data.assessment) {
+                    if (data.task) selectTask(data.task);
                     showResult(data, true);
-                    if (status) status.textContent = "Showing the saved assessment for this run. Generate again to refresh it.";
+                    if (status) status.textContent = "Showing the saved AI response for this valuation run.";
                 }
             } catch (error) {
-                /* Restoring is best-effort; the button still works. */
+                /* Restore is best-effort; task actions remain available. */
             }
         };
 
-        button?.addEventListener("click", run);
+        actionButtons.forEach((button) => {
+            button.addEventListener("click", () => selectTask(button.dataset.aiTask));
+        });
+        detailInput?.addEventListener("input", refreshRunState);
+        runButton?.addEventListener("click", run);
+        selectTask(selectedTask);
         restoreLatest();
     };
 

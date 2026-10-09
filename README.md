@@ -97,7 +97,7 @@ DerivaPro already includes active workflows across several major financial produ
 | **Volatility Products**                  | Volatility surface construction, variance swaps, and volatility swaps.                                                                                                                                                |
 | **Futures and Forwards**                 | Pricing, sensitivity analysis, and scenario-style analysis.                                                                                                                                                           |
 | **Prepayment Analytics**                 | Simple calculator-style workflow and v2 data-driven modeling workflow.                                                                                                                                                |
-| **AI-Assisted Assessment**               | Optional Azure/OpenAI-compatible narrative assessment workflows through environment configuration.                                                                                                                    |
+| **AI Analysis Assistant**                | Optional Azure/OpenAI-compatible actions for explaining results, designing scenarios, drafting report commentary, and asking repository-grounded methodology questions.                                               |
 
 ---
 
@@ -340,7 +340,7 @@ Edit `.env` with the settings required for your environment:
 ```env
 OpenAI_API_Key="xxx"
 Base_URL="https://your-azure-openai-endpoint"
-Model="your-model-name"
+Model="gpt-5-6-luna-latest-gs"
 API_Version="2025-04-01-preview"
 Auth_headers="your-subscription-key-header"
 FRED_API_Key="xxx"

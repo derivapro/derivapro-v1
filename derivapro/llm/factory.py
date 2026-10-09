@@ -18,6 +18,7 @@ from .atlas_auth import (
 )
 
 logger = logging.getLogger(__name__)
+DEFAULT_API_VERSION = "2025-04-01-preview"
 
 
 def get_llm_provider() -> Any:
@@ -26,7 +27,9 @@ def get_llm_provider() -> Any:
     ).lower()
     api_key = _get_env_value("LLM_API_KEY", "OpenAI_API_Key", default="")
     base_url = _get_env_value("LLM_BASE_URL", "Base_URL", default="")
-    api_version = _get_env_value("LLM_API_VERSION", "API_Version", default=None)
+    api_version = _get_env_value(
+        "LLM_API_VERSION", "API_Version", default=DEFAULT_API_VERSION
+    )
     auth_header_name = _get_env_value(
         "LLM_AUTH_HEADER_NAME", "Auth_headers", default=None
     )

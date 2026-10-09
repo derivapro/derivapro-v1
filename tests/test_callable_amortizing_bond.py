@@ -49,16 +49,29 @@ def _money_to_float(value: str) -> float:
 
 class CallableAmortizingBondTest(unittest.TestCase):
     def test_featured_workflows_use_neutral_presentation_language(self):
+        from flask_login import login_user
+
         from derivapro import create_app
+        from derivapro.models.db_models import User
         from derivapro.routes.index import index
 
         app = create_app()
         with app.test_request_context("/"):
+            login_user(
+                User(
+                    id=999997,
+                    username="featured-workflow-copy-test",
+                    password_hash="unused",
+                    accepted_terms=True,
+                )
+            )
             html = index()
 
         self.assertIn("Featured Workflows", html)
         self.assertIn("Callable Amortizing Bond", html)
         self.assertIn("Puttable Bond", html)
+        self.assertIn("Launch workflow", html)
+        self.assertNotIn("Open reference scenario", html)
         self.assertNotIn("Leadership Demo", html)
 
     def test_methodology_page_is_registered_and_renderable(self):

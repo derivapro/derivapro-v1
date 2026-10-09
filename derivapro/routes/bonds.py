@@ -741,6 +741,7 @@ def _register_fixed_income_assessment(product_slug, focus="", schedule_fields=No
         input_labels=labels,
         input_options=options_from_field_sections(config),
         skip_inputs=frozenset(AssessmentProductSpec.skip_inputs) | _FIXED_INCOME_ASSESSMENT_SKIP,
+        methodology_doc=config.get("methodology_doc"),
         focus=focus,
     )
     base_formatter = schedule_input_formatter(spec, schedule_fields or {})

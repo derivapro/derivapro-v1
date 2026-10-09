@@ -1,11 +1,12 @@
-"""Generic JSON endpoints behind the reusable "AI Assessment" button.
+"""Generic JSON endpoints behind the reusable AI analysis actions.
 
 Any product page can call these once a spec has been registered with
 ``derivapro.services.ai_assessment.register_assessment_product``:
 
 ``POST /api/ai-assessment/<product_key>``
-    Body: ``{"inputs": {...}, "outputs": {...}}``. Builds the prompt from the
-    submitted parameters and model outputs, calls the configured LLM provider
+    Body: ``{"task", "instruction", "inputs", "outputs"}``. Builds a task-specific
+    prompt from submitted parameters, model outputs, and repository methodology;
+    calls the configured LLM provider
     and returns ``{"ok", "assessment", "model", "provider", "saved"}``.
     For signed-in users the assessment is also stored as an ``AnalysisResult``
     (``analysis_type="ai_assessment"``) against the latest pricing run.
@@ -24,8 +25,11 @@ from ..extensions import db
 from ..models.db_models import AnalysisResult
 from ..services.ai_assessment import (
     ANALYSIS_TYPE,
+    DEFAULT_AI_TASK,
+    MAX_USER_INSTRUCTION_CHARS,
     assessment_payload,
     generate_assessment,
+    get_ai_task,
     get_assessment_product,
 )
 from .result_state import (
@@ -73,12 +77,35 @@ def generate(product_key):
     body = request.get_json(silent=True) or {}
     inputs = body.get("inputs") or {}
     outputs = body.get("outputs") or {}
+    task = str(body.get("task") or DEFAULT_AI_TASK).strip()
+    instruction = body.get("instruction") or ""
     if not isinstance(inputs, dict) or not isinstance(outputs, dict):
         return jsonify({"ok": False, "error": "'inputs' and 'outputs' must be JSON objects."}), 400
-    if not outputs:
-        return jsonify({"ok": False, "error": "Run a valuation first; there are no outputs to assess."}), 400
+    if not isinstance(instruction, str):
+        return jsonify({"ok": False, "error": "'instruction' must be text."}), 400
+    task_spec = get_ai_task(task)
+    if task_spec is None:
+        return jsonify({"ok": False, "error": f"Unsupported AI action '{task}'."}), 400
+    instruction = instruction.strip()
+    if len(instruction) > MAX_USER_INSTRUCTION_CHARS:
+        return jsonify(
+            {
+                "ok": False,
+                "error": f"Task detail must be {MAX_USER_INSTRUCTION_CHARS} characters or fewer.",
+            }
+        ), 400
+    if task_spec["requires_outputs"] and not outputs:
+        return jsonify({"ok": False, "error": "Run a valuation first; this action requires pricing outputs."}), 400
+    if task_spec["requires_instruction"] and not instruction:
+        return jsonify({"ok": False, "error": "Enter a methodology question before running this action."}), 400
 
-    result = generate_assessment(spec, inputs, outputs)
+    result = generate_assessment(
+        spec,
+        inputs,
+        outputs,
+        task=task,
+        user_instruction=instruction,
+    )
     saved_id = _persist(spec, result) if result.ok else None
 
     payload = result.to_dict()

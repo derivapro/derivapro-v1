@@ -808,7 +808,7 @@
     product_slug,
     inputs=form_data,
     outputs=results if not pricing_error else none,
-    subtitle="Send the submitted " ~ config.title ~ " terms, schedules, and the valuation outputs above to the configured AI model for an assessment of whether the results are reasonable given the inputs."
+    subtitle="Use the current " ~ config.title ~ " terms, schedules, and valuation results for focused explanation, scenario design, report drafting, or methodology questions."
 ) }}
 {% endif %}
 
@@ -1397,33 +1397,35 @@
             : [...(zeroCurveTable?.querySelectorAll("tbody tr") || [])].filter((row) => row.querySelector(".zero-curve-tenor")?.value && row.querySelector(".zero-curve-rate")?.value !== "").length;
         if (validCurveRows < 2) errors.push("The selected curve requires at least two complete rows.");
 
-        const rights = document.getElementById("option_rights")?.value || "callable";
-        const rows = [...(exerciseTable?.querySelectorAll("tbody tr") || [])];
-        if (!rows.length) exerciseErrors.push("Add at least one exercise row.");
-        if (rows.some((row) => {
-            const start = row.querySelector(".exercise-start-date")?.value || "";
-            const end = row.querySelector(".exercise-end-date")?.value || "";
-            return !start || !end || end < start;
-        })) {
-            exerciseErrors.push("Each exercise window needs valid dates in chronological order.");
-        }
-        const hasCallPrice = rows.some((row) => Number(row.querySelector(".exercise-call-price")?.value) > 0);
-        const hasPutPrice = rows.some((row) => Number(row.querySelector(".exercise-put-price")?.value) > 0);
-        if ((rights === "callable" || rights === "callable_putable") && !hasCallPrice) {
-            exerciseErrors.push("Callable rights require at least one positive call price.");
-        }
-        if ((rights === "putable" || rights === "callable_putable") && !hasPutPrice) {
-            exerciseErrors.push("Putable rights require at least one positive put price.");
-        }
-        errors.push(...exerciseErrors);
+        if (exerciseTable) {
+            const rights = document.getElementById("option_rights")?.value || "callable";
+            const rows = [...exerciseTable.querySelectorAll("tbody tr")];
+            if (!rows.length) exerciseErrors.push("Add at least one exercise row.");
+            if (rows.some((row) => {
+                const start = row.querySelector(".exercise-start-date")?.value || "";
+                const end = row.querySelector(".exercise-end-date")?.value || "";
+                return !start || !end || end < start;
+            })) {
+                exerciseErrors.push("Each exercise window needs valid dates in chronological order.");
+            }
+            const hasCallPrice = rows.some((row) => Number(row.querySelector(".exercise-call-price")?.value) > 0);
+            const hasPutPrice = rows.some((row) => Number(row.querySelector(".exercise-put-price")?.value) > 0);
+            if ((rights === "callable" || rights === "callable_putable") && !hasCallPrice) {
+                exerciseErrors.push("Callable rights require at least one positive call price.");
+            }
+            if ((rights === "putable" || rights === "callable_putable") && !hasPutPrice) {
+                exerciseErrors.push("Putable rights require at least one positive put price.");
+            }
+            errors.push(...exerciseErrors);
 
-        if (exerciseScheduleMessage) {
-            const inactiveLabel = rights === "callable" ? "Put prices are inactive for this callable-only scenario."
-                : rights === "putable" ? "Call prices are inactive for this puttable-only scenario."
-                : "Both call and put prices are active.";
-            exerciseScheduleMessage.hidden = false;
-            exerciseScheduleMessage.classList.toggle("is-error", exerciseErrors.length > 0);
-            exerciseScheduleMessage.textContent = exerciseErrors[0] || inactiveLabel;
+            if (exerciseScheduleMessage) {
+                const inactiveLabel = rights === "callable" ? "Put prices are inactive for this callable-only scenario."
+                    : rights === "putable" ? "Call prices are inactive for this puttable-only scenario."
+                    : "Both call and put prices are active.";
+                exerciseScheduleMessage.hidden = false;
+                exerciseScheduleMessage.classList.toggle("is-error", exerciseErrors.length > 0);
+                exerciseScheduleMessage.textContent = exerciseErrors[0] || inactiveLabel;
+            }
         }
 
         const selectedLabel = presetSelect?.selectedOptions[0]?.textContent?.trim() || "Custom scenario";
