@@ -1,9 +1,17 @@
 import QuantLib as ql
 import numpy as np
 import datetime
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
+import logging
 from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+
+logger = logging.getLogger(__name__)
+
+
+def _plotting():
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
+
+    return plt, ticker
 
 class CreditDefaultSwap:
     def __init__(self, nominal, spread, recovery_rate, risk_free,
@@ -77,8 +85,24 @@ class CreditDefaultSwap:
                 risk_free_curve
             ) for tenor in tenors
         ]
-        
-        return instruments
+
+        # Short tenors (1M, 3M, 6M) all roll forward to the nearest CDS-standard
+        # IMM date (20th Mar/Jun/Sep/Dec). Depending on how close today's date is
+        # to the next IMM roll, two or more of the tenors above can land on the
+        # *same* pillar date, which PiecewiseFlatHazardRate rejects with
+        # "more than one instrument with pillar <date>". Since every instrument
+        # quotes the same flat spread anyway, the duplicate carries no
+        # additional information - keep only the first helper per unique pillar.
+        seen_pillars = set()
+        deduped_instruments = []
+        for helper in instruments:
+            pillar = helper.latestDate()
+            if pillar in seen_pillars:
+                continue
+            seen_pillars.add(pillar)
+            deduped_instruments.append(helper)
+
+        return deduped_instruments
 
     def hazard_curve_function(self):
         instruments = self.spread_instruments()
@@ -134,49 +158,117 @@ class CreditDefaultSwap:
         }
         return results
     
+    # Attribute holding each sweepable input, and the bounds outside which the
+    # value stops being economically meaningful (a negative recovery rate or
+    # spread makes the hazard-rate bootstrap fail). The spread and recovery_rate
+    # bounds stay strictly inside [0, 1] rather than touching the edges: a
+    # literal 0% spread or a recovery rate at/near 100% leaves the ISDA
+    # hazard-rate bootstrap with no bracketed root, which aborted the whole
+    # sensitivity sweep whenever the range happened to reach that edge.
+    SENSITIVITY_VARIABLES = {
+        'recovery_rate': (0.0, 0.99),
+        'risk_free': (None, None),
+        'spread': (0.0001, None),
+    }
+
     def generate_variable_range(self, variable, range_span, num_steps):
-        if variable == 'recovery_rate':
-            base = self.recovery_rate
-        elif variable == 'risk_free':
-            base = self.risk_free
-        elif variable == 'spread':
-            base = self.spread            
-        else:
+        bounds = self.SENSITIVITY_VARIABLES.get(variable)
+        if bounds is None:
             raise ValueError(f"Unsupported or missing variable: {variable}")
-        return np.linspace(base - range_span, base + range_span, num_steps)
-    
-    def analyze_variable_sensitivity(self,variable, range_span, num_steps):
+
+        base = getattr(self, variable)
+        lower, upper = bounds
+
+        low = base - range_span
+        high = base + range_span
+        # Clamp so a wide range span cannot push the sweep into values the
+        # pricing engine rejects, which used to abort the whole analysis.
+        if lower is not None:
+            low = max(low, lower)
+            high = max(high, lower)
+        if upper is not None:
+            low = min(low, upper)
+            high = min(high, upper)
+
+        return np.linspace(low, high, num_steps)
+
+    def analyze_variable_sensitivity(self, variable, range_span, num_steps):
+        if variable not in self.SENSITIVITY_VARIABLES:
+            raise ValueError(f"Unsupported or missing variable: {variable}")
+
         variable_range = self.generate_variable_range(variable, range_span, num_steps)
         cds_analysis_results = []
 
-        for value in variable_range:
-            if variable == 'recovery_rate':
-                self.recovery_rate = value
-            elif variable == 'risk_free':
-                self.risk_free = value
-            elif variable == 'spread':
-                self.spread = value
-            
-            cds_expectedLoss = self.expected_loss()
-            cds_analysis_results.append((value, cds_expectedLoss))   
+        # The sweep overwrites the attribute in place, so snapshot it and restore
+        # afterwards. Without this a second call re-centres the range on the last
+        # swept value instead of the trade's actual input.
+        original_value = getattr(self, variable)
+        try:
+            for value in variable_range:
+                setattr(self, variable, value)
+                try:
+                    cds_expectedLoss = self.expected_loss()
+                except RuntimeError:
+                    # The ISDA hazard-rate bootstrap has no bracketed root for
+                    # some parameter combinations very close to the edge of a
+                    # bound (e.g. recovery rate near 100%). Skip that single
+                    # point rather than aborting the whole sweep - one bad
+                    # point should not erase an otherwise-valid curve.
+                    logger.warning(
+                        "CDS sensitivity: skipping %s=%s (hazard-rate bootstrap "
+                        "did not converge)", variable, value
+                    )
+                    continue
+                cds_analysis_results.append((value, cds_expectedLoss))
+        finally:
+            setattr(self, variable, original_value)
+
+        if not cds_analysis_results:
+            raise ValueError(
+                f"Sensitivity analysis on {variable} did not converge at any "
+                "point in the requested range. Try a smaller range span."
+            )
 
         return cds_analysis_results
 
-    def plot_sensitivity_analysis(self, variable, range_span, num_steps):
-        sensitivity__analysis_results = self.analyze_variable_sensitivity(variable, range_span, num_steps)
-        variable_values, cds_expectedLoss = zip(*sensitivity__analysis_results)
-        
+    def plot_sensitivity_analysis(self, variable, range_span, num_steps, results=None):
+        """Plot expected loss against ``variable`` and return the Figure.
+
+        Returning the figure (rather than leaving it as matplotlib's implicit
+        "current figure") lets the caller save and close exactly this plot, so
+        concurrent requests cannot save each other's charts and figures do not
+        leak until matplotlib starts warning.
+
+        Pass ``results`` to reuse an already-computed sweep instead of running it
+        a second time.
+        """
+        plt, _ = _plotting()
+        sensitivity_analysis_results = results or self.analyze_variable_sensitivity(
+            variable, range_span, num_steps
+        )
+        variable_values, cds_expectedLoss = zip(*sensitivity_analysis_results)
+
+        # Expected loss is formatted as "$1,234.5678" by expected_loss(); convert
+        # back to numbers so matplotlib plots a curve rather than category labels.
+        cds_expectedLoss = [
+            float(str(value).replace('$', '').replace(',', '').strip())
+            if isinstance(value, str) else value
+            for value in cds_expectedLoss
+        ]
+
         variable_values = [val * 100 for val in variable_values]
         x_label = f'{variable.replace("_", " ").title()} (%)'
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(variable_values, cds_expectedLoss, marker='o', linestyle='-', color='b')
-        plt.title(f'Sensitivity Analysis: Expected Loss vs {variable.replace("_", " ").title()}')
-        plt.xlabel(x_label)
-        plt.ylabel('Expected Loss ($)')
-        plt.tight_layout()
-        plt.grid(True)
-        # plt.show()
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(variable_values, cds_expectedLoss, marker='o', linestyle='-', color='b')
+        ax.set_title(
+            f'Sensitivity Analysis: Expected Loss vs {variable.replace("_", " ").title()}'
+        )
+        ax.set_xlabel(x_label)
+        ax.set_ylabel('Expected Loss ($)')
+        ax.grid(True)
+        fig.tight_layout()
+        return fig
 
 
 class SyntheticCDO:
@@ -262,62 +354,83 @@ class SyntheticCDO:
     
     def generate_variable_range(self, variable, range_span, num_steps):
         """ Generate the variable range for each CDS instance """
+        bounds = CreditDefaultSwap.SENSITIVITY_VARIABLES.get(variable)
+        if bounds is None:
+            raise ValueError(f"Unsupported or missing variable: {variable}")
+
+        lower, upper = bounds
         ranges = {}
-    
+
         for cds in self.cds_list:
-            # Determine the base value for the specified variable from each CDS instance
-            if variable == 'recovery_rate':
-                base = cds.recovery_rate
-            elif variable == 'risk_free':
-                base = cds.risk_free
-            elif variable == 'spread':
-                base = cds.spread
-            else:
-                raise ValueError(f"Unsupported or missing variable: {variable}")
-            
-            # Generate the range of values for the current CDS instance
-            ranges[cds] = np.linspace(base - range_span, base + range_span, num_steps)
-        
+            base = getattr(cds, variable)
+            low = base - range_span
+            high = base + range_span
+            # Clamp to the economically meaningful band; an unclamped span wider
+            # than the base value produced negative recovery rates / spreads and
+            # aborted the whole sweep inside QuantLib.
+            if lower is not None:
+                low = max(low, lower)
+                high = max(high, lower)
+            if upper is not None:
+                low = min(low, upper)
+                high = min(high, upper)
+
+            ranges[cds] = np.linspace(low, high, num_steps)
+
         return ranges
-    
+
     def analyze_variable_sensitivity(self, variable, range_span, num_steps):
         """ Analyze the sensitivity of the synthetic CDO to a specific variable across all CDS instances for each tranche. """
         # Generate the variable ranges for all CDS instances
         variable_ranges = self.generate_variable_range(variable, range_span, num_steps)
-    
+
         # Dictionary to store the sensitivity results for each tranche and CDS
         sensitivity_results_by_cds = {
             cds: {tranche_name: [] for tranche_name, _, _ in self.tranches} for cds in self.cds_list
         }
-    
-        # Iterate through the variable range steps
-        for step in range(num_steps):
-            for cds in self.cds_list:
-                # Apply the current step value of the variable for this CDS
-                current_value = variable_ranges[cds][step]
-                if variable == 'risk_free':
-                    cds.risk_free = current_value
-                elif variable == 'recovery_rate':
-                    cds.recovery_rate = current_value
-                elif variable == 'spread':
-                    cds.spread = current_value
-                
-                # Calculate cashflows for the synthetic CDO after updating the current CDS
-                cdo_cashflows = self.tranche_cashflows()
-                
-                # Store the results for each tranche for the current CDS
-                for tranche_name in sensitivity_results_by_cds[cds].keys():
-                    expectedLoss = float(cdo_cashflows[tranche_name]['expected_loss'].replace('$', '').replace(',', '').strip())
-                    sensitivity_results_by_cds[cds][tranche_name].append((current_value, expectedLoss))
+
+        # The sweep writes straight onto each CDS, so snapshot the originals and
+        # restore them afterwards. Otherwise a second analysis re-centres its
+        # range on the last swept value instead of the trade's real input.
+        originals = {cds: getattr(cds, variable) for cds in self.cds_list}
+        try:
+            # Iterate through the variable range steps
+            for step in range(num_steps):
+                for cds in self.cds_list:
+                    # Apply the current step value of the variable for this CDS
+                    current_value = variable_ranges[cds][step]
+                    setattr(cds, variable, current_value)
+
+                    # Calculate cashflows for the synthetic CDO after updating the current CDS
+                    cdo_cashflows = self.tranche_cashflows()
+
+                    # Store the results for each tranche for the current CDS
+                    for tranche_name in sensitivity_results_by_cds[cds].keys():
+                        expectedLoss = float(cdo_cashflows[tranche_name]['expected_loss'].replace('$', '').replace(',', '').strip())
+                        sensitivity_results_by_cds[cds][tranche_name].append((current_value, expectedLoss))
+        finally:
+            for cds, original_value in originals.items():
+                setattr(cds, variable, original_value)
+
         return sensitivity_results_by_cds
 
 
 
-    def plot_sensitivity_analysis(self, variable, range_span, num_steps):
-        """Plot the sensitivity analysis results for each tranche across all CDS instances in separate subplots."""
+    def plot_sensitivity_analysis(self, variable, range_span, num_steps, results=None):
+        """Plot the sensitivity analysis results for each tranche across all CDS
+        instances in separate subplots, and return the Figure.
+
+        Returning the figure lets the caller save and close exactly this plot
+        instead of relying on matplotlib's implicit "current figure", which under
+        concurrent requests could save the wrong chart. Pass ``results`` to reuse
+        an already-computed sweep rather than running it twice.
+        """
+        plt, ticker = _plotting()
         # Get the results of the sensitivity analysis by CDS and tranche
-        sensitivity_results_by_cds = self.analyze_variable_sensitivity(variable, range_span, num_steps)
-        
+        sensitivity_results_by_cds = results or self.analyze_variable_sensitivity(
+            variable, range_span, num_steps
+        )
+
         # Create a dictionary to hold results for each tranche
         tranche_results = {}
         
@@ -333,6 +446,8 @@ class SyntheticCDO:
         # Create subplots for each tranche
         num_tranches = len(tranche_results)
         fig, axes = plt.subplots(num_tranches, 1, figsize=(12, 8), sharex=True)  # Create subplots
+        # With a single tranche subplots() returns a bare Axes, which is not iterable.
+        axes = np.atleast_1d(axes)
 
         # Generate a colormap with enough colors
         num_lines = sum(len(cds_data) for cds_data in tranche_results.values())
@@ -356,15 +471,13 @@ class SyntheticCDO:
             ax.xaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.4f}%'))  # Format as percentage
             ax.legend(loc='upper right')  # Legend for the current subplot
 
-        variable_values = [val * 100 for val in variable_values]
         x_label = f'{variable.replace("_", " ").title()} (%)'
         # Set common labels
-        plt.xlabel(x_label)
-        plt.tight_layout()  # Adjust layout to prevent overlap
-        plt.show()  # Show the plot
-        
-    
-    
+        axes[-1].set_xlabel(x_label)
+        fig.tight_layout()  # Adjust layout to prevent overlap
+        return fig
+
+
 class CLNPricingFixed:
     def __init__(self, bond_params, cds_instance):
         self.bond_fixed = NCFixedBonds(**bond_params)
@@ -485,6 +598,7 @@ class CLNSensitivityAnalysis:
 
     def plot_sensitivity_analysis(self, variable, range_span, num_steps):
         """Plot the sensitivity analysis results for each shock in separate subplots."""
+        plt, ticker = _plotting()
         sensitivity_analysis_results = self.analyze_variable_sensitivity(variable, range_span, num_steps)
         
         num_shocks = len(sensitivity_analysis_results)

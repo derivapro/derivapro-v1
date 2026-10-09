@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-title compact">
     <h1>Portfolio: {{ portfolio.name }}</h1>
-    <p>Review saved positions, pricing references, and portfolio-level holdings for this collection.</p>
+    <p>Review saved positions, pricing references, local JSON copy status, and portfolio-level valuation/risk aggregation.</p>
 </div>
 
 <div class="detail-back-row">
@@ -26,6 +26,127 @@
             <span>Description</span>
             <strong>{{ portfolio.description or "N/A" }}</strong>
         </div>
+        <div class="detail-summary-item detail-summary-item-full">
+            <span>Private Local JSON Copy</span>
+            <strong>
+                {% if local_snapshot_exists %}
+                {{ local_snapshot_path }}
+                {% else %}
+                Not written yet. Export or modify this portfolio to create a local copy.
+                {% endif %}
+            </strong>
+        </div>
+    </div>
+</div>
+
+<div class="portfolio-action-row">
+    <a href="{{ url_for('portfolios.export_portfolio_json', portfolio_id=portfolio.id) }}" class="btn">Export Local JSON</a>
+    <a href="{{ url_for('saved_results.saved_results') }}" class="btn">Add From Saved Results</a>
+</div>
+
+<div class="portfolio-manual-card">
+    <div class="portfolio-manual-header">
+        <div>
+            <h3>Add Manual / Unpriced Position</h3>
+            <p>Build the portfolio first. Add holdings or trade templates here, then price or link results later as product workflows mature.</p>
+        </div>
+    </div>
+    <form method="post" action="{{ url_for('portfolios.add_manual_position', portfolio_id=portfolio.id) }}" class="portfolio-manual-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="position_label">Position Label</label>
+            <input type="text" id="position_label" name="position_label" placeholder="e.g., AAPL 6M Call Spread">
+        </div>
+        <div class="form-group">
+            <label for="trade_id">Desk Trade ID</label>
+            <input type="text" id="trade_id" name="trade_id" placeholder="Optional internal ID">
+        </div>
+        <div class="form-group">
+            <label for="asset_class">Asset Class</label>
+            <select id="asset_class" name="asset_class">
+                {% for choice in asset_class_choices %}
+                <option value="{{ choice }}">{{ choice }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="product_category">Product Type</label>
+            <select id="product_category" name="product_category">
+                {% for choice in product_category_choices %}
+                <option value="{{ choice }}">{{ choice }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="underlying">Underlying / Reference</label>
+            <input type="text" id="underlying" name="underlying" placeholder="e.g., AAPL, SPX, SOFR, CDX.IG">
+        </div>
+        <div class="form-group">
+            <label for="ticker">Ticker</label>
+            <input type="text" id="ticker" name="ticker" placeholder="Optional market ticker">
+        </div>
+        <div class="form-group">
+            <label for="side">Side</label>
+            <select id="side" name="side">
+                <option value="long">Long</option>
+                <option value="short">Short</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="quantity">Quantity</label>
+            <input type="number" id="quantity" name="quantity" step="0.01" value="1.0">
+        </div>
+        <div class="form-group">
+            <label for="notional">Notional</label>
+            <input type="number" id="notional" name="notional" step="0.01" placeholder="Optional">
+        </div>
+        <div class="form-group">
+            <label for="currency">Currency</label>
+            <input type="text" id="currency" name="currency" value="USD">
+        </div>
+        <div class="form-group">
+            <label for="valuation_status">Valuation Status</label>
+            <select id="valuation_status" name="valuation_status">
+                {% for value, label in valuation_status_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group portfolio-terms-group">
+            <label for="terms_json">Trade Terms JSON</label>
+            <textarea id="terms_json" name="terms_json" rows="7" placeholder='{"strike": 100, "maturity": "2027-06-30", "coupon_rate": 0.08}'></textarea>
+            <div class="field-hint">Optional flexible terms for product-specific pricing later. Must be a JSON object if provided.</div>
+        </div>
+        <div class="form-group portfolio-notes-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="7" placeholder="Desk notes, data source, model assumptions, or booking comments"></textarea>
+        </div>
+        <div class="form-group portfolio-manual-actions">
+            <button type="submit" class="btn-primary">Add Position to Portfolio</button>
+        </div>
+    </form>
+</div>
+
+<div class="result-kpi-grid portfolio-kpi-grid">
+    <div class="pricing-summary-card">
+        <span>Positions</span>
+        <strong>{{ portfolio_metrics.position_count }}</strong>
+        <small>Registered holdings</small>
+    </div>
+    <div class="pricing-summary-card">
+        <span>Priced Positions</span>
+        <strong>{{ portfolio_metrics.priced_position_count }} / {{ portfolio_metrics.unpriced_position_count }}</strong>
+        <small>Linked to pricing result</small>
+    </div>
+    <div class="pricing-summary-card">
+        <span>Total Market Value</span>
+        <strong>{{ "${:,.2f}".format(portfolio_metrics.total_market_value) }}</strong>
+        <small>Signed, using stored result price</small>
+    </div>
+    <div class="pricing-summary-card">
+        <span>Long / Short Notional</span>
+        <strong>{{ "{:,.2f}".format(portfolio_metrics.long_notional) }} / {{ "{:,.2f}".format(portfolio_metrics.short_notional) }}</strong>
+        <small>Current position metadata</small>
     </div>
 </div>
 
@@ -63,7 +184,7 @@
 </div>
 
 <div class="asset-class-summary-card">
-    <h3>Greeks by Asset Class</h3>
+    <h3>Exposure by Asset Class</h3>
     <div class="table-actions">
         <a href="{{ url_for('exports.export') }}?type=portfolio_summary&portfolio_id={{ portfolio.id }}&format=xlsx" class="btn">Export Summary XLSX</a>
         <a href="{{ url_for('exports.export') }}?type=portfolio_summary&portfolio_id={{ portfolio.id }}&format=csv" class="btn">Export Summary CSV</a>
@@ -73,6 +194,9 @@
             <thead>
                 <tr>
                     <th>Asset Class</th>
+                    <th>Positions</th>
+                    <th>Priced</th>
+                    <th>Market Value</th>
                     <th>Delta</th>
                     <th>Gamma</th>
                     <th>Vega</th>
@@ -84,6 +208,9 @@
                 {% for asset_class, data in asset_class_summary.items() %}
                 <tr>
                     <td>{{ data.name }}</td>
+                    <td>{{ data.position_count }}</td>
+                    <td>{{ data.priced_count }}</td>
+                    <td>{{ "${:,.2f}".format(data.market_value) }}</td>
                     <td>{{ "%.2f"|format(data.delta) }}</td>
                     <td>{{ "%.2f"|format(data.gamma) }}</td>
                     <td>{{ "%.2f"|format(data.vega) }}</td>
@@ -95,6 +222,32 @@
         </table>
     </div>
 </div>
+
+{% if underlying_summary %}
+<div class="asset-class-summary-card">
+    <h3>Exposure by Underlying</h3>
+    <div class="history-table-wrap">
+        <table class="results-table history-table portfolio-summary-table">
+            <thead>
+                <tr>
+                    <th>Underlying</th>
+                    <th>Positions</th>
+                    <th>Market Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for underlying, data in underlying_summary.items() %}
+                <tr>
+                    <td>{{ data.name }}</td>
+                    <td>{{ data.position_count }}</td>
+                    <td>{{ "${:,.2f}".format(data.market_value) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
 {% if positions %}
 <div class="history-table-card">
@@ -108,11 +261,20 @@
                 <tr>
                     <th>Added At</th>
                     <th>Product Type</th>
+                    <th>Product Category</th>
+                    <th>Asset Class</th>
+                    <th>Trade ID</th>
                     <th>Ticker</th>
+                    <th>Underlying</th>
                     <th>Model</th>
+                    <th>Status</th>
                     <th>Price</th>
+                    <th>Side</th>
+                    <th>Label</th>
                     <th>Quantity</th>
                     <th>Notional</th>
+                    <th>Currency</th>
+                    <th>Notes</th>
                     <th>Edit</th>
                     <th>Delete</th>
                 </tr>
@@ -122,8 +284,13 @@
                 <tr>
                     <td>{{ position.created_at }}</td>
                     <td>{{ position.instrument.product_type if position.instrument else "" }}</td>
+                    <td>{{ position.product_category or "" }}</td>
+                    <td>{{ position.asset_class or "" }}</td>
+                    <td>{{ position.trade_id or "" }}</td>
                     <td>{{ position.instrument.ticker if position.instrument else "" }}</td>
+                    <td>{{ position.underlying or "" }}</td>
                     <td>{{ position.instrument.model_name if position.instrument else "" }}</td>
+                    <td>{{ position.valuation_status or "unpriced" }}</td>
                     <td>
                         {{ "%.4f"|format(position.pricing_result.price) if position.pricing_result and position.pricing_result.price is not none else "" }}
                     </td>
@@ -131,10 +298,34 @@
                         <form method="post" action="{{ url_for('portfolios.update_position', portfolio_id=portfolio.id) }}" class="inline-form">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="position_id" value="{{ position.id }}">
+                            <select name="side" class="inline-input">
+                                <option value="long" {% if position.side != 'short' %}selected{% endif %}>Long</option>
+                                <option value="short" {% if position.side == 'short' %}selected{% endif %}>Short</option>
+                            </select>
+                    </td>
+                    <td>
+                            <input type="text" name="position_label" value="{{ position.position_label or '' }}" class="inline-input">
+                            <input type="text" name="trade_id" value="{{ position.trade_id or '' }}" class="inline-input" placeholder="Trade ID">
+                    </td>
+                    <td>
                             <input type="number" step="0.01" name="quantity" value="{{ position.quantity or 1.0 }}" class="inline-input">
                     </td>
                     <td>
                             <input type="number" step="0.01" name="notional" value="{{ position.notional or '' }}" class="inline-input">
+                    </td>
+                    <td>
+                            <input type="text" name="currency" value="{{ position.currency or 'USD' }}" class="inline-input">
+                    </td>
+                    <td>
+                            <input type="text" name="underlying" value="{{ position.underlying or '' }}" class="inline-input" placeholder="Underlying">
+                            <input type="hidden" name="asset_class" value="{{ position.asset_class or '' }}">
+                            <input type="hidden" name="product_category" value="{{ position.product_category or '' }}">
+                            <select name="valuation_status" class="inline-input">
+                                {% for value, label in valuation_status_choices %}
+                                <option value="{{ value }}" {% if position.valuation_status == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="notes" value="{{ position.notes or '' }}" class="inline-input" placeholder="Notes">
                     </td>
                     <td>
                             <button type="submit" class="table-action-link">Save</button>
@@ -156,7 +347,7 @@
 {% else %}
 <div class="empty-state-card">
     <h3>No Positions Yet</h3>
-    <p>This portfolio does not contain any saved positions yet. Add a saved result to this portfolio to begin tracking holdings.</p>
+    <p>This portfolio does not contain any positions yet. Add a manual/unpriced position above or add a saved pricing result when available.</p>
 </div>
 {% endif %}
 {% endblock %}

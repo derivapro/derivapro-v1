@@ -1,16 +1,12 @@
-import markdown
-import os
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for
+from flask_login import current_user, login_required
+from ..models.db_models import Report
 
 reports_generated_bp = Blueprint('reports_generated', __name__)
 
 @reports_generated_bp.route('/reports-generated', methods=['GET'])
+@login_required
 def reports_generated():
-    
-    readme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'reports_generated.md')
-    with open(readme_path, 'r') as readme_file:
-        content = readme_file.read()
-    md_content = markdown.markdown(content)
-    
-    return render_template('reports_generated.html', md_content=md_content)
+    reports = Report.query.filter_by(user_id=current_user.id).order_by(Report.created_at.desc()).all()
+    return render_template('reports_generated.html', reports=reports)
 

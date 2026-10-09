@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}DerivaPro | {{ title }} Methodology{% endblock %}
+
+{% block content %}
+<section class="product-page-header methodology-page-header">
+    <div>
+        <p class="section-kicker">Methodology Documentation</p>
+        <h1>{{ title }}</h1>
+        <p>Product-level methodology note rendered from <code>docs/methodology/{{ source_filename }}</code>.</p>
+    </div>
+</section>
+
+<section class="product-section-card methodology-doc-card">
+    <div class="methodology-doc-content">
+        {{ html_content|safe }}
+    </div>
+</section>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        document.querySelectorAll(".methodology-doc-content pre code").forEach((codeBlock) => {
+            const raw = codeBlock.textContent.trim();
+            const looksLikeFormula = /[=∑Σ\\^_]/.test(raw) && !raw.includes("|") && !raw.includes("YYYY-MM-DD");
+            if (!looksLikeFormula) return;
+
+            const pre = codeBlock.closest("pre");
+            pre.classList.add("methodology-formula-block");
+            const label = document.createElement("div");
+            label.className = "methodology-formula-label";
+            label.textContent = "Formula";
+            pre.prepend(label);
+        });
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise();
+        }
+    });
+</script>
+{% endblock %}

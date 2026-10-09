@@ -1,21 +1,14 @@
-**Description:**
-An Asian call (put) option grants the holder the right, but not the obligation, 
-to buy (sell) the underlying asset at a specified price (strike) on the expiration date of the contract.  Similar to European Options, 
-the payoff is calculated based on the average price of the underlying asset over a specified period, noted as $S_{\text{average}}$.
+## Asian Options
 
-If the option is cash-settled, the holder of a call (put) option receives a cash payoff equivalent to:
+Asian options are path-dependent options whose payoff depends on an average underlying level observed over a specified period.
 
-* for an Asian call: $\max(S_{\text{average}} - K, 0)$,
-* for an Asian put: $\max(K - S_{\text{average}}, 0)$
+DerivaPro currently supports:
 
-where $S_{\text{average}}$ is the average value of the underlying asset over the specified period (up to expiration $T$) and $K$ is the strike price. 
+- **Average price / fixed strike:** payoff compares the observed average to a fixed strike.
+- **Average strike / floating strike:** payoff compares terminal spot to the observed average.
+- **Arithmetic averaging:** simple average of observed prices.
+- **Geometric averaging:** exponential of the average observed log price.
 
-Asian options provide the purchaser (or seller) a low volatility option because of its average price calculation
-and are used by traders who are exposed to the undrelying assset over some period of time.
+The current product-standard workflow uses explicit user assumptions, configurable averaging windows, Monte Carlo simulation, finite-difference Greeks, benchmark diagnostics, first-pass driver sensitivity, and a structured run summary.
 
-
-For the full model documentation on Exotic Asian Options, please refer to the [documentation](/exotic-options) here.
-
-**Instructions:**
-The QDPTB (DerivaPro) enables users to price a Exotic option using real-time market data and customized user inputs. 
-For any derivative and pricing method selected, the platform provides the Net Present Value (NPV), relevant Greeks, and supporting analyses.
+Full methodology documentation is available in [`docs/methodology/asian_option.md`](../../docs/methodology/asian_option.md).

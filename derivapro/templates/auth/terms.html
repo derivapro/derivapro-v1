@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Terms and Disclaimer{% endblock %}
+
+{% block content %}
+<div class="legal-page">
+    <div class="page-title compact">
+        <h1>Terms and Disclaimer</h1>
+        <p>DerivaPro is an analytical application for research, education, and internal evaluation workflows.</p>
+    </div>
+
+    <div class="legal-card">
+        <h3>Permitted Use</h3>
+        <p>
+            DerivaPro is provided for personal research, education, model exploration, and internal evaluation.
+            The application is not intended for production trading, regulated decision-making, client advice,
+            commercial redistribution, or external publication without independent validation and appropriate
+            governance review.
+        </p>
+
+        <h3>No Advice</h3>
+        <p>
+            DerivaPro does not provide financial, investment, trading, accounting, tax, legal, valuation, or
+            risk-management advice. Results are model-based estimates that depend on user inputs, assumptions,
+            market data quality, and implementation limitations.
+        </p>
+
+        <h3>User Responsibility</h3>
+        <p>
+            Users are responsible for validating assumptions, model selection, calibration inputs, market data,
+            numerical settings, and output interpretation. Do not rely on DerivaPro outputs as the sole basis for
+            trading, hedging, reporting, regulatory, accounting, tax, or client-facing decisions.
+        </p>
+
+        <h3>Data Use</h3>
+        <p>
+            Registration information is collected to support user-specific workflows such as saved pricing runs,
+            portfolios, reports, and analysis history. Do not submit confidential client data, material non-public
+            information, or restricted data unless the deployment environment has been reviewed and approved for
+            that use.
+        </p>
+
+        <div class="legal-actions">
+            <a href="{{ url_for('auth.register') }}" class="auth-button legal-action-primary">Create Account</a>
+            <a href="{{ url_for('index.index') }}" class="auth-secondary-link">Back to Overview</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

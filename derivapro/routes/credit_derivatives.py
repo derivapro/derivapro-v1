@@ -6,6 +6,9 @@ Created on Sun Jun  9 00:47:33 2024
 """
 
 from flask import Blueprint, render_template, request
+from flask_login import current_user
+from ..extensions import db
+from ..models.db_models import Instrument, PricingResult
 from ..models.mdls_credit import (
     CreditDefaultSwap,
     SyntheticCDO,
@@ -14,16 +17,22 @@ from ..models.mdls_credit import (
     CLNSensitivityAnalysis,
 )
 from ..models.mdls_bonds import NCFixedBonds, NCFloatingBonds
+from ..services.validation import check_fractions, check_positive
 import QuantLib as ql
 import os
 import markdown
-import matplotlib.pyplot as plt
 import uuid
 import logging
 
 logger = logging.getLogger(__name__)
 
 credit_derivatives_bp = Blueprint("credit_derivatives", __name__)
+
+
+def _pyplot():
+    import matplotlib.pyplot as plt
+
+    return plt
 
 
 @credit_derivatives_bp.route("/", methods=["GET", "POST"])
@@ -42,6 +51,7 @@ def creditDefaultSwaps():
 
     cds_results = cds_analysis_results = baseline_EL = stressed_EL = None
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -57,6 +67,29 @@ def creditDefaultSwaps():
             "entry_date": request.form["entry_date"],
             "end_date": request.form["end_date"],
         }
+
+        # Reject economically impossible trade terms up front so QuantLib is
+        # never handed a negative nominal or an out-of-range recovery rate.
+        validation_errors = check_positive(
+            {"nominal": form_data["nominal"], "spread": form_data["spread"]},
+            {"nominal": "Nominal", "spread": "Spread"},
+            allow_zero=["spread"],
+        )
+        validation_errors += check_fractions(
+            {"recovery_rate": form_data["recovery_rate"]},
+            {"recovery_rate": "Recovery rate"},
+        )
+        if validation_errors:
+            return render_template(
+                "creditdefaultswap.html",
+                cds_results=None,
+                cds_analysis_results=None,
+                baseline_EL=None,
+                stressed_EL=None,
+                form_data=form_data,
+                md_content=md_content,
+                validation_errors=validation_errors,
+            )
 
         nominal = float(form_data["nominal"])
         spread = float(form_data["spread"])
@@ -126,6 +159,52 @@ def creditDefaultSwaps():
 
         cds_results = cds.cds_results()
 
+        if current_user.is_authenticated:
+            instrument = Instrument(
+                user_id=current_user.id,
+                product_type="credit_default_swap",
+                ticker=None,
+                model_name="CreditDefaultSwap",
+                start_date=str(entry_date),
+                end_date=str(end_date),
+                params_json={
+                    "nominal": nominal,
+                    "spread": spread,
+                    "recovery_rate": recovery_rate,
+                    "risk_free": risk_free,
+                    "side": side_type,
+                    "tenor": selected_tenor,
+                },
+            )
+            db.session.add(instrument)
+            db.session.flush()
+
+            # cds_results() values are pre-formatted display strings (e.g.
+            # "$12.1046"), not the numeric price column expects.
+            raw_npv = None
+            try:
+                raw_npv = float(
+                    cds_results.get("Net Present Value", "")
+                    .replace("$", "")
+                    .replace(",", "")
+                )
+            except (TypeError, ValueError):
+                raw_npv = None
+
+            pricing_result = PricingResult(
+                user_id=current_user.id,
+                instrument_id=instrument.id,
+                price=raw_npv,
+                delta=None,
+                gamma=None,
+                vega=None,
+                theta=None,
+                rho=None,
+                result_json=cds_results,
+            )
+            db.session.add(pricing_result)
+            db.session.commit()
+
         if action == "sensitivity":
             try:
                 form_data["num_steps"] = int(request.form["num_steps"])
@@ -153,41 +232,47 @@ def creditDefaultSwaps():
                     num_steps,
                 )
 
-                if variable == "risk_free":
-                    cds_analysis_results = cds.analyze_variable_sensitivity(
-                        variable, range_span, num_steps
+                if variable not in CreditDefaultSwap.SENSITIVITY_VARIABLES:
+                    raise ValueError(
+                        f"Select a variable to analyse; '{variable}' is not supported."
                     )
-                    cds.plot_sensitivity_analysis(variable, range_span, num_steps)
-                elif variable == "recovery_rate":
-                    cds_analysis_results = cds.analyze_variable_sensitivity(
-                        variable, range_span, num_steps
-                    )
-                    cds.plot_sensitivity_analysis(variable, range_span, num_steps)
-                elif variable == "spread":
-                    cds_analysis_results = cds.analyze_variable_sensitivity(
-                        variable, range_span, num_steps
-                    )
-                    cds.plot_sensitivity_analysis(variable, range_span, num_steps)
-                else:
-                    pass
+
+                # Run the sweep once and hand the results to the plotter so the
+                # curve and the table always describe the same calculation.
+                sweep = cds.analyze_variable_sensitivity(variable, range_span, num_steps)
+                figure = cds.plot_sensitivity_analysis(
+                    variable, range_span, num_steps, results=sweep
+                )
 
                 # Construct a package-relative static folder path
                 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-                STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
+                STATIC_DIR = os.path.join(BASE_DIR, "..", "static", "plots")
                 os.makedirs(STATIC_DIR, exist_ok=True)
-                plot_filename = f"Credit Default Swap_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
+                plot_filename = (
+                    f"cds_{variable}_{range_span}_sensitivity_"
+                    f"{uuid.uuid4().hex}.png"
+                )
 
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
-                plt.savefig(plot_path)
+                try:
+                    # Save this specific figure rather than matplotlib's implicit
+                    # current figure, then release it so figures do not leak.
+                    figure.savefig(plot_path)
+                finally:
+                    _pyplot().close(figure)
+
                 cds_analysis_results = {
-                    "plot_filename": plot_filename,
+                    "plot_filename": f"plots/{plot_filename}",
                     "range_span": range_span,
                     "num_steps": num_steps,
+                    "variable": variable,
+                    "results": sweep,
                 }
-
-                # plt.close()  # Close the plot after saving
             except Exception as e:
-                cds_analysis_results = f"Error in sensitivity analysis: {str(e)}"
+                logger.exception("An error occurred during CDS sensitivity analysis")
+                cds_analysis_results = {
+                    "error": f"Sensitivity analysis could not be completed: {e}"
+                }
 
         elif action == "scenario":
             try:
@@ -444,21 +529,20 @@ def syntheticCDO():
                 range_span = form_data["range_span"]
                 variable = form_data["variable"]
 
-                # Create the CDS instance
-                if variable == "risk_free":
-                    synthetic_cdo.plot_sensitivity_analysis(
-                        variable, range_span, num_steps
+                if variable not in CreditDefaultSwap.SENSITIVITY_VARIABLES:
+                    raise ValueError(
+                        f"Select a variable to analyse; '{variable}' is not supported."
                     )
-                elif variable == "recovery_rate":
-                    synthetic_cdo.plot_sensitivity_analysis(
-                        variable, range_span, num_steps
-                    )
-                elif variable == "spread":
-                    synthetic_cdo.plot_sensitivity_analysis(
-                        variable, range_span, num_steps
-                    )
-                else:
-                    pass
+
+                # Run the sweep once and hand the results to the plotter, rather
+                # than letting the plotter re-run it.
+                sweep = synthetic_cdo.analyze_variable_sensitivity(
+                    variable, range_span, num_steps
+                )
+                figure = synthetic_cdo.plot_sensitivity_analysis(
+                    variable, range_span, num_steps, results=sweep
+                )
+
                 # Construct a package-relative static folder path
                 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
                 STATIC_DIR = os.path.join(BASE_DIR, "..", "static")
@@ -466,18 +550,27 @@ def syntheticCDO():
                 plot_filename = f"Synthetic CDO_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
 
                 plot_path = os.path.join(STATIC_DIR, plot_filename)
-                plt.savefig(plot_path)
+                # Save and close this exact figure so nothing leaks and no other
+                # request's chart can be written in its place.
+                try:
+                    figure.savefig(plot_path)
+                finally:
+                    _pyplot().close(figure)
+
                 cdo_analysis_results = {
                     "plot_filename": plot_filename,
                     "range_span": range_span,
                     "num_steps": num_steps,
+                    "variable": variable,
                 }
 
-            #   plt.close()  # Close the plot after saving
-            except Exception:
+            except Exception as e:
                 logger.exception(
                     "An error occurred during Synthetic CDO sensitivity analysis"
                 )
+                cdo_analysis_results = {
+                    "error": f"Sensitivity analysis could not be completed: {e}"
+                }
 
         elif action == "scenario":
             try:
@@ -886,7 +979,7 @@ def creditLinkedNotes():
                     plot_filename = f"Credit Linked Notes_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
 
                     plot_path = os.path.join(STATIC_DIR, plot_filename)
-                    plt.savefig(plot_path)
+                    _pyplot().savefig(plot_path)
                     cln_sensitivity_analysis_results_fixed = {
                         "plot_filename": plot_filename,
                         "range_span": range_span,
@@ -1414,7 +1507,7 @@ def creditLinkedNotes():
                     plot_filename = f"Credit Linked Notes Floating_{variable}_{range_span}_sensitivity_plot_{uuid.uuid4().hex}.png"
 
                     plot_path = os.path.join(STATIC_DIR, plot_filename)
-                    plt.savefig(plot_path)
+                    _pyplot().savefig(plot_path)
                     cln_sensitivity_analysis_results_float = {
                         "plot_filename": plot_filename,
                         "range_span": range_span,

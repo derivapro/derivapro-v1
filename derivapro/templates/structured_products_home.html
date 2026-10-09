@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | Structured Products{% endblock %}
+
+{% block content %}
+{{ product.header(
+    "Structured Products",
+    "Product-standard workspaces for common structured notes with transparent payoff assumptions, first-pass valuation, diagnostics, and methodology documentation.",
+    "Structured Products",
+    "Registered Workspace"
+) }}
+
+{{ product.description(
+    "A growing structured-note product family built on explicit payoff decomposition and simulation-based analytics.",
+    "This workspace groups the first-wave products that complement the existing Autocallable / Phoenix note workflow: reverse convertibles, principal-protected notes, enhanced participation notes, contingent income notes, and credit-linked notes.",
+    ["Reverse convertibles", "Principal protection", "Buffered notes", "Contingent income", "Credit-linked notes"],
+    "Each product page links to methodology documentation and states current model assumptions and limitations."
+) }}
+
+{% call product.section("Product Workspaces", "Choose a structured-note category to open its pricing and analysis page.") %}
+<div class="available-analysis-grid">
+    {% for slug, item in products.items() %}
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">▣</span>
+        <strong>{{ item.title }}</strong>
+        <p>{{ item.description_title }}</p>
+        <em class="workspace-link-pill"><a href="{{ url_for('structured_products.structured_product', product_slug=slug) }}">Open Workspace</a></em>
+    </article>
+    {% endfor %}
+    <article class="analysis-availability-card">
+        <span aria-hidden="true">◆</span>
+        <strong>Autocallables / Phoenix</strong>
+        <p>The existing Phoenix autocallable workflow remains available as the first structured-product workspace.</p>
+        <em class="workspace-link-pill"><a href="{{ url_for('exotic_options.autocallable_options') }}">Open Workspace</a></em>
+    </article>
+</div>
+{% endcall %}
+{% endblock %}

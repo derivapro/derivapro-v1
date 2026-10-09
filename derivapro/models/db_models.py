@@ -12,10 +12,16 @@ class User(UserMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False, index=True)
+    full_name = db.Column(db.String(150), nullable=True)
+    email = db.Column(db.String(255), unique=True, nullable=True, index=True)
+    organization = db.Column(db.String(255), nullable=True)
+    intended_use = db.Column(db.String(255), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     security_question = db.Column(db.String(255), nullable=True)
     security_answer_hash = db.Column(db.String(255), nullable=True)
     role = db.Column(db.String(50), nullable=False, default="user")
+    accepted_terms = db.Column(db.Boolean, nullable=False, default=False)
+    accepted_terms_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     instruments = db.relationship("Instrument", back_populates="user", lazy=True)
@@ -24,6 +30,13 @@ class User(UserMixin, db.Model):
     positions = db.relationship("Position", back_populates="user", lazy=True)
     plots = db.relationship("Plot", back_populates="user", lazy=True)
     reports = db.relationship("Report", back_populates="user", lazy=True)
+    simulation_config = db.relationship(
+        "UserSimulationConfig",
+        back_populates="user",
+        lazy=True,
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     prepayment_models = db.relationship(
         "PrepaymentModelRegistry", back_populates="user", lazy=True
     )
@@ -108,6 +121,32 @@ class PricingResult(db.Model):
 
     def __repr__(self):
         return f"<PricingResult instrument_id={self.instrument_id} price={self.price}>"
+
+
+class UserSimulationConfig(db.Model):
+    __tablename__ = "user_simulation_configs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    settings_json = db.Column(db.JSON, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
+
+    user = db.relationship("User", back_populates="simulation_config")
+
+    def __repr__(self):
+        return f"<UserSimulationConfig user_id={self.user_id}>"
 
 
 class AnalysisResult(db.Model):
@@ -226,6 +265,15 @@ class Position(db.Model):
 
     quantity = db.Column(db.Float, nullable=False, default=1.0)
     notional = db.Column(db.Float, nullable=True)
+    side = db.Column(db.String(10), nullable=False, default="long")
+    position_label = db.Column(db.String(150), nullable=True)
+    trade_id = db.Column(db.String(100), nullable=True)
+    currency = db.Column(db.String(10), nullable=False, default="USD")
+    asset_class = db.Column(db.String(100), nullable=True)
+    product_category = db.Column(db.String(100), nullable=True)
+    underlying = db.Column(db.String(100), nullable=True)
+    valuation_status = db.Column(db.String(50), nullable=False, default="unpriced")
+    notes = db.Column(db.Text, nullable=True)
 
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

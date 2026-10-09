@@ -20,10 +20,20 @@ from flask_login import current_user, login_required
 from ..extensions import db
 from ..models.db_models import PrepaymentModelRegistry
 
-from ..models.mdls_prepayment_v2 import PrepaymentDataUploader, Validation
-from ..utils.model_storage import save_model_artifact, load_model_artifact
+from ..utils.lazy_imports import LazyAttribute
 
 logger = logging.getLogger(__name__)
+
+PrepaymentDataUploader = LazyAttribute(
+    "derivapro.models.mdls_prepayment_v2", "PrepaymentDataUploader"
+)
+Validation = LazyAttribute("derivapro.models.mdls_prepayment_v2", "Validation")
+save_model_artifact = LazyAttribute(
+    "derivapro.utils.model_storage", "save_model_artifact"
+)
+load_model_artifact = LazyAttribute(
+    "derivapro.utils.model_storage", "load_model_artifact"
+)
 
 prepayment_v2_bp = Blueprint("prepayment_v2", __name__)
 DEFAULT_UPLOAD_ROOT = "derivapro/static/uploads"

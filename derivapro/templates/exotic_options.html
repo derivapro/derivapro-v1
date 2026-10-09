@@ -1,7 +1,81 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | Exotic Options{% endblock %}
 
 {% block content %}
-<h2>Exotic Options</h2>
-<p>This is a placeholder for Exotic Options.</p>
-{% endblock %}
+{{ product.header(
+    "Exotic Options",
+    "Path-dependent, multi-asset, and non-standard equity option payoff workflows.",
+    "Equity & Options",
+    "Registered Workspace"
+) }}
 
+{{ product.description(
+    "A hub for non-vanilla option products under Equity & Options.",
+    "European and American options remain the vanilla option workspaces. This hub groups exotic option products such as barrier, Asian, digital, lookback, basket, cliquet, and quanto options. Autocallables remain under Structured Products because their workflow is note-oriented rather than option-ticket oriented.",
+    ["Barrier", "Asian", "Digital", "Lookback", "Basket", "Cliquet", "Quanto"],
+    "Each first-wave exotic product states its current pricing method and limitations."
+) }}
+
+{% call product.section("Available Workspaces", "Open an implemented exotic option page.") %}
+<div class="product-workspace-grid">
+    <article class="product-workspace-card">
+        <span>Path-dependent</span>
+        <h3>Barrier Options</h3>
+        <p>Knock-in and knock-out option pricing using monitored path simulation and risk diagnostics.</p>
+        <a href="{{ url_for('exotic_options.barrier_options') }}">Open barrier options</a>
+    </article>
+    <article class="product-workspace-card">
+        <span>Averaging</span>
+        <h3>Asian Options</h3>
+        <p>Average-price and average-strike option pricing with arithmetic/geometric averaging support.</p>
+        <a href="{{ url_for('exotic_options.asian_options') }}">Open Asian options</a>
+    </article>
+    {% for slug, item in first_wave_products.items() %}
+    <article class="product-workspace-card">
+        <span>{{ item.methodology }}</span>
+        <h3>{{ item.title }}</h3>
+        <p>{{ item.description }}</p>
+        <a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug=slug) }}">Open workspace</a>
+    </article>
+    {% endfor %}
+</div>
+{% endcall %}
+
+{% call product.section("Pricing Methodologies", "Current methodology by exotic product.") %}
+<table class="results-table compact-results-table">
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Current Methodology</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for product_name, methodology in methodology_summary %}
+        <tr>
+            <td>{{ product_name }}</td>
+            <td>{{ methodology }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endcall %}
+
+{% call product.section("Next Methodology Upgrades", "Recommended follow-up work after user review.") %}
+<div class="analysis-grid">
+    <article class="analysis-card">
+        <span>PDE / Finite Difference</span>
+        <p>Add finite-difference solvers for barrier, digital, and quanto validation where boundary conditions are tractable.</p>
+    </article>
+    <article class="analysis-card">
+        <span>Tree / Lattice Benchmarks</span>
+        <p>Add binomial/trinomial benchmarks for digital, barrier, and select lookback structures.</p>
+    </article>
+    <article class="analysis-card">
+        <span>Monte Carlo Modernization</span>
+        <p>Move all exotic MC products onto the shared simulation configuration, including Sobol, antithetic paths, and convergence diagnostics.</p>
+    </article>
+</div>
+{% endcall %}
+{% endblock %}

@@ -335,6 +335,12 @@
     // JavaScript for AJAX Form Submission
     function submitForm(formId, url, updateId) {
         var form = document.getElementById(formId);
+        // Block the POST when a numeric input violates its bound; the shared
+        // validator (static/js/positive-validation.js) shows an inline message.
+        if (window.validatePositiveInputs && !window.validatePositiveInputs(form)) {
+            return;
+        }
+
         var formData = new FormData(form);
         var xhr = new XMLHttpRequest();
 

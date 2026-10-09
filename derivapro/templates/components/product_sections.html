@@ -1,0 +1,90 @@
+{% macro header(title, subtitle, asset_class=None, workflow_status=None) -%}
+<div class="product-page-header">
+    <div>
+        {% if asset_class %}<p class="section-kicker">{{ asset_class }}</p>{% endif %}
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    {% if workflow_status %}
+    <span class="product-status-pill">{{ workflow_status }}</span>
+    {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro description(title, body, instruments=None, methodology_note=None, methodology_url=None) -%}
+<section class="product-section-card product-description-section">
+    <div class="product-section-header">
+        {% if title != "Product Description" %}<span>Product Description</span>{% endif %}
+        <h2>{{ title }}</h2>
+        <p>{{ body }}</p>
+    </div>
+    {% if instruments %}
+    <div class="product-chip-row" aria-label="In-scope instruments">
+        {% for item in instruments %}
+        <span>{{ item }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="methodology-note">
+        {{ methodology_note or "Full methodology documentation will be linked here once the product documentation page is available in the repository." }}
+        {% if methodology_url %}
+        <a href="{{ methodology_url }}" target="_blank" rel="noopener">Open methodology</a>
+        {% endif %}
+    </div>
+</section>
+{%- endmacro %}
+
+{#
+  Renders the messages produced by services/validation.py so every product page
+  reports out-of-range input the same way. Call it near the top of a form:
+      {{ product.validation_summary(validation_errors) }}
+#}
+{% macro validation_summary(errors) -%}
+{% if errors %}
+<div class="validation-summary" role="alert">
+    <strong>Please check the highlighted inputs</strong>
+    <ul>
+        {% for message in errors %}
+        <li>{{ message }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro section(title, subtitle=None, section_class="", kicker=None) -%}
+<section class="product-section-card {{ section_class }}">
+    <div class="product-section-header">
+        {% if kicker and kicker != title %}<span>{{ kicker }}</span>{% endif %}
+        <h2>{{ title }}</h2>
+        {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
+    </div>
+    <div class="product-section-body">
+        {{ caller() }}
+    </div>
+</section>
+{%- endmacro %}
+
+{% macro reporting(product_name, has_report=False, view_url=None, download_url=None) -%}
+<section class="product-section-card product-reporting-section">
+    <div class="product-section-header">
+        <h2>Reporting</h2>
+        {% if has_report %}
+        <p>Generate and export a pricing report for the latest {{ product_name }} run.</p>
+        {% else %}
+        <p>Standardized report generation for {{ product_name }} is planned. Current outputs can be reviewed on screen and will be aligned to the report framework.</p>
+        {% endif %}
+    </div>
+    <div class="product-reporting-actions">
+        {% if has_report and view_url %}
+        <a href="{{ view_url }}" class="btn btn-primary reporting-btn" target="_blank">View Report</a>
+        {% endif %}
+        {% if has_report and download_url %}
+        <a href="{{ download_url }}" class="btn btn-secondary reporting-btn" target="_blank">Download PDF</a>
+        {% endif %}
+        {% if not has_report %}
+        <span class="reporting-placeholder">Report template pending</span>
+        {% endif %}
+    </div>
+</section>
+{%- endmacro %}

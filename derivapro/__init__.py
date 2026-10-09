@@ -10,7 +10,8 @@ import logging
 
 from dotenv import load_dotenv
 from curl_cffi.requests.exceptions import RequestException as CurlRequestException
-from flask import Flask, jsonify, request
+from flask import Flask, flash, jsonify, redirect, request, url_for
+from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from werkzeug.exceptions import BadRequestKeyError
@@ -22,6 +23,23 @@ from .extensions import bcrypt, cache, db, login_manager, migrate
 from .logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
+
+PUBLIC_ENDPOINTS = {
+    "static",
+    "index.index",
+    "index.products",
+    "auth.login",
+    "auth.register",
+    "auth.forgot_password",
+    "auth.reset_password",
+    "auth.reset_password_with_token",
+    "auth.terms",
+    "vanilla_options.european_options",
+}
+
+
+def _wants_json_response():
+    return request.accept_mimetypes.best == "application/json"
 
 
 @event.listens_for(Engine, "connect")
@@ -62,6 +80,18 @@ def create_app():
     from .models import db_models  # noqa: F401
 
     register_routes(app)
+
+    @app.before_request
+    def require_login_for_core_app():
+        endpoint = request.endpoint
+        if endpoint is None or endpoint in PUBLIC_ENDPOINTS or current_user.is_authenticated:
+            return None
+
+        if _wants_json_response() or request.path.startswith("/api/"):
+            return jsonify({"error": "Authentication required."}), 401
+
+        flash("Please log in to access DerivaPro workflows.", "info")
+        return redirect(url_for("auth.login", next=request.full_path.rstrip("?")))
 
     @app.after_request
     def add_security_headers(response):

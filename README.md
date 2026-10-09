@@ -22,11 +22,11 @@
 
 **DerivaPro** is a browser-based quantitative finance application for pricing, evaluating, and risk-managing financial instruments. It combines Flask-based workflows, pricing engines, market data extraction, model documentation, scenario analysis, sensitivity analysis, and report-style outputs into one extensible platform.
 
-The current version is a working analytical application with broad instrument coverage, authentication, database-backed user workflows, portfolios, selected exports, PDF reporting, and an initial automated hardening suite. The next development stages focus on completing multi-user isolation and relational integrity, expanding regression coverage, and closing reporting, export, and portfolio-risk validation gaps.
+The current version is a working analytical application with broad instrument coverage. The next development stages focus on turning it into a production-quality platform with stronger security, persistent storage, user-scoped workflows, automated testing, portfolio-level risk management, and professional reporting.
 
 ### Recent Platform Update
 
-DerivaPro now includes a first structured-products expansion for **Phoenix-style autocallable notes** in the Flask application. The new workflow supports single-underlying or worst-of basket underlyings, observation schedules, coupon barriers, autocall barriers, knock-in protection barriers, memory coupons, notional/maturity inputs, static volatility assumptions, and flat basket correlation. It reuses the newer Monte Carlo path engine and applies structured-note payoff logic on top of the simulated paths.
+DerivaPro now includes expanded **Structured Products** and **Fixed Income Extensions** workspaces in the Flask application. The structured-products family includes autocallables, barrier reverse convertibles, principal-protected market-linked notes, enhanced participation / buffered notes, contingent income notes, and credit-linked notes. The fixed-income extension family now includes FRAs, caps/floors, callable/putable bonds, schedule-driven callable amortizing bonds, asset swaps, inflation-linked bonds, and bond forward / treasury-lock analytics. These upgraded pages follow the product-standard layout with description, pricing, analysis, run summary, reporting placeholder, and methodology documentation.
 
 ---
 
@@ -52,6 +52,23 @@ The full Flask application remains the source for production analytics, market d
 
 ---
 
+## 💼 Portfolio Workspace
+
+DerivaPro includes a registered-user Portfolio workspace for organizing local trading books. The intended workflow is:
+
+1. Create a portfolio.
+2. Add manual or imported positions across asset classes.
+3. Use product-specific pricing pages to value selected positions when needed.
+4. Add saved pricing results to the portfolio or keep positions unpriced until valuation.
+5. Review portfolio-level value, Greeks, asset-class exposure, underlying exposure, and exportable position data.
+6. Export, import, or delete portfolio books and private local JSON snapshots as part of normal workspace maintenance.
+
+Product pages remain the source of detailed model selection and valuation outputs; the Portfolio workspace is the book-construction and aggregation layer. See the portfolio workflow guide at [`docs/portfolio_workflow.md`](docs/portfolio_workflow.md).
+
+User-created portfolio JSON copies are written under `local_data/portfolios/`, which is ignored by Git and should never be committed to the public repository. A public sample format is available at [`derivapro/static/sample_portfolios/equity_derivatives_portfolio.json`](derivapro/static/sample_portfolios/equity_derivatives_portfolio.json).
+
+---
+
 ## 🎯 Platform Vision
 
 DerivaPro is being developed toward a full browser-launched platform where users can:
@@ -70,36 +87,75 @@ DerivaPro is being developed toward a full browser-launched platform where users
 
 DerivaPro already includes active workflows across several major financial product areas.
 
-| Category                                       | Current Coverage                                                                                                                                                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Equity Options**                       | European and American options, Black-Scholes, binomial/lattice models, Monte Carlo workflows, Greeks, convergence, sensitivity, and scenario analysis.                                            |
-| **Exotic Options / Structured Products** | Barrier options, Asian options, basic autocallable workflows, and Phoenix-style structured autocallable notes with basket, memory coupon, autocall, coupon barrier, and protection barrier terms. |
-| **Fixed Income**                         | Non-callable fixed-rate bonds, fixed-rate amortizing bonds, floating-rate bonds, and floating-rate amortizing bonds.                                                                              |
-| **Interest Rate Derivatives**            | Swaps, swaptions, term structure analytics, market-rate extraction, and rates API utilities.                                                                                                      |
-| **Credit Derivatives**                   | Credit default swaps, synthetic CDO analytics, and credit-linked notes.                                                                                                                           |
-| **Volatility Products**                  | Volatility surface construction, variance swaps, and volatility swaps.                                                                                                                            |
-| **Futures and Forwards**                 | Pricing, sensitivity analysis, and scenario-style analysis.                                                                                                                                       |
-| **Prepayment Analytics**                 | Simple calculator-style workflow and v2 data-driven modeling workflow.                                                                                                                            |
-| **AI-Assisted Assessment**               | Optional Azure/OpenAI-compatible narrative assessment workflows through environment configuration.                                                                                                |
+| Category                                       | Current Coverage                                                                                                                                                                                                      |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Equity Options**                       | European and American options, Black-Scholes, binomial/lattice models, Monte Carlo workflows, Greeks, convergence, sensitivity, and scenario analysis.                                                                |
+| **Exotic Options / Structured Products** | Barrier, Asian, digital, lookback, basket, cliquet/ratchet, and quanto options; Phoenix-style autocallable notes, barrier reverse convertibles, principal-protected notes, enhanced participation / buffered notes, contingent income notes, and credit-linked notes. |
+| **Fixed Income**                         | Level coupon bonds, amortizing / step-up / sinking bonds, custom structured bonds, bond series, loans / leases / annuities, callable/putable bonds, callable amortizing bonds with American/Bermudan exercise schedules, FRAs, caps/floors, asset swaps, inflation-linked bonds, and bond forward / treasury-lock workflows. |
+| **Interest Rate Derivatives**            | Swaps, swaptions, caps/floors, FRAs, term structure analytics, market-rate extraction, and rates API utilities.                                                                                                       |
+| **Credit Derivatives**                   | Credit default swaps, synthetic CDO analytics, and credit-linked notes.                                                                                                                                               |
+| **Volatility Products**                  | Volatility surface construction, variance swaps, and volatility swaps.                                                                                                                                                |
+| **Futures and Forwards**                 | Pricing, sensitivity analysis, and scenario-style analysis.                                                                                                                                                           |
+| **Prepayment Analytics**                 | Simple calculator-style workflow and v2 data-driven modeling workflow.                                                                                                                                                |
+| **AI-Assisted Assessment**               | Optional Azure/OpenAI-compatible narrative assessment workflows through environment configuration.                                                                                                                    |
+
+---
+
+## 📚 Methodology Documentation
+
+DerivaPro methodology notes are maintained under [`docs/methodology/`](docs/methodology/). Product-level notes are being expanded as each workflow is upgraded to the platform standard:
+
+| Product                                           | Methodology Note                                                                                                                                                                  |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **European Vanilla Option**                 | [Pricing methodology, Greeks, diagnostics, market reference data, Monte Carlo comparison, and limitations](docs/methodology/european_option.md)                                    |
+| **American Vanilla Option**                 | [Early-exercise methodology, tree valuation, Greeks, European benchmark comparison, market reference data, and limitations](docs/methodology/american_option.md)                   |
+| **Barrier Option**                          | [Path-dependent barrier methodology, Monte Carlo valuation, breach diagnostics, vanilla benchmark comparison, and limitations](docs/methodology/barrier_option.md)                 |
+| **Asian Option**                            | [Average-price and average-strike methodology, arithmetic/geometric averaging, Monte Carlo valuation, diagnostics, and limitations](docs/methodology/asian_option.md)              |
+| **Digital Option**                          | [Cash-or-nothing Black-Scholes valuation, exercise probability, scenario outputs, and limitations](docs/methodology/digital_option.md)                                           |
+| **Lookback Option**                         | [Path-extreme Monte Carlo valuation, fixed/floating strike variants, diagnostics, and limitations](docs/methodology/lookback_option.md)                                          |
+| **Basket Option**                           | [Correlated Monte Carlo valuation, weighted basket payoff logic, correlation assumptions, and limitations](docs/methodology/basket_option.md)                                    |
+| **Cliquet / Ratchet Option**                | [Reset-period Monte Carlo valuation, local/global caps and floors, diagnostics, and limitations](docs/methodology/cliquet_option.md)                                             |
+| **Quanto Option**                           | [Quanto-adjusted Black-Scholes valuation, equity-FX correlation adjustment, scenarios, and limitations](docs/methodology/quanto_option.md)                                       |
+| **Autocallable / Phoenix Note**             | [Phoenix-style note methodology, worst-of basket payoff logic, memory coupon behavior, Monte Carlo valuation, diagnostics, and limitations](docs/methodology/autocallable_note.md) |
+| **Barrier Reverse Convertible**             | [Coupon-enhanced principal-at-risk note methodology, barrier redemption logic, Monte Carlo valuation, and limitations](docs/methodology/barrier_reverse_convertible.md)            |
+| **Principal-Protected Market-Linked Note**  | [Protected principal, upside participation, capped return, first-pass valuation, and limitations](docs/methodology/principal_protected_note.md)                                    |
+| **Enhanced Participation / Buffered Note**  | [Leveraged upside, downside buffer, capped return, Monte Carlo valuation, and limitations](docs/methodology/enhanced_participation_note.md)                                        |
+| **Digital Coupon / Contingent Income Note** | [Conditional coupon observation logic, memory coupon behavior, protection barrier, and limitations](docs/methodology/contingent_income_note.md)                                    |
+| **Credit-Linked Note**                      | [Reduced-form credit-linked note valuation, hazard rate, recovery, coupon survival logic, and limitations](docs/methodology/credit_linked_note_structured.md)                      |
+| **Forward Rate Agreement**                  | [Forward-rate projection, discounting, scenario shocks, sign conventions, and limitations](docs/methodology/forward_rate_agreement.md)                                           |
+| **Interest Rate Cap / Floor**               | [Black caplet/floorlet strip valuation, forward curves, volatility scenarios, and limitations](docs/methodology/cap_floor.md)                                                   |
+| **Callable / Putable Bond**                 | [Straight-bond benchmark, short-rate lattice approximation, embedded option value, effective duration, yield-to-best/worst diagnostics, and limitations](docs/methodology/callable_putable_bond.md)                |
+| **Callable Amortizing Bond**                | [Schedule-driven callable/putable amortizing bond valuation, American/Bermudan exercise, OAS, effective duration, and exercise probability diagnostics](docs/methodology/callable_amortizing_bond.md)              |
+| **Level Coupon Bond**                       | [Level coupon cash-flow generation, curve discounting, YTM, duration, convexity, DV01, and limitations](docs/methodology/level_coupon_bond.md)                                   |
+| **Structured Amortizing Bonds**             | [Amortizing, step-up, step-down, and sinking-fund bond cash flows with clean/dirty price benchmarking](docs/methodology/amortizing_stepup_sinking_bond.md)                         |
+| **Custom Structured Bond**                  | [Configurable coupon, principal, and fixed-payment schedules with generic bond PV and limitations](docs/methodology/custom_structured_bond.md)                                    |
+| **Bond Series**                             | [Serial bond aggregation, series PV, aggregate yield, weighted-average maturity, and limitations](docs/methodology/bond_series.md)                                                |
+| **Loans / Leases / Annuities**              | [Scheduled payment PV, level-payment, equal-principal, interest-only structures, and limitations](docs/methodology/loan_lease_annuity.md)                                         |
+| **Asset Swap**                              | [Bond-versus-swap relative value, par asset-swap spread, curve PV, and limitations](docs/methodology/asset_swap.md)                                                             |
+| **Inflation-Linked Bond**                   | [CPI indexation, real discounting, breakeven proxy, inflation scenarios, and limitations](docs/methodology/inflation_linked_bond.md)                                            |
+| **Bond Forward / Treasury Lock**            | [Cost-of-carry forward pricing, duration-based treasury-lock PV, rate scenarios, and limitations](docs/methodology/bond_forward_treasury_lock.md)                                |
+
+These notes are intended to support transparency, model review, implementation consistency, and future model governance workflows.
 
 ---
 
 ## 🚦 Development Status
 
-| Area                                                 |           Status | Notes                                                                                                                                       |
-| ---------------------------------------------------- | ---------------: | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Flask application factory and blueprint architecture |          ✅ Done | Modular route registration through`derivapro/routes`.                                                                                     |
-| Product-level pricing workflows                      | ✅ Done / active | Current workflows span options, structured autocallables, rates, credit, fixed income, volatility, forwards, and prepayment.                |
-| Markdown-backed model documentation                  | ✅ Done / active | Route-level Markdown content supports explanations, governance notes, and user guidance.                                                    |
-| Environment-based secrets/configuration              |   🟡 In progress | Local `.env` loading and production `REDIS_URL` caching are supported; deployment secrets must remain outside source control.              |
-| Structured logging                                   |   🟡 In progress | `logging_config.py` exists; remaining ad hoc logging should be normalized.                                                                |
-| Monte Carlo modernization                            |   🟡 In progress | Both legacy and v2 Monte Carlo modules exist; the new structured autocallable workflow now reuses the v2 path engine for payoff simulation. |
-| Prepayment modeling workflow                         |   🟡 In progress | Calculator and authenticated v2 data/model workflows exist; artifact path containment and cross-user tests remain incomplete.             |
-| Report generation                                    |   🟡 In progress | ReportLab PDFs, database persistence, and user-scoped downloads exist; centralized listing, broader coverage, and retention remain.       |
-| Structured product payoff coverage                   |   🟡 In progress | Phoenix-style autocallable note support has started; broader payoff-builder components remain a roadmap item.                               |
-| Portfolio-level risk                                 |   🟡 In progress | User-scoped portfolios, positions, and Greek aggregation exist; units, scaling conventions, stress testing, and VaR remain.                |
-| Database persistence and user identity               |   🟡 In progress | SQLAlchemy persistence and Flask-Login ownership controls exist; analysis linkage repair and prepayment isolation remain incomplete.       |
-| Automated tests and CI                               |   🟡 In progress | An isolated pytest hardening suite is present; broad product/model regression coverage and CI remain outstanding.                          |
+| Area | Status | Notes |
+|---|---:|---|
+| Flask application factory and blueprint architecture | ✅ Done | Modular route registration through `derivapro/routes`. |
+| Product-level pricing workflows | ✅ Done / active | Current workflows span options, structured autocallables, rates, credit, fixed income, volatility, forwards, and prepayment. |
+| Markdown-backed model documentation | ✅ Done / active | Route-level Markdown content supports explanations, governance notes, and user guidance. |
+| Environment-based secrets/configuration | 🟡 In progress | Local `.env` loading and production `REDIS_URL` caching are supported; deployment secrets must remain outside source control. |
+| Structured logging | 🟡 In progress | `logging_config.py` exists; remaining ad hoc logging should be normalized. |
+| Monte Carlo modernization | 🟡 In progress | Shared simulation configuration now supports reusable path-count, time-step, random-sequence, and seed defaults for eligible MC workflows; legacy/product-local simulations still need consolidation. |
+| Prepayment modeling workflow | 🟡 In progress | Calculator and authenticated v2 data/model workflows exist; artifact path containment and cross-user tests remain incomplete. |
+| Report generation | 🟡 In progress | ReportLab PDFs, database persistence, and user-scoped downloads exist; centralized listing, broader coverage, and retention remain. |
+| Structured product payoff coverage | 🟡 In progress | First-wave structured product pages now cover autocallables, reverse convertibles, principal-protected notes, enhanced/buffered notes, contingent income notes, and credit-linked notes. Barrier Reverse Convertible now includes configurable user-triggered analysis. Broader payoff-builder components remain a roadmap item. |
+| Rates / fixed-income expansion | 🟡 In progress | The fixed-income workspace now covers level coupon bonds, amortizing / step-up / sinking bonds, custom structured bonds, bond series, loans / leases / annuities, callable/putable bonds, FRAs, caps/floors, asset swaps, inflation-linked bonds, and bond forward / treasury-lock workflows with shared curve, schedule, day-count, discounting, scenario, and methodology patterns. |
+| Portfolio-level risk | 🟡 In progress | User-scoped portfolios, saved-result positions, local private JSON copies, import/export, and first-pass aggregation exist; repricing, stress testing, and VaR remain. |
+| Database persistence and user identity | 🟡 In progress | SQLAlchemy persistence and Flask-Login ownership controls exist; analysis linkage repair and prepayment isolation remain incomplete. |
+| Automated tests and CI | 🟡 In progress | An isolated pytest hardening suite and fixed-income regression tests are present; broader product/model coverage and CI remain outstanding. |
 
 ---
 
@@ -124,9 +180,9 @@ The roadmap follows the development plan for turning DerivaPro from an analytica
 
 ### Phase 2: Persistence and User Workflows
 
-- Database persistence now covers users, instruments, pricing and analysis results, plots, reports, portfolios, positions, and prepayment model metadata.
-- Authentication and user-scoped retrieval are implemented across core saved-result, analysis, portfolio, report, and prepayment workflows.
-- Remaining work centers on prepayment artifact isolation, future analysis linkage, existing-row repair, and reducing ownership-sensitive session state.
+- Add database persistence for users, instruments, pricing results, analysis results, plots, and reports.
+- Add authentication and user-scoped sessions.
+- Move result passing away from browser session storage and toward database-backed result IDs.
 
 ### Phase 3: Maintainability and Service Layer
 
@@ -145,8 +201,8 @@ The roadmap follows the development plan for turning DerivaPro from an analytica
 
 ### Phase 5: Portfolio-Level Risk Management
 
-- User-scoped portfolios and positions are implemented.
-- Greek aggregation is implemented but requires documented units and exposure-scaling validation.
+- Add portfolios and positions.
+- Aggregate Greeks and exposures across positions.
 - Add portfolio stress testing.
 - Add historical, parametric, and Monte Carlo VaR/CVaR.
 - Add DV01 and tenor risk ladders for rate-sensitive books.
@@ -174,8 +230,8 @@ The following additions align with the long-term multi-asset platform vision.
 | Priority | Category                          | Candidate Additions                                                                       | Why It Fits                                                           |
 | -------: | --------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 |        1 | **FX**                      | FX forwards, FX vanilla options, FX barrier options, cross-currency swaps                 | Reuses existing forwards, options, and swaps patterns.                |
-|        2 | **Interest Rate Options**   | Caps, floors, collars, CMS products, OIS/SOFR swaps                                       | Builds on term structure and swaption infrastructure.                 |
-|        3 | **Fixed Income Extensions** | Callable bonds, putable bonds, TIPS/inflation-linked bonds, convertible bonds             | Extends current bond analytics into more realistic desk workflows.    |
+|        2 | **Interest Rate Options**   | Collars, CMS products, OIS/SOFR swaps, Bermudan swaptions                                 | Builds on term structure, cap/floor, FRA, and swaption infrastructure. |
+|        3 | **Fixed Income Extensions** | Convertible bonds, callable schedule refinement, MBS/ABS, bond futures CTD analytics       | Extends current bond, inflation, asset-swap, and bond-forward analytics into more realistic desk workflows. |
 |        4 | **Structured Products**     | Reverse convertibles, principal-protected notes, CPPI structures                          | Combines option, credit, and fixed-income components already present. |
 |        5 | **Additional Exotics**      | Digital/binary options, lookback options, Bermuda options, spread options, quanto options | Expands derivatives coverage after core engines are tested.           |
 |        6 | **XVA**                     | CVA, DVA, FVA, MVA                                                                        | Adds OTC valuation adjustment and counterparty risk capabilities.     |
@@ -191,6 +247,8 @@ DerivaPro uses a conventional Flask application structure with a clear separatio
 ```text
 derivapro-v1/
 |-- README.md
+|-- docs/
+|   `-- methodology/
 |-- requirements.txt
 |-- setup.py
 |-- run.py
@@ -218,17 +276,18 @@ derivapro-v1/
 
 ### Key model modules
 
-| Module                                                | Focus                                       |
-| ----------------------------------------------------- | ------------------------------------------- |
-| `market_data.py`                                    | Market data helpers.                        |
-| `mdls_vanilla_options.py`                           | Black-Scholes style pricing and Greeks.     |
-| `mdls_lattice_trees.py` / `mdls_binomial_tree.py` | Lattice and binomial option models.         |
-| `mdls_monte_carlo.py` / `mdls_monte_carlo_v2.py`  | Monte Carlo pricing and simulation engines. |
-| `mdls_bonds.py`                                     | Fixed-income analytics.                     |
-| `mdls_credit.py`                                    | Credit derivatives analytics.               |
-| `mdls_swaps.py` / `swaps.py` / `swaptions.py`   | Rates and swap analytics.                   |
-| `mdls_term_structure.py`                            | Yield curve and term structure modeling.    |
-| `mdls_prepayment.py` / `mdls_prepayment_v2.py`    | Prepayment workflows.                       |
+| Module | Focus |
+|---|---|
+| `market_data.py` | Market data helpers. |
+| `mdls_vanilla_options.py` | Black-Scholes style pricing and Greeks. |
+| `mdls_lattice_trees.py` / `mdls_binomial_tree.py` | Lattice and binomial option models. |
+| `mdls_monte_carlo.py` / `mdls_monte_carlo_v2.py` | Monte Carlo pricing and simulation engines. |
+| `simulation_settings.py` | Shared simulation configuration schema for workspace-level MC defaults. |
+| `mdls_bonds.py` | Fixed-income analytics. |
+| `mdls_credit.py` | Credit derivatives analytics. |
+| `mdls_swaps.py` / `swaps.py` / `swaptions.py` | Rates and swap analytics. |
+| `mdls_term_structure.py` | Yield curve and term structure modeling. |
+| `mdls_prepayment.py` / `mdls_prepayment_v2.py` | Prepayment workflows. |
 
 ---
 
@@ -258,12 +317,6 @@ Runtime dependencies:
 
 ```bash
 pip install -r requirements.txt
-```
-
-Development and test dependencies:
-
-```bash
-pip install -r requirements-dev.txt
 ```
 
 ### 3. Configure environment variables
@@ -330,16 +383,6 @@ Then open the local Flask URL shown in the terminal, typically:
 http://127.0.0.1:5000
 ```
 
-### 6. Run the targeted tests
-
-Install `requirements-dev.txt` first, then run:
-
-```bash
-python -m pytest -q tests
-```
-
-The current isolated hardening suite covers CSRF/auth enforcement for prepayment POSTs, production cookie configuration, unsupported storage rejection, and temporary prepayment model registry persistence.
-
 ---
 
 ## 🔌 External Services
@@ -362,9 +405,9 @@ External service availability, credentials, quotas, and network access can affec
 This repository is actively evolving. Before treating it as production-ready, complete at least the following:
 
 - Verify no credentials or secrets are committed.
-- Preserve centralized and explicit CSRF protection when adding browser workflows.
-- Complete prepayment artifact isolation and repair known analysis-link inconsistencies.
-- Expand the initial hardening tests into comprehensive pricing, cross-user, PDF, and export regression coverage.
+- Add CSRF protection for browser forms.
+- Add persistent storage and user-level isolation.
+- Add automated pricing regression tests.
 - Replace development-server deployment with a WSGI deployment path.
 - Review generated static artifacts and cleanup rules.
 
@@ -386,4 +429,4 @@ For low-risk development:
 
 The long-term goal is a multi-asset pricing and risk platform that users can launch in a browser, configure through forms, save instruments and portfolios, run analyses, and produce professional model/risk reports.
 
-The next major milestone is to complete Phase 2 integrity and multi-user isolation, then validate Greek scaling and extend reporting, exports, and portfolio risk coverage.
+The next major milestone is to move from instrument-level analytics to persistent, user-scoped, portfolio-level risk management.

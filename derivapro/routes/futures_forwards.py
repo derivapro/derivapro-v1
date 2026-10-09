@@ -6,17 +6,28 @@ Created on Sun Jun  9 00:46:08 2024
 """
 
 from flask import Blueprint, render_template, request
-from ..models.mdls_futures_forwards import Forwards, Futures
-from ..models.mdls_futures_forwards import ForwardsAnalysis
-from ..models.mdls_futures_forwards import FuturesAnalysis
+from flask_login import current_user
 import os
 import markdown
-import matplotlib.pyplot as plt
 from datetime import datetime
 import uuid
 import logging
+from ..extensions import db
+from ..models.db_models import Instrument, PricingResult
+from ..utils.lazy_imports import LazyAttribute, LazyImport
+from ..services.validation import check_positive
 
 logger = logging.getLogger(__name__)
+
+Forwards = LazyAttribute("derivapro.models.mdls_futures_forwards", "Forwards")
+Futures = LazyAttribute("derivapro.models.mdls_futures_forwards", "Futures")
+ForwardsAnalysis = LazyAttribute(
+    "derivapro.models.mdls_futures_forwards", "ForwardsAnalysis"
+)
+FuturesAnalysis = LazyAttribute(
+    "derivapro.models.mdls_futures_forwards", "FuturesAnalysis"
+)
+plt = LazyImport("matplotlib.pyplot")
 
 futures_forwards_bp = Blueprint("futures_forwards", __name__)
 
@@ -39,6 +50,7 @@ def forwards():
         forward_sensitivity_analysis_results
     ) = forward_scenario_results = forward_risk_pl = None
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -60,6 +72,34 @@ def forwards():
             "model_selection": request.form["model_selection"],
             "storage_cost": request.form["storage_cost"],
         }
+
+        validation_errors = check_positive(
+            {"settlement_price": form_data["settlement_price"],
+             "num_contracts": form_data["num_contracts"],
+             "multiplier": form_data["multiplier"],
+             "storage_cost": form_data["storage_cost"]},
+            {"settlement_price": "Settlement price", "num_contracts": "Number of contracts",
+             "multiplier": "Multiplier", "storage_cost": "Storage cost"},
+        )
+        validation_errors += check_positive(
+            {"contract_fee": form_data["contract_fee"]},
+            {"contract_fee": "Contract fee"},
+            allow_zero=["contract_fee"],
+        )
+
+        if validation_errors:
+            return render_template(
+                "forwards.html",
+                form_data=form_data,
+                forward_price_results=None,
+                forward_pL=None,
+                margin_requirement=None,
+                forward_sensitivity_analysis_results=None,
+                forward_scenario_results=None,
+                forward_risk_pl=None,
+                md_content=md_content,
+                validation_errors=validation_errors,
+            )
 
         ticker = form_data["ticker"]
         risk_free_rate = float(form_data["risk_free_rate"])
@@ -93,10 +133,50 @@ def forwards():
             storage_cost,
         )
 
-        forward_price_results = forward_model.forward_price()
-        forward_price_results = "${:,.4f}".format(forward_price_results)
-        forward_pL = forward_model.calculate_profit_loss()
-        forward_pL = "${:,.4f}".format(forward_pL)
+        raw_forward_price = forward_model.forward_price()
+        forward_price_results = "${:,.4f}".format(raw_forward_price)
+        raw_forward_pl = forward_model.calculate_profit_loss()
+        forward_pL = "${:,.4f}".format(raw_forward_pl)
+
+        if current_user.is_authenticated:
+            instrument = Instrument(
+                user_id=current_user.id,
+                product_type="forward_contract",
+                ticker=ticker,
+                model_name=model_selection,
+                start_date=str(entry_date),
+                end_date=str(settlement_date),
+                params_json={
+                    "settlement_price": settlement_price,
+                    "num_contracts": num_contracts,
+                    "multiplier": multiplier,
+                    "position": position,
+                    "risk_free_rate": risk_free_rate,
+                    "dividend_yield": dividend_yield,
+                    "convenience_yield": convenience_yield,
+                    "storage_cost": storage_cost,
+                    "contract_fee": contract_fee,
+                },
+            )
+            db.session.add(instrument)
+            db.session.flush()
+
+            pricing_result = PricingResult(
+                user_id=current_user.id,
+                instrument_id=instrument.id,
+                price=raw_forward_price,
+                delta=None,
+                gamma=None,
+                vega=None,
+                theta=None,
+                rho=None,
+                result_json={
+                    "forward_price": raw_forward_price,
+                    "profit_loss": raw_forward_pl,
+                },
+            )
+            db.session.add(pricing_result)
+            db.session.commit()
 
         if action == "sensitivity":
             try:
@@ -294,6 +374,7 @@ def forwards():
         forward_scenario_results=forward_scenario_results,
         forward_risk_pl=forward_risk_pl,
         md_content=md_content,
+        validation_errors=validation_errors,
     )
 
 
@@ -308,6 +389,7 @@ def futures():
         future_sensitivity_analysis_results
     ) = future_scenario_results = future_risk_pl = None
     form_data = {}
+    validation_errors = []
 
     if request.method == "POST":
         action = request.form.get("analysis_type")
@@ -334,6 +416,35 @@ def futures():
             "maintenance_margin_pct": request.form["maintenance_margin_pct"],
             "model_selection": request.form["model_selection"],
         }
+
+        validation_errors = check_positive(
+            {"settlement_price": form_data["settlement_price"],
+             "num_contracts": form_data["num_contracts"],
+             "multiplier": form_data["multiplier"],
+             "storage_cost": str(form_data["storage_cost"])},
+            {"settlement_price": "Settlement price", "num_contracts": "Number of contracts",
+             "multiplier": "Multiplier", "storage_cost": "Storage cost"},
+        )
+        validation_errors += check_positive(
+            {"contract_fee": form_data["contract_fee"]},
+            {"contract_fee": "Contract fee"},
+            allow_zero=["contract_fee"],
+        )
+
+        if validation_errors:
+            return render_template(
+                "futures.html",
+                form_data=form_data,
+                futures_price_results=None,
+                mark_to_market_results=None,
+                futures_pL=None,
+                margin_requirement=None,
+                future_sensitivity_analysis_results=None,
+                future_scenario_results=None,
+                future_risk_pl=None,
+                md_content=md_content,
+                validation_errors=validation_errors,
+            )
 
         ticker = form_data["ticker"]
         risk_free_rate = float(form_data["risk_free_rate"])
@@ -588,4 +699,5 @@ def futures():
         future_scenario_results=future_scenario_results,
         future_risk_pl=future_risk_pl,
         md_content=md_content,
+        validation_errors=validation_errors,
     )

@@ -5,46 +5,69 @@
 <form method="post" id="volSurfaceForm">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label for="symbol">Stock Symbol:</label>
-    <input type="text" id="symbol" name="symbol" required>
+    <input type="text" id="symbol" name="symbol" value="{{ symbol or '' }}" required>
     <button type="submit">Generate Volatility Surface</button>
 </form>
+
+{% if error %}
+    <div class="validation-summary" role="alert">
+        <strong>The volatility surface could not be built</strong>
+        <ul>
+            <li>{{ error }}</li>
+        </ul>
+    </div>
+{% endif %}
 
 {% if vol_table %}
     <h3>Implied Volatility Table</h3>
     {{ vol_table|safe }}  {# Render the pre-converted HTML table safely #}
 
     <br>
-    <!-- Fixed Download Button with Dynamic Symbol -->
-    <a id="downloadLink" href="#" download>
+    {# The href is rendered server-side so it survives the POST round-trip. #}
+    <a id="downloadLink"
+       href="{{ url_for('volatility_surface.download_vol_surface', symbol=symbol) }}"
+       download="volatility_surface_{{ symbol }}.csv">
         <button type="button">Download Table</button>
-    </a>    
+    </a>
 {% endif %}
 
 {% if plot_url %}
     <h3>3D Volatility Surface</h3>
-    <img src="data:image/png;base64,{{ plot_url }}" alt="Volatility Surface">
+    <div class="plot-card">
+        <img src="data:image/png;base64,{{ plot_url }}" alt="Volatility Surface">
+    </div>
 {% endif %}
 
-<!-- JavaScript to Update Download Link Dynamically -->
+<!-- Keep the download link in sync while the user retypes the symbol. -->
 <script>
-    document.getElementById("symbol").addEventListener("input", function() {
-        var symbol = this.value.trim().toUpperCase();
+    (function () {
+        var symbolInput = document.getElementById("symbol");
         var downloadLink = document.getElementById("downloadLink");
-        if (symbol) {
-            downloadLink.href = "{{ url_for('volatility_surface.download_vol_surface') }}?symbol=" + encodeURIComponent(symbol);
-            downloadLink.setAttribute("download", "volatility_surface_" + symbol + ".csv");
-        } else {
-            downloadLink.href = "#";
-            downloadLink.removeAttribute("download");
+        if (!symbolInput || !downloadLink) {
+            // No surface has been generated yet, so there is nothing to sync.
+            return;
         }
-    });
 
-    document.getElementById("downloadLink").addEventListener("click", function(event) {
-        if (this.href === "#") {
-            event.preventDefault();
-            alert("Please enter a stock symbol and generate the volatility surface first.");
-        }
-    });
+        var baseUrl = "{{ url_for('volatility_surface.download_vol_surface') }}";
+
+        symbolInput.addEventListener("input", function () {
+            var symbol = this.value.trim().toUpperCase();
+            if (symbol) {
+                downloadLink.href = baseUrl + "?symbol=" + encodeURIComponent(symbol);
+                downloadLink.setAttribute("download", "volatility_surface_" + symbol + ".csv");
+            } else {
+                downloadLink.removeAttribute("href");
+                downloadLink.removeAttribute("download");
+            }
+        });
+
+        downloadLink.addEventListener("click", function (event) {
+            if (!this.getAttribute("href")) {
+                event.preventDefault();
+                alert("Please enter a stock symbol and generate the volatility surface first.");
+            }
+        });
+    })();
 </script>
 
 {% endblock %}

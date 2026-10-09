@@ -27,17 +27,27 @@ class BinomialTreeEngineCRR:
         num_steps=100,
         option_type="call",
         dividends=None,
+        spot_price=None,
+        time_to_expiry=None,
         **kwargs,
     ):
         self.ticker = ticker
         self.start_date = self._to_date(start_date)
         self.end_date = self._to_date(end_date)
 
-        stock_data = StockData(ticker, self.start_date, self.end_date)
-        self.S0 = float(stock_data.get_closing_price())
+        # Pages that already collect the spot and tenor pass them in; only hit
+        # market data when they are missing, so a valid ticker is not required.
+        if spot_price is None or time_to_expiry is None:
+            stock_data = StockData(ticker, self.start_date, self.end_date)
+            if spot_price is None:
+                spot_price = float(stock_data.get_closing_price())
+            if time_to_expiry is None:
+                time_to_expiry = float(stock_data.get_years_difference())
+
+        self.S0 = float(spot_price)
         self.K = float(strike_price)
 
-        self.T = float(stock_data.get_years_difference())
+        self.T = float(time_to_expiry)
         self.r = float(risk_free_rate)
         self.sigma = float(volatility)
         self.N = int(num_steps)

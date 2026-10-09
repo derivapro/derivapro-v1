@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}DerivaPro | Simulation Configuration{% endblock %}
+
+{% block content %}
+<div class="product-page-header">
+    <div>
+        <p class="section-kicker">Workspace Configuration</p>
+        <h1>Simulation Configuration</h1>
+        <p>Set reusable Monte Carlo defaults for eligible DerivaPro pricing workflows.</p>
+    </div>
+    <span class="product-status-pill">Registered Workspace</span>
+</div>
+
+<section class="configuration-layout">
+    <form method="post" class="configuration-panel">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="pricing-form-block">
+            <div class="pricing-form-heading">
+                <span aria-hidden="true">🎲</span>
+                <div>
+                    <strong>Monte Carlo Defaults</strong>
+                    <p>These settings pre-populate applicable pricing pages and are recorded with valuation results.</p>
+                </div>
+            </div>
+
+            <div class="form-grid compact-form-grid">
+                <div class="form-group">
+                    <label for="simulation_method">Simulation Method</label>
+                    <select id="simulation_method" name="simulation_method">
+                        {% for value, label in choices.simulation_method.items() %}
+                        <option value="{{ value }}" {% if settings.simulation_method == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="field-hint">Current production-standard path model for equity-style MC workflows.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="random_sequence">Random Sequence</label>
+                    <select id="random_sequence" name="random_sequence">
+                        {% for value, label in choices.random_sequence.items() %}
+                        <option value="{{ value }}" {% if settings.random_sequence == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="field-hint">Sobol is useful for convergence review; pseudo-random is broadly compatible.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="runtime_profile">Runtime Profile</label>
+                    <select id="runtime_profile" name="runtime_profile">
+                        {% for value, label in choices.runtime_profile.items() %}
+                        <option value="{{ value }}" {% if settings.runtime_profile == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="field-hint">Profile is recorded now and can drive automated path caps in a later release.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="num_paths">Default Paths</label>
+                    <input type="number" id="num_paths" name="num_paths" value="{{ settings.num_paths }}" min="100" max="500000" step="100" required>
+                    <div class="field-hint">Higher values reduce sampling error but increase runtime.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="num_steps">Default Time Steps</label>
+                    <input type="number" id="num_steps" name="num_steps" value="{{ settings.num_steps }}" min="1" max="5000" step="1" required>
+                    <div class="field-hint">Used by path-dependent products for monitoring resolution.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="random_seed">Random Seed</label>
+                    <input type="number" id="random_seed" name="random_seed" value="{{ settings.random_seed }}" min="0" max="2147483647" step="1" required>
+                    <div class="field-hint">Controls repeatability for supported MC workflows.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="variance_reduction">Variance Reduction</label>
+                    <select id="variance_reduction" name="variance_reduction">
+                        {% for value, label in choices.variance_reduction.items() %}
+                        <option value="{{ value }}" {% if settings.variance_reduction == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="field-hint">Antithetic variates are currently used only where explicitly implemented.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="convergence_mode">Convergence Mode</label>
+                    <select id="convergence_mode" name="convergence_mode">
+                        {% for value, label in choices.convergence_mode.items() %}
+                        <option value="{{ value }}" {% if settings.convergence_mode == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="field-hint">Fixed path count is active now; target standard error is a governance roadmap item.</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="target_standard_error">Target Standard Error</label>
+                    <input type="number" id="target_standard_error" name="target_standard_error" value="{{ settings.target_standard_error }}" min="0" step="0.0001">
+                    <div class="field-hint">Recorded for future convergence-driven simulation controls.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pricing-form-block">
+            <div class="pricing-form-heading">
+                <span aria-hidden="true">⚙️</span>
+                <div>
+                    <strong>Application Behavior</strong>
+                    <p>Control how global settings interact with product-level forms.</p>
+                </div>
+            </div>
+            <div class="configuration-toggle-grid">
+                <label class="configuration-toggle">
+                    <input type="checkbox" name="apply_globally" {% if settings.apply_globally %}checked{% endif %}>
+                    <span>
+                        <strong>Apply globally to eligible products</strong>
+                        <small>Use these settings as the default input values for supported MC workflows.</small>
+                    </span>
+                </label>
+                <label class="configuration-toggle">
+                    <input type="checkbox" name="allow_product_override" {% if settings.allow_product_override %}checked{% endif %}>
+                    <span>
+                        <strong>Allow product-level override</strong>
+                        <small>Keep local form fields editable when a pricing page needs product-specific settings.</small>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <div class="pricing-action-row">
+            <button type="submit" name="action" value="save" class="btn-primary">Save Configuration</button>
+            <button type="submit" name="action" value="reset" class="btn-secondary">Reset Defaults</button>
+        </div>
+    </form>
+
+    <aside class="configuration-side-panel">
+        <div class="analysis-card">
+            <span>Current Active Settings</span>
+            <dl class="summary-definition-list">
+                {% for row in settings.display_rows() %}
+                <div><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>
+                {% endfor %}
+            </dl>
+        </div>
+        <div class="analysis-card">
+            <span>Coverage</span>
+            <p>
+                These defaults currently feed European Monte Carlo comparison, Barrier Options,
+                Asian Options, Autocallable / Phoenix Notes, and first-wave structured products.
+            </p>
+            <p>
+                Analytical-only, lattice-only, and legacy workflows may continue to use their local
+                controls until they are migrated to the shared configuration service.
+            </p>
+        </div>
+    </aside>
+</section>
+{% endblock %}
