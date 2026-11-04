@@ -85,10 +85,10 @@
                     <details class="nav-group" data-nav-key="platform">
                         <summary>Platform</summary>
                         <ul>
-                            <li><a href="{{ url_for('index.index') }}" class="nav-link">Overview</a></li>
+                            <li><a href="{{ url_for('index.index') }}" class="nav-link{% if request.endpoint == 'index.index' %} selected{% endif %}"{% if request.endpoint == 'index.index' %} aria-current="page"{% endif %}>Overview</a></li>
                             <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">Free Preview: European Option</a></li>
                             {% if current_user.is_authenticated %}
-                            <li><a href="{{ url_for('index.index') }}#featured-workflows" class="nav-link nav-callout">Featured Workflows</a></li>
+                            <li><a href="{{ url_for('index.index') }}#featured-workflows" class="nav-link" data-nav-page="false">Featured Workflows</a></li>
                             <li><a href="{{ url_for('index.products') }}" class="nav-link">Product Workspace</a></li>
                             {% else %}
                             <li><a href="{{ url_for('auth.login') }}" class="nav-link">Sign In</a></li>
@@ -331,16 +331,6 @@
             });
         })();
 
-        // Highlight the selected link
-        document.querySelectorAll('.nav-link').forEach(function (link) {
-            link.addEventListener('click', function () {
-                document.querySelectorAll('.nav-link').forEach(function (link) {
-                    link.classList.remove('selected');
-                });
-                this.classList.add('selected');
-            });
-        });
-
         // Navigation accordion: persist open/closed state and drive "Expand all".
         (function () {
             var STORAGE_KEY = 'derivaProNavGroups';
@@ -402,20 +392,31 @@
                 });
             }
 
-            // Highlight the link for the current page and reveal its group. This runs
-            // after the stored state has been restored and only ever opens a group,
-            // so previously expanded sections stay expanded.
+            // Highlight exactly one link for the current page and reveal its group.
+            // Hash-only actions, such as Featured Workflows, are not pages and must
+            // not compete with Overview for the current-page state.
             var currentPath = window.location.pathname;
-            document.querySelectorAll('#navPanel a.nav-link').forEach(function (link) {
-                if (link.pathname === currentPath) {
-                    link.classList.add('selected');
-                    var parentGroup = link.closest('details.nav-group');
-                    if (parentGroup && !parentGroup.open) {
-                        parentGroup.dataset.autoOpened = 'true';
-                        parentGroup.open = true;
-                    }
-                }
+            var navLinks = Array.prototype.slice.call(
+                document.querySelectorAll('#navPanel a.nav-link')
+            );
+            navLinks.forEach(function (link) {
+                link.classList.remove('selected');
+                link.removeAttribute('aria-current');
             });
+            var currentLink = navLinks.find(function (link) {
+                return link.dataset.navPage !== 'false'
+                    && !link.hash
+                    && link.pathname === currentPath;
+            });
+            if (currentLink) {
+                currentLink.classList.add('selected');
+                currentLink.setAttribute('aria-current', 'page');
+                var parentGroup = currentLink.closest('details.nav-group');
+                if (parentGroup && !parentGroup.open) {
+                    parentGroup.dataset.autoOpened = 'true';
+                    parentGroup.open = true;
+                }
+            }
 
             syncToggleAll();
         })();
