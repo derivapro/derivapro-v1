@@ -40,7 +40,7 @@
 <body>
     <header class="top-bar">
         <div class="top-bar-left">
-            <button id="toggleMenu">Collapse Navigation Test</button>
+            <button id="toggleMenu">Collapse Navigation</button>
         </div>
 
         <div class="top-bar-right">
@@ -86,9 +86,9 @@
                         <summary>Platform</summary>
                         <ul>
                             <li><a href="{{ url_for('index.index') }}" class="nav-link{% if request.endpoint == 'index.index' %} selected{% endif %}"{% if request.endpoint == 'index.index' %} aria-current="page"{% endif %}>Overview</a></li>
-                            <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">Free Preview: European Option</a></li>
+                            <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link" data-nav-page="false">Free Preview: European Option</a></li>
                             {% if current_user.is_authenticated %}
-                            <li><a href="{{ url_for('index.index') }}#featured-workflows" class="nav-link" data-nav-page="false">Featured Workflows</a></li>
+                            <li><a href="{{ url_for('index.featured_workflows') }}" class="nav-link{% if request.endpoint == 'index.featured_workflows' %} selected{% endif %}"{% if request.endpoint == 'index.featured_workflows' %} aria-current="page"{% endif %}>Featured Workflows</a></li>
                             <li><a href="{{ url_for('index.products') }}" class="nav-link">Product Workspace</a></li>
                             {% else %}
                             <li><a href="{{ url_for('auth.login') }}" class="nav-link">Sign In</a></li>
@@ -122,23 +122,41 @@
                         <summary>Equity & Options</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
-                            <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options</a></li>
-                            <li><a href="{{ url_for('vanilla_options.american_options') }}" class="nav-link">American Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.exotic_options') }}" class="nav-link">Exotic Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.barrier_options') }}" class="nav-link">Barrier Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.asian_options') }}" class="nav-link">Asian Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='digital') }}" class="nav-link">Digital Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='lookback') }}" class="nav-link">Lookback Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='basket') }}" class="nav-link">Basket Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='cliquet') }}" class="nav-link">Cliquet / Ratchet Options</a></li>
-                            <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='quanto') }}" class="nav-link">Quanto Options</a></li>
+                            <li class="nav-subcategory">
+                                <a href="{{ url_for('vanilla_options.vanilla_options') }}" class="nav-link nav-subcategory-link">Vanilla Options</a>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options</a></li>
+                                    <li><a href="{{ url_for('vanilla_options.american_options') }}" class="nav-link">American Options</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-subcategory">
+                                <a href="{{ url_for('exotic_options.exotic_options') }}" class="nav-link nav-subcategory-link">Non-Vanilla Options</a>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('exotic_options.barrier_options') }}" class="nav-link">Barrier Options</a></li>
+                                    <li><a href="{{ url_for('exotic_options.asian_options') }}" class="nav-link">Asian Options</a></li>
+                                    <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='digital') }}" class="nav-link">Digital Options</a></li>
+                                    <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='lookback') }}" class="nav-link">Lookback Options</a></li>
+                                    <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='basket') }}" class="nav-link">Basket Options</a></li>
+                                    <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='cliquet') }}" class="nav-link">Cliquet / Ratchet Options</a></li>
+                                    <li><a href="{{ url_for('exotic_options.exotic_first_wave_product', product_slug='quanto') }}" class="nav-link">Quanto Options</a></li>
+                                </ul>
+                            </li>
                             {% else %}
-                            <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options Preview</a></li>
-                            <li><span class="nav-link nav-link-locked">American Options</span></li>
-                            <li><span class="nav-link nav-link-locked">Exotic Options</span></li>
-                            <li><span class="nav-link nav-link-locked">Barrier Options</span></li>
-                            <li><span class="nav-link nav-link-locked">Asian Options</span></li>
-                            <li><span class="nav-link nav-link-locked">Digital / Lookback / Basket</span></li>
+                            <li class="nav-subcategory">
+                                <span class="nav-subcategory-label">Vanilla Options</span>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('vanilla_options.european_options') }}" class="nav-link">European Options Preview</a></li>
+                                    <li><span class="nav-link nav-link-locked">American Options</span></li>
+                                </ul>
+                            </li>
+                            <li class="nav-subcategory">
+                                <span class="nav-subcategory-label">Non-Vanilla Options</span>
+                                <ul class="nav-subcategory-items">
+                                    <li><span class="nav-link nav-link-locked">Barrier Options</span></li>
+                                    <li><span class="nav-link nav-link-locked">Asian Options</span></li>
+                                    <li><span class="nav-link nav-link-locked">Digital / Lookback / Basket</span></li>
+                                </ul>
+                            </li>
                             {% endif %}
                         </ul>
                     </details>
@@ -393,8 +411,6 @@
             }
 
             // Highlight exactly one link for the current page and reveal its group.
-            // Hash-only actions, such as Featured Workflows, are not pages and must
-            // not compete with Overview for the current-page state.
             var currentPath = window.location.pathname;
             var navLinks = Array.prototype.slice.call(
                 document.querySelectorAll('#navPanel a.nav-link')

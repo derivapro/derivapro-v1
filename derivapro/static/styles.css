@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 :root {
     --dp-white: rgb(255, 255, 255);
     --dp-black: rgb(20, 22, 24);
@@ -502,10 +510,48 @@ nav,
     padding: 2px 6px 8px !important;
 }
 
+
+
+
+
+
+
 .nav-group li a {
     padding: 8px 10px 8px 18px !important;
     color: var(--dp-rail-text) !important;
     font-size: 13px !important;
+}
+
+.nav-subcategory + .nav-subcategory {
+    margin-top: 6px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--dp-border);
+}
+
+#navPanel .nav-subcategory-link,
+.nav-subcategory-label {
+    display: block;
+    padding: 7px 10px 5px 12px !important;
+    color: var(--dp-accent-strong) !important;
+    font-size: 11px !important;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#navPanel .nav-subcategory-link:hover {
+    background: rgba(178, 136, 55, 0.08);
+}
+
+.nav-group .nav-subcategory-items {
+    padding: 0 0 3px 8px !important;
+    border-left: 2px solid rgba(178, 136, 55, 0.24);
+    margin-left: 12px !important;
+}
+
+.nav-group .nav-subcategory-items li a,
+.nav-group .nav-subcategory-items .nav-link-locked {
+    padding-left: 12px !important;
 }
 
 .nav-link-locked {
@@ -3478,6 +3524,11 @@ html[data-theme="dark"] .validation-summary {
     color: #ffffff !important;
 }
 
+
+
+
+
+
 .landing-button.secondary {
     background: #ffffff;
     border-color: var(--dp-border);
@@ -3618,6 +3669,141 @@ html[data-theme="dark"] .validation-summary {
 .workspace-catalog-heading {
     margin: 26px 0 14px;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .platform-status-panel {
     display: grid;
@@ -4044,6 +4230,10 @@ html[data-theme="dark"] .validation-summary {
     text-decoration: none !important;
 }
 
+
+
+
+
 @media (max-width: 1180px) {
     .workflow-grid,
     .featured-workflow-grid,
@@ -4062,6 +4252,21 @@ html[data-theme="dark"] .validation-summary {
     .platform-two-column {
         grid-template-columns: 1fr;
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     .platform-hero-copy h1 {
         font-size: 34px;
@@ -4751,6 +4956,11 @@ html[data-theme="dark"] .platform-hero,
 html[data-theme="dark"] .platform-status-panel,
 html[data-theme="dark"] .platform-section,
 html[data-theme="dark"] .platform-disclaimer,
+
+
+
+
+
 html[data-theme="dark"] .platform-panel,
 html[data-theme="dark"] .workflow-card,
 html[data-theme="dark"] .featured-workflows,
@@ -4786,6 +4996,14 @@ html[data-theme="dark"] .nav-toggle-all {
 html[data-theme="dark"] .nav-toggle-all:hover {
     color: var(--dp-text);
     background: rgba(178, 136, 55, 0.18);
+}
+
+html[data-theme="dark"] .nav-subcategory-label {
+    color: var(--dp-accent-strong);
+}
+
+html[data-theme="dark"] .nav-subcategory-items {
+    border-left-color: rgba(214, 173, 91, 0.28);
 }
 
 html[data-theme="dark"] .status-grid div,

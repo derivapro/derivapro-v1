@@ -1,24 +1,25 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
-{% block title %}DerivaPro | Vanilla Options{% endblock %}
+{% block title %}DerivaPro | Vanilla Options Workspace{% endblock %}
 
 {% block content %}
 {{ product.header(
-    "Vanilla Options",
-    "Use the option pricers below to value standard call and put structures and review model outputs.",
+        "Vanilla Options Workspace",
+    "European and American option valuation, Greeks, model comparison, and early-exercise analytics.",
     "Equity & Options",
-    "Product Family"
+    "Registered Workspace"
 ) }}
 
 {{ product.description(
     "Standard option contracts with transparent payoff mechanics.",
     "Vanilla options provide the baseline workflow for option pricing, Greeks, scenario testing, and model comparison. DerivaPro currently supports European and American-style vanilla options with model-specific analytics.",
     ["European calls and puts", "American calls and puts", "Black-Scholes", "Tree models", "Monte Carlo"],
-    "Methodology documentation will be linked from this page once the repository documentation is finalized."
+    "European and American methodology notes document each model, key assumptions, diagnostics, and limitations."
 ) }}
 
-<section class="product-workspace-grid">
+{% call product.section("Available Workspaces", "Open an implemented vanilla option page.") %}
+<div class="product-workspace-grid">
     <article class="product-workspace-card">
         <span>European Options</span>
         <h3>Closed-form and Monte Carlo pricing</h3>
@@ -31,7 +32,46 @@
         <p>Price American-style options with tree and simulation workflows, then run sensitivity and scenario analysis.</p>
         <a href="{{ url_for('vanilla_options.american_options') }}">Open American pricer</a>
     </article>
-</section>
+</div>
+{% endcall %}
+
+{% call product.section("Pricing Methodologies", "Current methodology by exercise style.") %}
+<table class="results-table compact-results-table">
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Current Methodology</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>European Options</td>
+            <td>Black-Scholes analytical pricing, Monte Carlo comparison, Greeks, sensitivity, scenario, and convergence diagnostics.</td>
+        </tr>
+        <tr>
+            <td>American Options</td>
+            <td>CRR, Jarrow-Rudd, and trinomial trees, discrete-dividend trees, and Longstaff-Schwartz Monte Carlo.</td>
+        </tr>
+    </tbody>
+</table>
+{% endcall %}
+
+{% call product.section("Workspace Capabilities", "Shared controls and outputs across vanilla option workflows.") %}
+<div class="analysis-grid">
+    <article class="analysis-card">
+        <span>Valuation &amp; Greeks</span>
+        <p>Calculate option value and first- and second-order sensitivities using exercise-style-appropriate models.</p>
+    </article>
+    <article class="analysis-card">
+        <span>Model Comparison</span>
+        <p>Compare analytical, lattice, and simulation outputs while reviewing convergence and model assumptions.</p>
+    </article>
+    <article class="analysis-card">
+        <span>Risk Diagnostics</span>
+        <p>Run sensitivity and scenario analysis, inspect payoff behavior, and review early-exercise premium where applicable.</p>
+    </article>
+</div>
+{% endcall %}
 
 {{ product.reporting(
     "vanilla option family",

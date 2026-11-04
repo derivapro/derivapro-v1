@@ -53,10 +53,10 @@ class CallableAmortizingBondTest(unittest.TestCase):
 
         from derivapro import create_app
         from derivapro.models.db_models import User
-        from derivapro.routes.index import index
+        from derivapro.routes.index import featured_workflows
 
         app = create_app()
-        with app.test_request_context("/"):
+        with app.test_request_context("/featured-workflows"):
             login_user(
                 User(
                     id=999997,
@@ -65,7 +65,7 @@ class CallableAmortizingBondTest(unittest.TestCase):
                     accepted_terms=True,
                 )
             )
-            html = index()
+            html = featured_workflows()
 
         self.assertIn("Featured Workflows", html)
         self.assertIn("Callable Amortizing Bond", html)

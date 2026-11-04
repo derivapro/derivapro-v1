@@ -72,6 +72,11 @@ def index():
     return render_template("index.html")
 
 
+@index_bp.route("/featured-workflows", methods=["GET"])
+def featured_workflows():
+    return render_template("featured_workflows.html")
+
+
 @index_bp.route("/products", methods=["GET"])
 def products():
     return render_template("products.html")
