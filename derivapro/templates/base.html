@@ -185,20 +185,48 @@
                         <summary>Fixed Income</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="nav-link">Fixed Income Workspace</a></li>
-                            <li><a href="{{ url_for('nc_bonds.nc_bonds') }}" class="nav-link">Legacy Bond Analytics</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='level-coupon-bond') }}" class="nav-link">Level Coupon Bonds</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='amortizing-stepup-sinking-bond') }}" class="nav-link">Structured Amortizing Bonds</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='custom-structured-bond') }}" class="nav-link">Custom Structured Bonds</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='bond-series') }}" class="nav-link">Bond Series</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='loan-lease-annuity') }}" class="nav-link">Loans / Leases / Annuities</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='fra') }}" class="nav-link">Forward Rate Agreements</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='cap-floor') }}" class="nav-link">Caps / Floors</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-putable-bond') }}" class="nav-link">Callable / Putable Bonds</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond') }}" class="nav-link">Callable Amortizing Bonds</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='asset-swap') }}" class="nav-link">Asset Swaps</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='inflation-linked-bond') }}" class="nav-link">Inflation-Linked Bonds</a></li>
-                            <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='bond-forward-treasury-lock') }}" class="nav-link">Bond Forwards / Treasury Locks</a></li>
+                                                        <li><a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="nav-link">Fixed Income Workspace</a></li>
+                            <li class="nav-subcategory">
+                                <span class="nav-subcategory-label">Bonds</span>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('nc_bonds.nc_fixed_bonds') }}" class="nav-link">Fixed-Rate Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.nc_floating_bonds') }}" class="nav-link">Floating-Rate Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='level-coupon-bond') }}" class="nav-link">Level Coupon Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='inflation-linked-bond') }}" class="nav-link">Inflation-Linked Bonds</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-subcategory">
+                                <span class="nav-subcategory-label">Amortizing &amp; Structured Bonds</span>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('nc_bonds.nc_fixed_amort_bonds') }}" class="nav-link">Fixed-Rate Amortizing Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.nc_floating_amort_bonds') }}" class="nav-link">Floating-Rate Amortizing Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='amortizing-stepup-sinking-bond') }}" class="nav-link">Structured Amortizing Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='custom-structured-bond') }}" class="nav-link">Custom Structured Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='bond-series') }}" class="nav-link">Bond Series</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-subcategory">
+                                <span class="nav-subcategory-label">Bonds with Embedded Options</span>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-putable-bond') }}" class="nav-link">Callable / Putable Bonds</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='callable-amortizing-bond') }}" class="nav-link">Callable Amortizing Bonds</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-subcategory">
+                                <span class="nav-subcategory-label">Loans &amp; Cash-Flow Instruments</span>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='loan-lease-annuity') }}" class="nav-link">Loans / Leases / Annuities</a></li>
+                                </ul>
+                            </li>
+                            <li class="nav-subcategory">
+                                <span class="nav-subcategory-label">Rates &amp; Relative Value</span>
+                                <ul class="nav-subcategory-items">
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='fra') }}" class="nav-link">Forward Rate Agreements</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='cap-floor') }}" class="nav-link">Caps / Floors</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='asset-swap') }}" class="nav-link">Asset Swaps</a></li>
+                                    <li><a href="{{ url_for('nc_bonds.rates_fixed_income_product', product_slug='bond-forward-treasury-lock') }}" class="nav-link">Bond Forwards / Treasury Locks</a></li>
+                                </ul>
+                            </li>
                             {% else %}
                             <li><span class="nav-link nav-link-locked">Fixed Income Workspace</span></li>
                             <li><span class="nav-link nav-link-locked">Bond Analytics</span></li>
@@ -212,10 +240,10 @@
                         <summary>Rates & Forwards</summary>
                         <ul>
                             {% if current_user.is_authenticated %}
-                            <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Swap Pricing</a></li>
-                            <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swap M2M</a></li>
-                            <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">Swaption Pricing</a></li>
-                            <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaption M2M</a></li>
+                            <li><a href="{{ url_for('rates.swap_page') }}" class="nav-link">Vanilla Swap Pricing</a></li>
+                                                                                    <li><a href="{{ url_for('swaps.swaps') }}" class="nav-link">Swap Leg Valuation &amp; Stress Testing</a></li>
+                            <li><a href="{{ url_for('rates.swaption_page') }}" class="nav-link">European Swaption Pricing</a></li>
+                            <li><a href="{{ url_for('swaptions.swaptions') }}" class="nav-link">Swaption Analytics - Planned</a></li>
                             <li><a href="{{ url_for('futures_forwards.forwards') }}" class="nav-link">Forwards</a></li>
                             <li><a href="{{ url_for('futures_forwards.futures') }}" class="nav-link">Futures</a></li>
                             {% else %}

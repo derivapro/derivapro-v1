@@ -1,25 +1,44 @@
 {% extends "base.html" %}
+{% import "components/product_sections.html" as product %}
+
+{% block title %}DerivaPro | Fixed-Rate Amortizing Bonds{% endblock %}
 
 {% block content %}
-<div class="page-title compact">
-    <h1>Non-Callable Fixed Amortizing Bonds</h1>
-    <p>Price fixed-rate amortizing bonds, review valuation metrics, and assess sensitivity to curve and shock assumptions.</p>
-</div>
+{{ product.header(
+    "Fixed-Rate Amortizing Bonds",
+    "Price non-callable fixed-rate amortizing bonds, review valuation metrics, and assess sensitivity to curve and shock assumptions.",
+    "Fixed Income",
+    "Pricing Workflow"
+) }}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
+{{ product.description(
+    "Fixed-coupon bonds with scheduled principal amortization.",
+    "This workflow values coupon and principal cash flows against a configurable discount curve. As outstanding principal declines, coupon cash flows and interest-rate sensitivity evolve over the life of the bond.",
+    ["Fixed coupon", "Declining principal", "Amortization schedule", "Curve shocks", "Duration and convexity"],
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name="fixed_rate_amortizing_bond")
+) }}
+
+{% call product.section("Instructions", "Configure the amortizing bond, market curve, valuation conventions, and rate shocks before running the valuation.") %}
+<div class="run-summary-grid">
+    <div><span>Step 1</span><strong>Define the bond</strong><p>Enter issue and maturity dates, fixed coupon, payment tenor, and declining notional schedule.</p></div>
+    <div><span>Step 2</span><strong>Provide the curve</strong><p>Enter dated spot rates and the evaluation date used for discounting.</p></div>
+    <div><span>Step 3</span><strong>Set conventions</strong><p>Select day count, calendar, interpolation, compounding, and frequency assumptions.</p></div>
+    <div><span>Step 4</span><strong>Review stressed results</strong><p>Compare price, yield, duration, and convexity across the requested shocks.</p></div>
 </div>
+{% endcall %}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<div class="section-title">
-    <h3>Bond Pricing</h3>
-</div>
-
-<form id="fixed-bond-form" method="post" class="form-grid">
+{% call product.section("Pricing Inputs", "Enter bond terms, amortization amounts, curve assumptions, conventions, and shocks.") %}
+<form id="fixed-bond-form" method="post" class="european-pricing-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ product.validation_summary(validation_errors) }}
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">1</span><div><strong>Market Curve &amp; Shock Assumptions</strong><p>Define the valuation date, discount-curve pillars, and parallel shock cases.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <div class="form-group">
         <label for="value_date">Evaluation Date:</label>
         <input type="date" id="value_date" name="value_date" value="{{ form_data.value_date }}" required>
@@ -40,6 +59,11 @@
         <input type="text" id="shocks" name="shocks" value="{{ form_data.shocks }}" required>
     </div>
 
+            </div>
+    </div>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">2</span><div><strong>Valuation Conventions</strong><p>Set curve construction, calendar, accrual, and compounding conventions.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <div class="form-group">
         <label for="day_count">Day Count Convention:</label>
         <select id="day_count" name="day_count" required>
@@ -99,6 +123,11 @@
         </select>
     </div>
 
+            </div>
+    </div>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">3</span><div><strong>Bond &amp; Amortization Terms</strong><p>Define contractual dates, the fixed coupon, and outstanding notionals by period.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <div class="form-group">
         <label for="issue_date">Issue Date:</label>
         <input type="date" id="issue_date" name="issue_date" value="{{ form_data.issue_date }}" required>
@@ -119,14 +148,19 @@
         <input type="number" step="0.01" id="coupon_rate" name="coupon_rate" value="{{ form_data.coupon_rate }}" required>
     </div>
 
-    <div class="form-group full-width">
-        <button type="submit">Calculate Fixed Amortizing Bond Price</button>
+            </div>
+    </div>
+    <div class="pricing-form-actions">
+        <button type="submit" class="btn-primary">Calculate Fixed Amortizing Bond Price</button>
+        <span>Shock-by-shock valuation outputs will appear in the separate section below.</span>
     </div>
 </form>
+{% endcall %}
 
+{% call product.section("Valuation Outputs", "Review NPV, clean price, yield, duration, and convexity for each requested curve shock.") %}
 {% if fram_bond_results is not none %}
-<div class="result">
-    <h2>Fixed Amortizing Bond Results:</h2>
+<div id="valuation-results" class="european-results-panel">
+    <div class="section-title compact"><h3>Fixed-Rate Amortizing Bond Results</h3><p>Each result block reflects the indicated parallel shift in basis points.</p></div>
     {% for shock_result in fram_bond_results %}
         {% if shock_result != 'Values' %}
         <div class="shock-section">
@@ -189,6 +223,16 @@
     <div class="assessment-content" style="white-space: pre-wrap;">{{ gpt_assessment|safe }}</div>
 </div>
 {% endif %}
+{% if fram_bond_results is none %}
+<div class="empty-state-panel"><strong>Valuation results pending.</strong><p>Complete the pricing inputs and calculate the bond to populate base and stressed valuation metrics.</p></div>
+{% endif %}
+{% endcall %}
+
+{% call product.section("Analysis", "Review curve-shock valuation metrics and generated assessment for the latest pricing run.") %}
+<p class="inline-muted-text">The valuation outputs show shock-by-shock NPV, price, yield, duration, and convexity while reflecting the declining principal schedule.</p>
+{% endcall %}
+
+{{ product.reporting("fixed-rate amortizing bond", has_report=False) }}
 
 <style>
 .assessment-btn {
