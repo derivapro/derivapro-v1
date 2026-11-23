@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
-{% block title %}DerivaPro | Exotic Options{% endblock %}
+{% block title %}DerivaPro | Non-Vanilla Options{% endblock %}
 
 {% block content %}
 {{ product.header(
-    "Exotic Options",
+        "Non-Vanilla Options",
     "Path-dependent, multi-asset, and non-standard equity option payoff workflows.",
     "Equity & Options",
     "Registered Workspace"
@@ -18,7 +18,7 @@
     "Each first-wave exotic product states its current pricing method and limitations."
 ) }}
 
-{% call product.section("Available Workspaces", "Open an implemented exotic option page.") %}
+{% call product.section("Available Workspaces", "Open an implemented non-vanilla option page.") %}
 <div class="product-workspace-grid">
     <article class="product-workspace-card">
         <span>Path-dependent</span>
@@ -43,7 +43,7 @@
 </div>
 {% endcall %}
 
-{% call product.section("Pricing Methodologies", "Current methodology by exotic product.") %}
+{% call product.section("Pricing Methodologies", "Current methodology by non-vanilla product.") %}
 <table class="results-table compact-results-table">
     <thead>
         <tr>

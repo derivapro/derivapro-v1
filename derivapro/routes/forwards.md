@@ -1,38 +1,22 @@
-**Description:**
-A forward contract is a derivative contract between two parties that agree to buy or sell 
-an asset at a specified price on a future date. The price of a forward contract is represented as:
+### Pricing Models
 
-* For Risk-Adjusted Models:
-$$ F = S_0 \cdot e^{(r - q)T} $$
-* For Cost-Carry Models:
-$$ F = S_0 \cdot e^{(r - q - c + s)T} $$
+The risk-adjusted model uses financing and dividend-yield assumptions:
 
+$$F = S_0 \cdot e^{(r-q)T}$$
 
-Unlike a Futures Contract that trades on an exchange, the Forward Contract is regarded as a Over-the-Counter (OTC) 
-financial instrument. The decentralized nature of Forward Contracts allow the parties involve to customize the 
-contract agreements, but face a greater level of default risk. 
-Parties can enter either a Long or Short Forward Contract position. The basic payoff structure for a Long or Short position is represented as:
+The cost-of-carry model extends the calculation with convenience-yield and storage-cost assumptions:
 
-* For Long Forward Contracts: Payoff = $\( S_T - K \)$
-* For Short Forward Contracts: Payoff = $\( K - S_T \)$
+$$F = S_0 \cdot e^{(r-q-c+s)T}$$
 
-Where $S_T$  is the spot price of the underlying asset at maturity $T$
+Here, $S_0$ is the current underlying level, $r$ is the risk-free rate, $q$ is dividend yield, $c$ is convenience yield, $s$ is storage cost, and $T$ is time to settlement.
 
-For the full model documentation on Forward Contracts, please refer to the here [documentation](/futures-forwards). 
+### Position Payoff
 
-**Instructions:**
-The QDPTB (DerivaPro) enables users to price a Forward Contract using real-time market data and customized user inputs.
-To utilize this derivative pricing tool box, the user must provide the following parameters:
+- Long forward: $S_T-K$
+- Short forward: $K-S_T$
 
-* Ticker (ex. GLD)
-* Contract Fee ($)
-* Risk-Free Rate (%, ex. 0.05)
-* Continous Dividend Yield (%, ex. 0.02)
-* Settlement Price ($)
-* Num. of Contracts (#)
-* Mutliplier (#)
-* Entry Date (MM-DD-YYYY)
-* Settlement Date (MM-DD-YYYY)
-* Position (Long or Short Position)
-* Model Selection (Risk Adjusted or Cost-Carry Model)
-* Storage Cost (For Cost-Carry Model, represented in $)
+$S_T$ is the underlying level at settlement and $K$ is the contractual settlement price. Position P&L also reflects contract count, multiplier, and contract fee.
+
+### Contract Characteristics
+
+A forward is a bilateral over-the-counter agreement. Its terms can be customized, but it generally carries more direct counterparty exposure than a centrally cleared futures contract. The workflow supports long and short positions, risk-adjusted and cost-of-carry models, valuation, settlement P&L, sensitivity analysis, scenarios, and risk-based P&L.

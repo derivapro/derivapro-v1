@@ -18,11 +18,16 @@ METHODOLOGY_DOCS = {
     "contingent_income_note": "contingent_income_note.md",
     "credit_linked_note_structured": "credit_linked_note_structured.md",
     "forward_rate_agreement": "forward_rate_agreement.md",
+    "forward_contract": "forward_contract.md",
+    "futures_contract": "futures_contract.md",
     "cap_floor": "cap_floor.md",
     "callable_amortizing_bond": "callable_amortizing_bond.md",
     "callable_putable_bond": "callable_putable_bond.md",
     "level_coupon_bond": "level_coupon_bond.md",
     "fixed_rate_bond": "fixed_rate_bond.md",
+    "floating_rate_bond": "floating_rate_bond.md",
+    "fixed_rate_amortizing_bond": "fixed_rate_amortizing_bond.md",
+    "floating_rate_amortizing_bond": "floating_rate_amortizing_bond.md",
     "credit_default_swap": "credit_default_swap.md",
     "amortizing_stepup_sinking_bond": "amortizing_stepup_sinking_bond.md",
     "custom_structured_bond": "custom_structured_bond.md",
@@ -70,6 +75,11 @@ def _restore_display_math(html_content, math_blocks):
 @index_bp.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
+
+
+@index_bp.route("/featured-workflows", methods=["GET"])
+def featured_workflows():
+    return render_template("featured_workflows.html")
 
 
 @index_bp.route("/products", methods=["GET"])

@@ -1,22 +1,44 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
-{% block content %}
-<h2>Futures Contract</h2>
-<h3>Introduction</h3>
+{% block title %}DerivaPro | Futures Contracts{% endblock %}
 
-<div id="markdown-content">
-    {{ md_content|safe }}
+{% block content %}
+{{ product.header(
+    "Futures Contracts",
+    "Price exchange-traded futures, review margin and daily mark-to-market outcomes, and run supporting risk analysis.",
+    "Rates & Forwards",
+    "Pricing & Margin Workflow"
+) }}
+
+{{ product.description(
+    "Standardized contracts for future delivery with daily settlement.",
+    "This workflow supports futures valuation under risk-adjusted and cost-of-carry assumptions, position P&L, initial and maintenance margin requirements, simulated daily mark-to-market, sensitivity analysis, scenarios, and risk-based P&L.",
+        ["Long / short futures", "Cost of carry", "Margin requirements", "Daily mark-to-market", "Sensitivity", "Scenarios", "Risk-based P&L"],
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name="futures_contract")
+) }}
+
+{% call product.section("Instructions", "Complete the contract, market, margin, and model assumptions before reviewing valuation and analysis outputs.") %}
+<div class="run-summary-grid">
+    <div><span>Step 1</span><strong>Define the contract</strong><p>Enter the ticker, position, settlement terms, dates, contract count, multiplier, and fee.</p></div>
+    <div><span>Step 2</span><strong>Set market assumptions</strong><p>Provide financing, dividend, convenience-yield, and storage-cost assumptions.</p></div>
+    <div><span>Step 3</span><strong>Configure margin</strong><p>Enter initial and maintenance margin percentages and select the valuation model.</p></div>
+    <div><span>Step 4</span><strong>Review and analyse</strong><p>Inspect valuation, margin, and daily M2M outputs before running risk analyses.</p></div>
 </div>
+{% endcall %}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-<h3>Futures Pricing</h3>
-<form id="futures-form" method="post" class="form-grid">
+{% call product.section("Pricing Inputs", "Enter contract terms, market and carry assumptions, margin settings, and the valuation model.") %}
+<form id="futures-form" method="post" class="european-pricing-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {{ product.validation_summary(validation_errors) }}
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">1</span><div><strong>Contract &amp; Market Inputs</strong><p>Define the position scale, settlement economics, and core market assumptions.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <div class="form-group">
         <label for="ticker">Ticker:</label>
         <input type="text" id="ticker" name="ticker" value="{{ form_data.ticker }}" required>
@@ -45,6 +67,11 @@
         <label for="multiplier">Multiplier:</label>
         <input type="number" step="1" id="multiplier" name="multiplier" value="{{ form_data.multiplier }}" required>
     </div>
+            </div>
+    </div>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">2</span><div><strong>Carry, Margin &amp; Model Settings</strong><p>Set margin thresholds, carrying assumptions, dates, direction, and model.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <div class="form-group">
         <label for="initial_margin_pct">Initial Margin Requirement (%, 0.05):</label>
         <input type="number" step="0.01" id="initial_margin_pct" name="initial_margin_pct" value="{{ form_data.initial_margin_pct }}" required>
@@ -83,35 +110,51 @@
             <option value="cost_carry_model" {% if form_data.model_selection == "cost_carry_model" %}selected{% endif %}>Cost Carry Model </option>
         </select>
     </div>     
-    <div class="form-group full-width">
-        <button type="submit">Calculate Futures Price & Profit/Loss</button>
+            </div>
+    </div>
+    <div class="pricing-form-actions">
+        <button type="submit" class="btn-primary">Calculate Futures Price &amp; Profit/Loss</button>
+        <span>Valuation, margin, and daily mark-to-market outputs will appear below.</span>
     </div>
 </form>
+{% endcall %}
 
-
-
-
+{% call product.section("Valuation Outputs", "Review futures value, settlement P&L, margin requirements, and daily mark-to-market results.") %}
 <div id="results-section">
-    {% if futures_price_results is not none %}
-    <div class="result">
-        <h4>Futures Price</h4>
-        <p>{{ futures_price_results }}</p>
-        <h4>Profit/Loss at Settlement</h4>
-        <p>{{ futures_pL }}</p>
-        
+        {% if futures_price_results is not none %}
+    <div class="result-kpi-grid">
+        <div class="pricing-summary-card primary-kpi">
+            <span class="metric-label">Futures Price</span>
+            <strong class="metric-value">{{ futures_price_results }}</strong>
+            <small>Model-implied delivery price</small>
+        </div>
+        <div class="pricing-summary-card">
+            <span class="metric-label">Settlement Profit/Loss</span>
+            <strong class="metric-value">{{ futures_pL }}</strong>
+            <small>{{ form_data.position|default('Position')|title }} position</small>
+        </div>
         {% if margin_requirement %}
-        <div class="result">
-            <h4>Margin Requirement</h4>
-                <p>Initial Margin: {{ margin_requirement['Initial Margin:'] }}</p>
-                <p>Maintenance Margin: {{ margin_requirement['Maintenance Margin:'] }}</p>
+        <div class="pricing-summary-card">
+            <span class="metric-label">Initial Margin</span>
+            <strong class="metric-value">{{ margin_requirement['Initial Margin:'] }}</strong>
+            <small>Opening margin requirement</small>
+        </div>
+        <div class="pricing-summary-card">
+            <span class="metric-label">Maintenance Margin</span>
+            <strong class="metric-value">{{ margin_requirement['Maintenance Margin:'] }}</strong>
+            <small>Minimum ongoing balance</small>
         </div>
         {% endif %}
     </div>
     {% endif %}
 
     {% if mark_to_market_results %}
-    <div class="result">
-        <h3>Mark-to-Market Results</h3>
+        <div class="analysis-card">
+        <div class="section-title compact">
+            <h3>Daily Mark-to-Market Results</h3>
+            <p>Simulated daily P&amp;L, margin balance, and margin-call status over the contract period.</p>
+        </div>
+        <div class="results-table-wrap">
         <table class="results-table">
             <thead>
                 <tr>
@@ -131,16 +174,18 @@
                 </tr>
                 {% endfor %}
             </tbody>
-        </table>
+                </table>
+        </div>
     </div>
     {% endif %}
 </div>
+{% if futures_price_results is none and not mark_to_market_results %}
+<div class="empty-state-panel"><strong>Valuation results pending.</strong><p>Complete the pricing inputs and calculate the futures contract to populate price, P&amp;L, margin, and daily M2M results.</p></div>
+{% endif %}
+{% endcall %}
 
-
-
-<!-- Analysis Tabs -->
+{% call product.section("Analysis", "Run sensitivity, scenario, and risk-based P&L analysis for the latest futures assumptions.") %}
 <div id="analysis-section">
-    <h3>Analysis</h3>
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'sensitivity-analysis')">Sensitivity Analysis</button>
         <button class="tab-button" onclick="openTab(event, 'scenario-analysis')">Scenario Analysis</button>
@@ -349,8 +394,7 @@
         {% endif %}
     </div>
 </div>
-
-
+{% endcall %}
 
 
 
@@ -423,9 +467,7 @@ function openTab(evt, tabName) {
         tabcontent[i].style.display = "none";
     }
 
-    // Hide the sensitivity results
-    const resultsSection = document.getElementById('sensitivity-results');
-    resultsSection.style.display = "none";
+    
 
     // Remove the active class from all tab buttons
     tablinks = document.getElementsByClassName("tab-button");

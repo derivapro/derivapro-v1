@@ -11,8 +11,8 @@ rates_bp = Blueprint("rates", __name__, url_prefix="/rates")
 
 @rates_bp.get("/swap")
 def swap_page():
-    return render_template("rates/swap.html", title="Interest Rate Swap (New)")
+    return render_template("rates/swap.html", title="Vanilla Swap Pricing")
 
 @rates_bp.get("/swaption")
 def swaption_page():
-    return render_template("rates/swaption.html", title="European Swaption (New)")
+    return render_template("rates/swaption.html", title="European Swaption Pricing")

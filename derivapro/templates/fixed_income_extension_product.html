@@ -49,8 +49,7 @@
                 <small id="callable-form-status-detail">{{ selected_preset_label }}</small>
             </div>
         </div>
-        <button type="submit" class="btn-primary">Run Valuation</button>
-        <a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="btn-secondary">Fixed Income Extensions</a>
+                <button type="submit" class="btn-primary">Run Valuation</button>
     </div>
     {% endif %}
 
@@ -307,8 +306,7 @@
 
     {% if product_slug not in ["callable-amortizing-bond", "amortizing-stepup-sinking-bond"] %}
     <div class="pricing-action-row">
-        <button type="submit" class="btn-primary">Run Valuation</button>
-        <a href="{{ url_for('nc_bonds.rates_fixed_income_home') }}" class="btn-secondary">Fixed Income Extensions</a>
+                <button type="submit" class="btn-primary">Run Valuation</button>
     </div>
     {% endif %}
 </form>

@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% import "components/product_sections.html" as product %}
 
+{% block title %}DerivaPro | Forward Contracts{% endblock %}
+
 {% block content %}
 
 {{ product.header(
@@ -13,16 +15,29 @@
 {{ product.description(
     "Bilateral agreements to buy or sell an underlying at a future settlement date.",
     "This workflow supports forward valuation using risk-adjusted and cost-of-carry assumptions, including settlement terms, position direction, dividend yield, convenience yield, storage cost, contract fee, multiplier, and contract count.",
-    ["Long / short forward", "Cost of carry", "Risk-adjusted model", "P&L"],
-    "A full methodology link will be added here once the forward contract documentation is published in the repository."
+        ["Long / short forward", "Cost of carry", "Risk-adjusted model", "P&L"],
+    "Methodology documentation is available in the repository.",
+    url_for("index.methodology_doc", doc_name="forward_contract")
 ) }}
+
+{% call product.section("Instructions", "Complete the contract, market, and model assumptions before reviewing valuation and analysis outputs.") %}
+<div class="run-summary-grid">
+    <div><span>Step 1</span><strong>Define the contract</strong><p>Enter the ticker, position, dates, settlement price, contract count, multiplier, and fee.</p></div>
+    <div><span>Step 2</span><strong>Set carry assumptions</strong><p>Provide the risk-free rate, dividend yield, convenience yield, and storage cost.</p></div>
+    <div><span>Step 3</span><strong>Select the model</strong><p>Choose the risk-adjusted or cost-of-carry valuation approach.</p></div>
+    <div><span>Step 4</span><strong>Review and analyse</strong><p>Inspect price and P&amp;L, then run sensitivity, scenario, or risk-based P&amp;L analysis.</p></div>
+</div>
+{% endcall %}
 
 <div class="loading-spinner" id="loadingSpinner" style="display: none;">
     <div class="spinner"></div>
 </div>
 
-{% call product.section("Pricing", "Enter contract terms, carry assumptions, and settlement assumptions to calculate forward value and P&L.") %}
-<form id="forwards-form" method="post" class="form-grid">
+{% call product.section("Pricing Inputs", "Enter contract terms, carry assumptions, and settlement assumptions to calculate forward value and P&L.") %}
+<form id="forwards-form" method="post" class="european-pricing-form">
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">1</span><div><strong>Contract Terms</strong><p>Define the position, settlement economics, dates, and scale.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {{ product.validation_summary(validation_errors) }}
     <div class="form-group">
@@ -33,6 +48,11 @@
         <label for="contract_fee">Contract Fee ($):</label>
         <input type="number" step="0.01" id="contract_fee" name="contract_fee" value="{{ form_data.contract_fee }}" required>
     </div>
+            </div>
+    </div>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">2</span><div><strong>Market &amp; Carry Assumptions</strong><p>Set financing, income, convenience-yield, and storage assumptions.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <div class="form-group">
         <label for="risk_free_rate">Risk-Free Rate (%, 0.05):</label>
         <input type="number" step="0.001" id="risk_free_rate" name="risk_free_rate" value="{{ form_data.risk_free_rate }}" required>
@@ -42,6 +62,11 @@
         <input type="number" step="0.001" id="dividend_yield" name="dividend_yield" value="{{ form_data.dividend_yield }}" required>
     </div>
 
+            </div>
+    </div>
+    <div class="pricing-form-block">
+        <div class="pricing-form-heading"><span aria-hidden="true">3</span><div><strong>Settlement &amp; Model Settings</strong><p>Choose the valuation model and remaining settlement assumptions.</p></div></div>
+        <div class="form-grid compact-form-grid">
     <div class="form-group">
         <label for="settlement_price">Settlement Price ($):</label>
         <input type="number" step="0.01" id="settlement_price" name="settlement_price" value="{{ form_data.settlement_price }}" required>
@@ -88,24 +113,24 @@
         <label for="storage_cost">Storage Cost ($):</label>
         <input type="number" step="0.001" id="storage_cost" name="storage_cost" value="{{ form_data.storage_cost }}">
     </div>
-    <div class="form-group full-width">
-        <button type="submit">Calculate Forwards Price & Profit/Loss</button>
+</div>
+    </div>
+    <div class="pricing-form-actions">
+        <button type="submit" class="btn-primary">Calculate Forward Price &amp; Profit/Loss</button>
+        <span>Valuation outputs will appear in the separate section below.</span>
     </div>
 </form>
+{% endcall %}
 
-
-
+{% call product.section("Valuation Outputs", "Review the calculated forward price and settlement profit or loss.") %}
 <div id="results-section">
     {% if forward_price_results is not none %}
-    <div class="result">
-        <h4>Forward Price: {{ forward_price_results }}</h4>
+    <div class="result-kpi-grid">
+        <div class="pricing-summary-card primary-kpi"><span class="metric-label">Forward Price</span><strong class="metric-value">{{ forward_price_results }}</strong><small>Model-implied delivery price</small></div>
+        <div class="pricing-summary-card"><span class="metric-label">Forward Profit/Loss</span><strong class="metric-value">{{ forward_pL }}</strong><small>{{ form_data.position|default('Position')|title }} position at settlement</small></div>
     </div>
-    {% endif %}
-    
-    {% if forward_price_results is not none %}
-    <div class="result">
-        <h4>Forward Profit/Loss: {{ forward_pL }}</h4>
-    </div>
+    {% else %}
+    <div class="empty-state-panel"><strong>Valuation results pending.</strong><p>Complete the pricing inputs and calculate the contract to populate price and P&amp;L.</p></div>
     {% endif %}
 </div>
 {% endcall %}
@@ -320,6 +345,8 @@
 </div>
 {% endcall %}
 
+
+
 {{ product.reporting(
     "forward contract",
     has_report=True,
@@ -330,7 +357,7 @@
 
 <!-- JavaScript for Form Submission and Loading Spinner -->
 <script>
-document.getElementById('options-form').addEventListener('submit', function(event) {
+document.getElementById('forwards-form').addEventListener('submit', function(event) {
     var loadingSpinner = document.getElementById('loadingSpinner');
     loadingSpinner.style.display = 'block';  // Show spinner on form submit
 
@@ -390,9 +417,7 @@ function openTab(evt, tabName) {
         tabcontent[i].style.display = "none";
     }
 
-    // Hide the sensitivity results
-    const resultsSection = document.getElementById('sensitivity-results');
-    resultsSection.style.display = "none";
+    
 
     // Remove the active class from all tab buttons
     tablinks = document.getElementsByClassName("tab-button");
